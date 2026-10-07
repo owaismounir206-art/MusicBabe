@@ -128,13 +128,13 @@ private data class Contributor(
 )
 
 private val CoreMaintainer = Contributor(
-    id = "theovilardo",
-    displayName = "Theo Vilardo",
+    id = "musicbabe",
+    displayName = "MusicBabe",
     role = "Creator and maintainer",
-    detail = "Building PixelPlayer with direct community feedback.",
-    avatarUrl = "https://avatars.githubusercontent.com/u/26845343?v=4",
+    detail = "Building MusicBabe with Material 3 Expressive & Core Motion Springs.",
+    avatarUrl = null,
     iconRes = R.drawable.round_developer_board_24,
-    githubUrl = "https://github.com/theovilardo",
+    githubUrl = "https://github.com/owaismounir206-art/MusicBabe",
 )
 
 private val PinnedCommunityMembers = listOf(
@@ -663,7 +663,7 @@ private fun AboutHeroCard(
                         subtitle = stringResource(R.string.about_github_subtitle),
                         iconRes = R.drawable.github,
                         contentDescription = stringResource(R.string.about_cd_open_github_repo),
-                        onClick = { openUrl(context, "https://github.com/theovilardo/PixelPlayer") },
+                        onClick = { openUrl(context, "https://github.com/owaismounir206-art/MusicBabe") },
                         modifier = Modifier.weight(1f),
                     )
                     SocialChip(

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PixelPlayer</string>
+    <string name="app_name">MusicBabe</string>
     <string name="app_tagline">Musikplayer</string>
     <string name="app_name_change_title">Neuer App-Name</string>
     <string name="app_name_change_message">Wir haben die App von PixelPlay in PixelPlayer umbenannt – wegen eines Markenproblems. Viel Spaß!</string>

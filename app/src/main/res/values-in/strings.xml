@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
-    <string name="app_name">PixelPlayer</string>
+    <string name="app_name">MusicBabe</string>
     <string name="app_tagline">Pemutar Musik</string>
     <string name="app_name_change_title">Perubahan Nama Aplikasi</string>
     <string name="app_name_change_message">Kami telah mengubah nama aplikasi kami dari PixelPlay menjadi PixelPlayer karena masalah terkait merek dagang. Teruslah mendengarkan!</string>
