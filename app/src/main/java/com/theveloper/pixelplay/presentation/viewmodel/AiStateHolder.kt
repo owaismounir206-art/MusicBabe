@@ -319,7 +319,71 @@ $lyricsText
         }
     }
 
+    suspend fun generateSyncedLyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        existingLyrics: String? = null
+    ): Result<String> {
+        return try {
+            val durationSec = (durationMs / 1000).coerceAtLeast(30)
+            val prompt = if (!existingLyrics.isNullOrBlank()) {
+                """
+<task>Generate synchronized LRC timestamps for the following song lyrics.</task>
+<song_info>
+Title: $title
+Artist: $artist
+Track Duration: $durationSec seconds
+</song_info>
+
+<rules>
+- Output ONLY standard LRC formatted lines: [mm:ss.xx] Lyric line
+- The timestamps MUST strictly ascend from around [00:02.00] to before $durationSec seconds.
+- Match natural song cadence and pacing across the track length.
+- NO markdown fences (NO ```lrc or ```), NO headers, NO explanations.
+</rules>
+
+<plain_lyrics>
+$existingLyrics
+</plain_lyrics>
+                """.trimIndent()
+            } else {
+                """
+<task>Write the complete lyrics for this song and synchronize them in standard LRC format.</task>
+<song_info>
+Title: $title
+Artist: $artist
+Track Duration: $durationSec seconds
+</song_info>
+
+<rules>
+- Write the complete, accurate lyrics for "$title" by "$artist".
+- Output ONLY valid LRC format: [mm:ss.xx] Lyric line
+- Timestamps must ascend chronologically from around [00:03.00] to before $durationSec seconds.
+- Include verse, chorus, bridge with realistic timing according to the song structure.
+- NO markdown codeblocks, NO comments or notes.
+</rules>
+                """.trimIndent()
+            }
+
+            val response = aiHandler.generateContent(
+                prompt = prompt,
+                type = AiSystemPromptType.SYNCED_LYRICS,
+                temperature = 0.1f
+            )
+            val cleaned = response.trim()
+                .removePrefix("```lrc")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+            Result.success(cleaned)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun onCleared() {
+
         scope = null
         allSongsProvider = null
         favoriteSongIdsProvider = null

@@ -586,4 +586,16 @@ object AppModule {
     ): ArtistImageRepository {
         return ArtistImageRepository(deezerApiService, musicDao)
     }
+
+    /**
+     * Provee el repositorio de búsqueda online de canciones.
+     */
+    @Provides
+    @Singleton
+    fun provideOnlineSearchRepository(
+        deezerApiService: DeezerApiService
+    ): com.theveloper.pixelplay.data.repository.OnlineSearchRepository {
+        return com.theveloper.pixelplay.data.repository.OnlineSearchRepositoryImpl(deezerApiService)
+    }
 }
+

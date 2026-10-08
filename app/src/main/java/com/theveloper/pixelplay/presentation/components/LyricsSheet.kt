@@ -246,7 +246,9 @@ fun LyricsSheet(
     onSetImmersiveTemporarilyDisabled: (Boolean) -> Unit,
     onSaveLyricsToFile: (Song, Lyrics, Boolean) -> Unit,
     onTranslateViaAi: () -> Unit,
+    onGenerateAiLyrics: () -> Unit = {},
     // BottomToggleRow Params
+
     isShuffleEnabled: Boolean,
     repeatMode: Int,
     isFavoriteProvider: () -> Boolean,
@@ -544,10 +546,12 @@ fun LyricsSheet(
                         onBackClick()
                     }
                 },
-                onImport = onImportLyrics
+                onImport = onImportLyrics,
+                onGenerateAiLyrics = onGenerateAiLyrics
             )
         }
     }
+
 
     // Save Lyrics Dialog
     if (showSaveLyricsDialog && lyrics != null && currentSong != null) {
@@ -1024,7 +1028,9 @@ fun LyricsSheet(
                         resetLyricsForCurrentSong()
                     },
                     onTranslateViaAi = onTranslateViaAi,
+                    onGenerateSyncedLyricsViaAi = onGenerateAiLyrics,
                     onToggleSyncControls = {
+
                         resetImmersiveTimer()
                         showSyncControls = !showSyncControls
                     },

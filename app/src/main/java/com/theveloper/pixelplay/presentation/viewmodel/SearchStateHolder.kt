@@ -4,6 +4,7 @@ import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.SearchResultItem
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import com.theveloper.pixelplay.data.repository.OnlineSearchRepository
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -30,13 +31,14 @@ import kotlinx.coroutines.FlowPreview
  * Extracted from PlayerViewModel to improve modularity.
  *
  * Responsibilities:
- * - Search query execution
+ * - Search query execution (local and online via Deezer)
  * - Search filter management
  * - Search history CRUD operations
  */
 @Singleton
 class SearchStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    private val onlineSearchRepository: OnlineSearchRepository,
 ) {
     private companion object {
         const val SEARCH_DEBOUNCE_MS = 300L
@@ -54,6 +56,9 @@ class SearchStateHolder @Inject constructor(
     private val _selectedSearchFilter = MutableStateFlow(SearchFilterType.ALL)
     val selectedSearchFilter = _selectedSearchFilter.asStateFlow()
 
+    private val _isSearchingOnline = MutableStateFlow(false)
+    val isSearchingOnline = _isSearchingOnline.asStateFlow()
+
     private val _searchHistory = MutableStateFlow<ImmutableList<SearchHistoryItem>>(persistentListOf())
     val searchHistory = _searchHistory.asStateFlow()
 
@@ -62,6 +67,7 @@ class SearchStateHolder @Inject constructor(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     private val latestSearchRequestId = AtomicLong(0L)
+    private var lastSearchedQuery: String = ""
 
     private var scope: CoroutineScope? = null
     private var searchJob: Job? = null
@@ -82,41 +88,66 @@ class SearchStateHolder @Inject constructor(
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .collectLatest { request ->
                     val normalizedQuery = request.query
+                    lastSearchedQuery = normalizedQuery
 
                     if (normalizedQuery.isBlank()) {
                         if (_searchResults.value.isNotEmpty()) {
                             _searchResults.value = persistentListOf()
                         }
+                        _isSearchingOnline.value = false
                         return@collectLatest
                     }
 
                     try {
                         val currentFilter = _selectedSearchFilter.value
-                        musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
-                            // Sort: prioritize Song/Album matches over Artist/Playlist matches
-                            val sortedResults = resultsList.sortedWith(
-                                compareBy { result ->
-                                    when (result) {
-                                        is SearchResultItem.SongItem -> 0
-                                        is SearchResultItem.AlbumItem -> 1
-                                        is SearchResultItem.ArtistItem -> 2
-                                        is SearchResultItem.PlaylistItem -> 3
-                                    }
-                                }
-                            )
+                        if (currentFilter == SearchFilterType.ONLINE) {
+                            _isSearchingOnline.value = true
+                            val result = withContext(Dispatchers.IO) {
+                                onlineSearchRepository.searchOnlineTracks(normalizedQuery)
+                            }
+                            _isSearchingOnline.value = false
 
                             if (request.requestId != latestSearchRequestId.get()) {
-                                return@collect
+                                return@collectLatest
                             }
 
-                            val immutableResults = sortedResults.toImmutableList()
-                            if (_searchResults.value != immutableResults) {
-                                _searchResults.value = immutableResults
+                            result.onSuccess { tracks ->
+                                val items = tracks.map { SearchResultItem.OnlineTrackItem(it) }.toImmutableList()
+                                _searchResults.value = items
+                            }.onFailure { e ->
+                                Timber.e(e, "Error searching online tracks")
+                                _searchResults.value = persistentListOf()
+                            }
+                        } else {
+                            _isSearchingOnline.value = false
+                            musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
+                                // Sort: prioritize Song/Album matches over Artist/Playlist matches
+                                val sortedResults = resultsList.sortedWith(
+                                    compareBy { result ->
+                                        when (result) {
+                                            is SearchResultItem.SongItem -> 0
+                                            is SearchResultItem.AlbumItem -> 1
+                                            is SearchResultItem.ArtistItem -> 2
+                                            is SearchResultItem.PlaylistItem -> 3
+                                            is SearchResultItem.OnlineTrackItem -> 4
+                                        }
+                                    }
+                                )
+
+                                if (request.requestId != latestSearchRequestId.get()) {
+                                    return@collect
+                                }
+
+                                val immutableResults = sortedResults.toImmutableList()
+                                if (_searchResults.value != immutableResults) {
+                                    _searchResults.value = immutableResults
+                                }
                             }
                         }
                     } catch (_: CancellationException) {
                         // Superseded by a newer query; ignore.
                     } catch (e: Exception) {
+                        _isSearchingOnline.value = false
                         if (request.requestId == latestSearchRequestId.get()) {
                             Timber.e(e, "Error performing search for query: $normalizedQuery")
                             _searchResults.value = persistentListOf()
@@ -127,8 +158,13 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun updateSearchFilter(filterType: SearchFilterType) {
+        val changed = _selectedSearchFilter.value != filterType
         _selectedSearchFilter.value = filterType
+        if (changed && lastSearchedQuery.isNotBlank()) {
+            performSearch(lastSearchedQuery)
+        }
     }
+
 
     fun loadSearchHistory(limit: Int = 15) {
         scope?.launch {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.MusicNote
@@ -67,8 +68,10 @@ fun FetchLyricsDialog(
     onPickResult: (LyricsSearchResult) -> Unit,
     onManualSearch: (String, String?) -> Unit,
     onDismiss: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    onGenerateAiLyrics: () -> Unit = {}
 ) {
+
     if (uiState is LyricsSearchUiState.Success) return
 
     var forcePickResults by rememberSaveable { mutableStateOf(false) }
@@ -97,6 +100,7 @@ fun FetchLyricsDialog(
                             onToggleForcePickResults = { forcePickResults = it },
                             onSearch = { onConfirm(forcePickResults) },
                             onImport = onImport,
+                            onGenerateAiLyrics = onGenerateAiLyrics,
                             onCancel = onDismiss
                         )
                     }
@@ -118,9 +122,11 @@ fun FetchLyricsDialog(
                             onManualSearch = { title, artist ->
                                 onManualSearch(title, artist)
                             },
+                            onGenerateAiLyrics = onGenerateAiLyrics,
                             onCancel = onDismiss
                         )
                     }
+
                     is LyricsSearchUiState.Error -> {
                         ErrorContent(
                             message = uiState.message,
@@ -144,8 +150,10 @@ private fun IdleContent(
     onToggleForcePickResults: (Boolean) -> Unit,
     onSearch: () -> Unit,
     onImport: () -> Unit,
+    onGenerateAiLyrics: () -> Unit,
     onCancel: () -> Unit
 ) {
+
     // Icono Decorativo Grande
     Box(
         modifier = Modifier
@@ -249,6 +257,20 @@ private fun IdleContent(
         modifier = Modifier.fillMaxWidth()
     ) {
         Button(
+            onClick = onGenerateAiLyrics,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary
+            )
+        ) {
+            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Crea sincronizzati con AI", maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+
+        Button(
             onClick = onSearch,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = CircleShape
@@ -257,6 +279,7 @@ private fun IdleContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.common_search), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+
 
         Button(
             onClick = onImport,
@@ -438,8 +461,10 @@ fun NotFoundContent(
     initialArtist: String?,
     message: String,
     onManualSearch: (String, String?) -> Unit,
+    onGenerateAiLyrics: () -> Unit = {},
     onCancel: () -> Unit
 ) {
+
     val normalizedArtist = rememberSaveable(initialArtist) {
         initialArtist
             ?.takeIf { it.isNotBlank() }
@@ -528,6 +553,22 @@ fun NotFoundContent(
         modifier = Modifier.fillMaxWidth()
     ) {
         Button(
+            onClick = onGenerateAiLyrics,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary
+            )
+        ) {
+            Icon(Icons.Rounded.AutoAwesome, null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Crea sincronizzati con AI")
+        }
+
+        Button(
             onClick = {
                 onManualSearch(
                     title,
@@ -544,6 +585,7 @@ fun NotFoundContent(
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.common_search))
         }
+
 
         TextButton(
             onClick = onCancel,

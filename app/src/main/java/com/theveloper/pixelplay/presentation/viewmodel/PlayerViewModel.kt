@@ -216,8 +216,10 @@ class PlayerViewModel @Inject constructor(
     private val playbackDispatchStateHolder: PlaybackDispatchStateHolder,
     private val mediaControllerSyncStateHolder: MediaControllerSyncStateHolder,
     private val sessionToken: SessionToken,
-    private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
+    private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
+    val onlinePreviewPlayer: OnlinePreviewPlayer
 ) : ViewModel() {
+
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
     val playerUiState: StateFlow<PlayerUiState> = _playerUiState.asStateFlow()
@@ -2578,6 +2580,17 @@ class PlayerViewModel @Inject constructor(
         searchStateHolder.clearSearchHistory()
     }
 
+    val isSearchingOnline = searchStateHolder.isSearchingOnline
+
+    fun toggleOnlinePreview(url: String) {
+        onlinePreviewPlayer.togglePreview(url)
+    }
+
+    fun stopOnlinePreview() {
+        onlinePreviewPlayer.stopPreview()
+    }
+
+
     // --- AI Playlist Generation ---
 
     // --- AI Playlist Generation ---
@@ -2677,7 +2690,9 @@ class PlayerViewModel @Inject constructor(
         connectivityStateHolder.onCleared()
         queueUndoStateHolder.onCleared()
         playlistDismissUndoStateHolder.onCleared()
+        onlinePreviewPlayer.stopPreview()
     }
+
 
     // Sleep Timer Control Functions - delegated to SleepTimerStateHolder
     fun setSleepTimer(durationMinutes: Int) {
@@ -2972,6 +2987,22 @@ class PlayerViewModel @Inject constructor(
             )
         )
     }
+
+    fun generateSyncedLyricsViaAi() {
+        val currentSong = stablePlayerState.value.currentSong ?: return
+        lyricsStateHolder.generateSyncedLyricsViaAi(
+            currentSong = currentSong,
+            cb = LyricsTranslationCallbacks(
+                translate = { rawLyrics -> aiStateHolder.translateLyrics(rawLyrics) },
+                generateSynced = { title, artist, durationMs, existingLyrics ->
+                    aiStateHolder.generateSyncedLyrics(title, artist, durationMs, existingLyrics)
+                },
+                getString = { resId -> context.getString(resId) },
+                getErrorString = { detail -> context.getString(R.string.ai_state_error_generic, detail) }
+            )
+        )
+    }
+
 
     /**
      * Resetea el estado de la búsqueda de letras a Idle.

@@ -76,14 +76,16 @@ fun GenreCategoriesGrid(
     getSelectionIndex: (String) -> Int? = { null }
 ) {
     if (genres.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize().padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(stringResource(R.string.no_genres_available), style = MaterialTheme.typography.bodyLarge)
-        }
+        SpotifyBrowseCategoriesGrid(
+            onCategoryClick = { query ->
+                playerViewModel.updateSearchFilter(com.theveloper.pixelplay.data.model.SearchFilterType.ONLINE)
+                playerViewModel.performSearch(query)
+            },
+            modifier = modifier
+        )
         return
     }
+
 
     val systemNavBarHeight = getNavigationBarHeight()
     val customGenreIcons = playerViewModel.customGenreIcons.collectAsStateWithLifecycle(

@@ -22,9 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.rounded.FormatAlignRight
 import androidx.compose.material.icons.rounded.Abc
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Translate
+
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -71,7 +73,9 @@ fun LyricsMoreBottomSheet(
     onSaveLyricsAsLrc: () -> Unit,
     onResetImportedLyrics: () -> Unit,
     onTranslateViaAi: () -> Unit,
+    onGenerateSyncedLyricsViaAi: () -> Unit = {},
     onToggleSyncControls: () -> Unit,
+
     isImmersiveTemporarilyDisabled: Boolean,
     onSetImmersiveTemporarilyDisabled: (Boolean) -> Unit,
     keepScreenOn: Boolean,
@@ -187,7 +191,31 @@ fun LyricsMoreBottomSheet(
                             leadingIconColor = contentColor
                         )
                     )
+
+                    ListItem(
+                        headlineContent = { Text("Crea testo sincronizzato con AI") },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onGenerateSyncedLyricsViaAi()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            leadingIconColor = contentColor
+                        )
+                    )
                 }
+
 
                 // Reset imported lyrics
                 val resetShape = if (lyrics != null) {

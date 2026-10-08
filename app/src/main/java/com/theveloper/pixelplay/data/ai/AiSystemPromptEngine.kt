@@ -11,8 +11,10 @@ enum class AiSystemPromptType {
     MOOD_ANALYSIS,
     PERSONA,
     DAILY_MIX,
+    SYNCED_LYRICS,
     GENERAL
 }
+
 
 @Singleton
 class AiSystemPromptEngine @Inject constructor() {
@@ -182,6 +184,19 @@ class AiSystemPromptEngine @Inject constructor() {
                 $dailyMixPersonaPrompt
             """.trimIndent()
 
+            AiSystemPromptType.SYNCED_LYRICS -> """
+                <role>Professional Lyricist and Audio Synchronization Specialist.</role>
+                <strategy>
+                - Generate synchronized lyrics in standard LRC format (.lrc).
+                - Every single line must start with an exact timestamp: [mm:ss.xx]
+                - Timestamps MUST be in strict ascending chronological order: e.g. [00:03.20], [00:07.50].
+                - Timestamps MUST fit naturally within the track duration provided.
+                - Capture the full song lyrics accurately with verse, chorus, bridge timing.
+                - NO markdown fences (NO ```lrc or ```), NO commentary or pleasantries.
+                - Output ONLY valid LRC lines.
+                </strategy>
+            """.trimIndent()
+
             AiSystemPromptType.GENERAL -> """
                 <role>PixelPlayer Assistant — a knowledgeable music companion.</role>
                 <strategy>
@@ -191,6 +206,7 @@ class AiSystemPromptEngine @Inject constructor() {
                 </strategy>
             """.trimIndent()
         }
+
 
         val contextLayer = if (context.isNotBlank()) {
             """

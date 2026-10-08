@@ -8,4 +8,6 @@ sealed interface SearchResultItem {
     data class AlbumItem(val album: Album) : SearchResultItem
     data class ArtistItem(val artist: Artist) : SearchResultItem
     data class PlaylistItem(val playlist: Playlist) : SearchResultItem
+    data class OnlineTrackItem(val track: OnlineTrack) : SearchResultItem
 }
+

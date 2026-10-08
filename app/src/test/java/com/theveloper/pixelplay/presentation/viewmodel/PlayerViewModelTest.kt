@@ -99,8 +99,10 @@ class PlayerViewModelTest {
     private val mockThemeStateHolder: ThemeStateHolder = mockk(relaxed = true)
     private val mockMultiSelectionStateHolder: MultiSelectionStateHolder = mockk(relaxed = true)
     private val mockPlaylistSelectionStateHolder: PlaylistSelectionStateHolder = mockk(relaxed = true)
+    private val mockOnlinePreviewPlayer: OnlinePreviewPlayer = mockk(relaxed = true)
     private val mockMediaMapper: com.theveloper.pixelplay.data.media.MediaMapper = mockk(relaxed = true)
     private lateinit var mockMediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory
+
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -316,9 +318,11 @@ class PlayerViewModelTest {
             playbackDispatchStateHolder,
             mediaControllerSyncStateHolder,
             sessionToken,
-            mockMediaControllerFactory
+            mockMediaControllerFactory,
+            mockOnlinePreviewPlayer
         )
     }
+
 
     @AfterEach
     fun tearDown() {

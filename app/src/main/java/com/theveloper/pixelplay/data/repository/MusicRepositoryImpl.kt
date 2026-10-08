@@ -640,8 +640,10 @@ class MusicRepositoryImpl @Inject constructor(
                 SearchFilterType.ALBUMS -> searchAlbums(query, minTracks).map { albums -> albums.map { SearchResultItem.AlbumItem(it) } }
                 SearchFilterType.ARTISTS -> searchArtists(query).map { artists -> artists.map { SearchResultItem.ArtistItem(it) } }
                 SearchFilterType.PLAYLISTS -> playlistsFlow.map { playlists -> playlists.map { SearchResultItem.PlaylistItem(it) } }
+                SearchFilterType.ONLINE -> kotlinx.coroutines.flow.flowOf(emptyList())
             }
         }.flowOn(Dispatchers.Default)
+
     }
 
     override suspend fun addSearchHistoryItem(query: String) {

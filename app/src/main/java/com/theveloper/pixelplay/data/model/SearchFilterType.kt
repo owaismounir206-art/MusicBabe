@@ -8,5 +8,7 @@ enum class SearchFilterType {
     SONGS,
     ALBUMS,
     ARTISTS,
-    PLAYLISTS
+    PLAYLISTS,
+    ONLINE
 }
+

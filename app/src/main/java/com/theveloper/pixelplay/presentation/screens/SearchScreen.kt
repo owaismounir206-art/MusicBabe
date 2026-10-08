@@ -54,10 +54,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.CircularProgressIndicator
+import com.theveloper.pixelplay.data.model.OnlineTrack
+import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
+import com.theveloper.pixelplay.presentation.screens.search.components.SearchResultOnlineTrackItem
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -240,7 +248,11 @@ fun SearchScreen(
     val favoriteSongIds by playerViewModel.favoriteSongIds.collectAsStateWithLifecycle()
     val selectedSongForInfo by playerViewModel.selectedSongForInfo.collectAsStateWithLifecycle()
     var showSongInfoBottomSheet by remember { mutableStateOf(false) }
+    var showYtdlnisDialog by remember { mutableStateOf(false) }
+    var selectedOnlineTrackForDownload by remember { mutableStateOf<OnlineTrack?>(null) }
+    val isSearchingOnline by playerViewModel.isSearchingOnline.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
+
     val searchInputFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -562,7 +574,9 @@ fun SearchScreen(
                                 SearchFilterChip(SearchFilterType.ALBUMS, currentFilter, playerViewModel)
                                 SearchFilterChip(SearchFilterType.ARTISTS, currentFilter, playerViewModel)
                                 SearchFilterChip(SearchFilterType.PLAYLISTS, currentFilter, playerViewModel)
+                                SearchFilterChip(SearchFilterType.ONLINE, currentFilter, playerViewModel)
                             }
+
                         }
                         Box(modifier = Modifier.fillMaxSize()) {
                             Crossfade(
@@ -573,13 +587,22 @@ fun SearchScreen(
                                 if (isEmpty) {
                                     EmptySearchResults(
                                         searchQuery = searchQuery,
-                                        colorScheme = colorScheme
+                                        colorScheme = colorScheme,
+                                        isSearchingOnline = isSearchingOnline,
+                                        onSearchOnlineClick = {
+                                            playerViewModel.updateSearchFilter(SearchFilterType.ONLINE)
+                                        }
                                     )
                                 } else {
                                     SearchResultsList(
                                         results = searchResults,
                                         searchQuery = searchQuery,
                                         playerViewModel = playerViewModel,
+                                        currentFilter = currentFilter,
+                                        onOnlineTrackDownload = { track ->
+                                            selectedOnlineTrackForDownload = track
+                                            showYtdlnisDialog = true
+                                        },
                                         onItemSelected = {
                                             if (searchQuery.isNotBlank()) {
                                                 playerViewModel.onSearchQuerySubmitted(searchQuery)
@@ -929,6 +952,17 @@ fun SearchScreen(
             )
         }
     }
+
+    if (showYtdlnisDialog && selectedOnlineTrackForDownload != null) {
+        val track = selectedOnlineTrackForDownload!!
+        YtdlnisDownloadDialog(
+            track = track,
+            onDismiss = {
+                showYtdlnisDialog = false
+                selectedOnlineTrackForDownload = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -1028,41 +1062,83 @@ fun SearchHistoryListItem(
 
 
 @Composable
-fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
+fun EmptySearchResults(
+    searchQuery: String,
+    colorScheme: ColorScheme,
+    isSearchingOnline: Boolean = false,
+    onSearchOnlineClick: (() -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Rounded.Search,
-            contentDescription = stringResource(R.string.search_cd_no_results),
-            modifier = Modifier
-                .size(80.dp)
-                .padding(bottom = 16.dp),
-            tint = colorScheme.primary.copy(alpha = 0.6f)
-        )
+        if (isSearchingOnline) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(48.dp)
+                    .padding(bottom = 16.dp),
+                color = colorScheme.primary
+            )
+            Text(
+                text = "Ricerca online in corso...",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.SemiBold
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.search_cd_no_results),
+                modifier = Modifier
+                    .size(80.dp)
+                    .padding(bottom = 16.dp),
+                tint = colorScheme.primary.copy(alpha = 0.6f)
+            )
 
-        Text(
-            text = if (searchQuery.isNotBlank()) {
-                stringResource(R.string.search_no_results_for_query, searchQuery)
-            } else {
-                stringResource(R.string.search_nothing_found)
-            },
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Bold
-        )
+            Text(
+                text = if (searchQuery.isNotBlank()) {
+                    stringResource(R.string.search_no_results_for_query, searchQuery)
+                } else {
+                    stringResource(R.string.search_nothing_found)
+                },
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = stringResource(R.string.search_try_different_or_filters),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
-        )
+            Text(
+                text = stringResource(R.string.search_try_different_or_filters),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+
+            if (searchQuery.isNotBlank() && onSearchOnlineClick != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onSearchOnlineClick,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Cerca \"$searchQuery\" online",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1078,6 +1154,8 @@ fun SearchResultsList(
     isPlaying: Boolean,
     onSongMoreOptionsClick: (Song) -> Unit,
     navController: NavHostController,
+    currentFilter: SearchFilterType = SearchFilterType.ALL,
+    onOnlineTrackDownload: (OnlineTrack) -> Unit = {},
     isSelectionMode: Boolean = false,
     selectedSongIds: Set<String> = emptySet(),
     getSelectionIndex: (String) -> Int? = { null },
@@ -1115,6 +1193,7 @@ fun SearchResultsList(
                 is SearchResultItem.AlbumItem -> SearchFilterType.ALBUMS
                 is SearchResultItem.ArtistItem -> SearchFilterType.ARTISTS
                 is SearchResultItem.PlaylistItem -> SearchFilterType.PLAYLISTS
+                is SearchResultItem.OnlineTrackItem -> SearchFilterType.ONLINE
             }
         }
     }
@@ -1147,6 +1226,7 @@ fun SearchResultsList(
 
     val sectionOrder = listOf(
         SearchFilterType.SONGS,
+        SearchFilterType.ONLINE,
         SearchFilterType.ALBUMS,
         SearchFilterType.ARTISTS,
         SearchFilterType.PLAYLISTS
@@ -1177,6 +1257,7 @@ fun SearchResultsList(
                     SearchResultSectionHeader(
                         title = when (filterType) {
                             SearchFilterType.SONGS -> "Songs"
+                            SearchFilterType.ONLINE -> "Brani Online (YTDLnis)"
                             SearchFilterType.ALBUMS -> "Albums"
                             SearchFilterType.ARTISTS -> "Artists"
                             SearchFilterType.PLAYLISTS -> "Playlists"
@@ -1191,6 +1272,7 @@ fun SearchResultsList(
                         val item = itemsForSection[index]
                         when (item) {
                             is SearchResultItem.SongItem -> "song_${item.song.id}"
+                            is SearchResultItem.OnlineTrackItem -> "online_${item.track.id}"
                             is SearchResultItem.AlbumItem -> "album_${item.album.id}"
                             is SearchResultItem.ArtistItem -> "artist_${item.artist.id}"
                             is SearchResultItem.PlaylistItem -> "playlist_${item.playlist.id}_${index}"
@@ -1199,6 +1281,7 @@ fun SearchResultsList(
                     contentType = { index ->
                         when (itemsForSection[index]) {
                             is SearchResultItem.SongItem -> "search_song"
+                            is SearchResultItem.OnlineTrackItem -> "search_online"
                             is SearchResultItem.AlbumItem -> "search_album"
                             is SearchResultItem.ArtistItem -> "search_artist"
                             is SearchResultItem.PlaylistItem -> "search_playlist"
@@ -1221,6 +1304,14 @@ fun SearchResultsList(
                                     selectionIndex = selectionIndex,
                                     isSelectionMode = isSelectionMode,
                                     onLongPress = { onSongLongPress(item.song) }
+                                )
+                            }
+
+                            is SearchResultItem.OnlineTrackItem -> {
+                                SearchResultOnlineTrackItem(
+                                    track = item.track,
+                                    onDownloadClick = { onOnlineTrackDownload(item.track) },
+                                    playerViewModel = playerViewModel
                                 )
                             }
 
@@ -1331,6 +1422,58 @@ fun SearchResultsList(
                                     onSelectionToggle = { onPlaylistSelectionToggle(item.playlist) }
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (currentFilter != SearchFilterType.ONLINE && searchQuery.isNotBlank()) {
+            item(key = "search_online_promo_card") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ),
+                    onClick = {
+                        playerViewModel.updateSearchFilter(SearchFilterType.ONLINE)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Non trovi quello che cerchi?",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "Cerca brani online e scarica direttamente con YTDLnis",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
                         }
                     }
                 }
@@ -1702,18 +1845,20 @@ fun SearchFilterChip(
 ) {
     val selected = filterType == currentFilter
 
-    val labelResId = when (filterType) {
-        SearchFilterType.ALL -> R.string.common_all
-        SearchFilterType.SONGS -> R.string.library_tab_songs
-        SearchFilterType.ALBUMS -> R.string.library_tab_albums
-        SearchFilterType.ARTISTS -> R.string.library_tab_artists
-        SearchFilterType.PLAYLISTS -> R.string.library_tab_playlists
+    val labelText = when (filterType) {
+        SearchFilterType.ALL -> stringResource(R.string.common_all)
+        SearchFilterType.SONGS -> stringResource(R.string.library_tab_songs)
+        SearchFilterType.ALBUMS -> stringResource(R.string.library_tab_albums)
+        SearchFilterType.ARTISTS -> stringResource(R.string.library_tab_artists)
+        SearchFilterType.PLAYLISTS -> stringResource(R.string.library_tab_playlists)
+        SearchFilterType.ONLINE -> "Online 🌐"
     }
 
     FilterChip(
         selected = selected,
         onClick = { playerViewModel.updateSearchFilter(filterType) },
-        label = { Text(stringResource(labelResId)) },
+        label = { Text(labelText) },
+
         modifier = modifier,
         shape = CircleShape,
         border = BorderStroke(

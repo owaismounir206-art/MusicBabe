@@ -366,8 +366,13 @@ fun FullPlayerContent(
                 },
                 onImport = {
                     filePickerLauncher.launch(com.theveloper.pixelplay.utils.LyricsImportSecurity.pickerMimeTypes())
+                },
+                onGenerateAiLyrics = {
+                    showFetchLyricsDialog = false
+                    playerViewModel.generateSyncedLyricsViaAi()
                 }
             )
+
         }
     }
 
@@ -964,7 +969,9 @@ fun FullPlayerContent(
             onBackClick = { showLyricsSheet = false },
             onSaveLyricsToFile = playerViewModel::saveLyricsToFile,
             onTranslateViaAi = { playerViewModel.translateLyricsViaAi() },
+            onGenerateAiLyrics = { playerViewModel.generateSyncedLyricsViaAi() },
             onSeekTo = { playerViewModel.seekTo(it) },
+
             onPlayPause = {
                 playerViewModel.playPause()
             },
