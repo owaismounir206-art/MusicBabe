@@ -46,6 +46,7 @@ import net.sourceforge.pinyin4j.format.HanyuPinyinToneType
 import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.data.model.SyncedLine
 import com.theveloper.pixelplay.data.model.SyncedWord
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 
 import java.util.Locale
@@ -1100,6 +1101,62 @@ object LyricsUtils {
             ""
         }
     }
+
+    /**
+     * Livello 4 del pipeline lyrics: ripartisce righe di testo non sincronizzato
+     * (plainLyrics) su una timeline lineare basata sulla durata complessiva del brano.
+     *
+     * Garantisce una visualizzazione fluida e temporizzata nella UI (LyricsSheet)
+     * anche quando il provider remoto restituisce solo testo plain, evitando
+     * schermate vuote o testi statici non scorrevoli.
+     *
+     * @param plainLines Righe di testo plain da distribuire.
+     * @param durationMs Durata del brano in millisecondi (fallback 4 minuti se assente).
+     * @return Lista di [SyncedLine] con timestamp calcolati in millisecondi.
+     */
+    fun distributePlainOnLinearTimeline(plainLines: List<String>, durationMs: Long): List<SyncedLine> {
+        val lines = plainLines
+            .map { it.substringBefore('\n').trim() }
+            .filter { it.isNotEmpty() }
+        if (lines.isEmpty()) return emptyList()
+
+        val duration = if (durationMs > 1_000L) durationMs else DEFAULT_LINEAR_TIMELINE_DURATION_MS
+        // Breve intro strumentale (max 5s) prima della prima riga cantata.
+        val introMs = (duration / 20L).coerceAtMost(5_000L)
+        val usableMs = (duration - introMs).coerceAtLeast(lines.size * 500L)
+        val stepMs = usableMs / lines.size
+
+        return lines.mapIndexed { index, text ->
+            SyncedLine(time = (introMs + index * stepMs).toInt(), line = text)
+        }
+    }
+
+    /**
+     * Scrive il file sidecar `.lrc` affiancato al file audio
+     * (`<percorso_senza_estensione>.lrc`) a partire dai testi sincronizzati.
+     *
+     * Serve il Livello 1 del pipeline (cache locale a costo zero) per tutte le
+     * richieste future dello stesso brano, senza alcuna chiamata di rete.
+     *
+     * @param audioPath Percorso assoluto del file audio.
+     * @param lyrics Testi con righe sincronizzate popolate.
+     * @return true se il sidecar è stato scritto correttamente.
+     */
+    fun writeSidecarLrcFile(audioPath: String, lyrics: Lyrics): Boolean {
+        val synced = lyrics.synced
+        if (synced.isNullOrEmpty() || audioPath.isBlank()) return false
+        return try {
+            val parent = File(audioPath).parentFile
+            if (parent == null || !parent.exists()) return false
+            val lrcFile = File(audioPath.substringBeforeLast(".") + ".lrc")
+            lrcFile.writeText(syncedToLrcString(synced) + "\n")
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private const val DEFAULT_LINEAR_TIMELINE_DURATION_MS = 240_000L
 }
 
 private fun stripLeadingLyricsDocumentNoise(value: String): String {

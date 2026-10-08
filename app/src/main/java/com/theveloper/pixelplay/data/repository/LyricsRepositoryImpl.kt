@@ -18,6 +18,7 @@ import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse
+import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
 import com.theveloper.pixelplay.utils.LyricsImportSecurity
 import com.theveloper.pixelplay.utils.LyricsImportValidationResult
 import com.theveloper.pixelplay.utils.LogUtils
@@ -32,6 +33,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import retrofit2.HttpException
 import java.io.File
 import java.io.FileOutputStream
@@ -46,6 +48,7 @@ import javax.inject.Singleton
 import kotlin.math.abs
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
@@ -116,7 +119,10 @@ class LyricsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val lrcLibApiService: LrcLibApiService,
     private val lyricsDao: com.theveloper.pixelplay.data.database.LyricsDao,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    // Livello 3 del pipeline: NetEase reverse public lyrics API (no-auth, no API key).
+    // Valore di default mantenuto per compatibilità con i test unitari esistenti.
+    private val neteaseApiService: NeteaseApiService = NeteaseApiService()
 ) : LyricsRepository {
 
 
@@ -132,6 +138,13 @@ class LyricsRepositoryImpl @Inject constructor(
         private const val AMLLDB_NCM_LYRICS_BASE_URL = "https://amlldb.bikonoo.com/lyrics/ncm-lyrics/"
         private const val NETWORK_RETRY_ATTEMPTS = 3
         private const val NETWORK_RETRY_INITIAL_DELAY_MS = 500L
+
+        // Livello 2: timeout rigido per ogni strategia di chiamata a LrcLib (no-auth API).
+        private const val LRCLIB_STRATEGY_TIMEOUT_MS = 3_500L
+
+        // Livello 3: timeout e tolleranza durata per il fallback NetEase (/song/lyric).
+        private const val NETEASE_LYRICS_TIMEOUT_MS = 3_500L
+        private const val NETEASE_DURATION_TOLERANCE_MS = 6_000L
 
         private val BRACKETED_QUALIFIER_REGEX = Regex("""[\(\[\{\uFF08\uFF3B\uFF5B\u3010\u300E\u300C\u3014\u3008\u300A]([^)\]\}\uFF09\uFF3D\uFF5D\u3011\u300F\u300D\u3015\u3009\u300B]*)[\)\]\}\uFF09\uFF3D\uFF5D\u3011\u300F\u300D\u3015\u3009\u300B]""")
         private val FEATURE_QUALIFIER_REGEX = Regex("""\b(feat(?:uring)?|ft)\.?\b""", RegexOption.IGNORE_CASE)
@@ -241,7 +254,8 @@ class LyricsRepositoryImpl @Inject constructor(
             launch {
                 val responses = runCatching {
                     withNetworkRetry(operationName = "lrclib_strategy:${strategy.name}") {
-                        strategy.request()
+                        // Livello 2: timeout rigido di 3.5s per la singola chiamata a LrcLib.
+                        withTimeout(LRCLIB_STRATEGY_TIMEOUT_MS) { strategy.request() }
                     }
                 }.getOrElse { error ->
                     Log.d(
@@ -401,49 +415,62 @@ class LyricsRepositoryImpl @Inject constructor(
             fetchLyricsFromAPI(song)
         }
 
-        // Try sources in order based on preference, with fallback (matching Rhythm)
-        val sourceFetchers = when (sourcePreference) {
-            LyricsSourcePreference.API_FIRST -> listOf(fetchFromAPI, fetchFromEmbedded, fetchFromLocal)
-            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(fetchFromEmbedded, fetchFromAPI, fetchFromLocal)
-            LyricsSourcePreference.LOCAL_FIRST -> listOf(fetchFromLocal, fetchFromEmbedded, fetchFromAPI)
+        // Livello 3: NetEase reverse public lyrics scraper (no-auth, no API key, fail-safe).
+        val fetchFromNetease: suspend () -> Lyrics? = {
+            fetchFromNeteaseLyrics(song)
+        }
+
+        // Try sources in order based on preference, with fallback (matching Rhythm).
+        // The NetEase scraper always trails the LrcLib API so remote lyrics resolution
+        // follows the free 4-tier hierarchy: local sidecar -> embedded ID3 -> LrcLib -> NetEase.
+        val sourceFetchers: List<Pair<String, suspend () -> Lyrics?>> = when (sourcePreference) {
+            LyricsSourcePreference.API_FIRST -> listOf(
+                "API" to fetchFromAPI,
+                "NetEase" to fetchFromNetease,
+                "Embedded" to fetchFromEmbedded,
+                "Local" to fetchFromLocal
+            )
+            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
+                "Embedded" to fetchFromEmbedded,
+                "API" to fetchFromAPI,
+                "NetEase" to fetchFromNetease,
+                "Local" to fetchFromLocal
+            )
+            LyricsSourcePreference.LOCAL_FIRST -> listOf(
+                "Local" to fetchFromLocal,
+                "Embedded" to fetchFromEmbedded,
+                "API" to fetchFromAPI,
+                "NetEase" to fetchFromNetease
+            )
         }
 
         // Try each source in order until we find lyrics (early return on success)
-        for ((index, fetcher) in sourceFetchers.withIndex()) {
+        for ((sourceName, fetcher) in sourceFetchers) {
             try {
                 val lyrics = fetcher()
                 if (lyrics != null && lyrics.isValid()) {
-                    val sourceName = when (index) {
-                        0 -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "API"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "Embedded"
-                            LyricsSourcePreference.LOCAL_FIRST -> "Local"
-                        }
-                        1 -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "Embedded"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "API"
-                            LyricsSourcePreference.LOCAL_FIRST -> "Embedded"
-                        }
-                        else -> when (sourcePreference) {
-                            LyricsSourcePreference.API_FIRST -> "Local"
-                            LyricsSourcePreference.EMBEDDED_FIRST -> "Local"
-                            LyricsSourcePreference.LOCAL_FIRST -> "API"
-                        }
-                    }
                     Log.d(TAG, "Found lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
-                    
+
+                    val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || lyrics.areFromRemote
+
+                    // Livello 4: se da remoto è disponibile solo testo non sincronizzato (plainLyrics),
+                    // ripartisci le righe su una timeline lineare basata sulla durata complessiva del brano.
+                    val effectiveLyrics =
+                        if (isRemoteSource) applyLinearTimelineFallback(lyrics, song.duration) else lyrics
+
                     // Cache the result
-                    lyricsCache.put(cacheKey, lyrics)
-                    
-                    // Save to JSON disk cache if from API
-                    if (sourceName == "API") {
-                        saveLocalLyricsJson(song, lyrics)
+                    lyricsCache.put(cacheKey, effectiveLyrics)
+
+                    // Persist remote lyrics to the JSON disk cache and to the sidecar .lrc file
+                    if (isRemoteSource) {
+                        saveLocalLyricsJson(song, effectiveLyrics)
+                        writeSidecarLrcForRemote(song, effectiveLyrics)
                     }
-                    
-                    return@withContext lyrics
+
+                    return@withContext effectiveLyrics
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Error fetching from source ${index + 1}: ${e.message}")
+                Log.w(TAG, "Error fetching from source $sourceName: ${e.message}")
                 // Continue to next source
             }
         }
@@ -603,6 +630,99 @@ class LyricsRepositoryImpl @Inject constructor(
             Log.e(TAG, "LRCLIB lyrics fetch failed: ${e.message}", e)
             return@withContext null
         }
+    }
+
+    /**
+     * Livello 3 del pipeline lyrics: NetEase Cloud Music reverse public API (no-auth, no API key).
+     *
+     * 1. Cerca la traccia su NetEase (`/api/cloudsearch/pc`) ripulendo il titolo da feat./parentesi
+     *    e accettando solo corrispondenze con durata congruente (tolleranza ±6s).
+     * 2. Recupera i testi sincronizzati (lrc) e le eventuali traduzioni (tlyric) tramite
+     *    l'endpoint pubblico `/song/lyric`: la concatenazione di lrc + tlyric permette al
+     *    parser LRC di accoppiare le traduzioni per timestamp identico.
+     *
+     * @return I testi sincronizzati parsati, o null se il livello fallisce.
+     */
+    private suspend fun fetchFromNeteaseLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
+        try {
+            val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, " ").trim()
+            val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, " ").trim()
+            if (cleanTitle.isBlank()) return@withContext null
+
+            val query = listOf(cleanArtist, cleanTitle)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+
+            val searchRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.searchSongs(query, 10) }
+            val songsArray = JSONObject(searchRaw).optJSONObject("result")?.optJSONArray("songs")
+                ?: return@withContext null
+
+            val targetDurationMs = song.duration
+            val normalizedTitle = normalizeForMatch(cleanTitle)
+            var bestSongId = -1L
+            var bestDurationDelta = Long.MAX_VALUE
+
+            for (i in 0 until songsArray.length()) {
+                val item = songsArray.optJSONObject(i) ?: continue
+                val candidateTitle = normalizeForMatch(item.optString("name", ""))
+                if (normalizedTitle.isBlank() || !candidateTitle.contains(normalizedTitle)) continue
+
+                val candidateDurationMs = item.optLong("dt", 0L)
+                if (targetDurationMs > 0 && candidateDurationMs > 0 &&
+                    abs(candidateDurationMs - targetDurationMs) > NETEASE_DURATION_TOLERANCE_MS
+                ) continue
+
+                val delta = if (targetDurationMs > 0 && candidateDurationMs > 0) {
+                    abs(candidateDurationMs - targetDurationMs)
+                } else 0L
+                if (delta < bestDurationDelta) {
+                    bestDurationDelta = delta
+                    bestSongId = item.optLong("id", -1L)
+                }
+            }
+            if (bestSongId <= 0L) return@withContext null
+
+            val lyricRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.getLyrics(bestSongId) }
+            val lyricRoot = JSONObject(lyricRaw)
+            val lrc = lyricRoot.optJSONObject("lrc")?.optString("lyric", "") ?: ""
+            val translatedLrc = lyricRoot.optJSONObject("tlyric")?.optString("lyric", "") ?: ""
+            if (lrc.isBlank()) return@withContext null
+
+            val combined = if (translatedLrc.isNotBlank()) "$lrc\n$translatedLrc" else lrc
+            val parsed = LyricsUtils.parseLyrics(combined).copy(areFromRemote = true)
+            if (!parsed.isValid()) return@withContext null
+
+            Log.d(TAG, "===== FOUND NETEASE LYRICS (songId=$bestSongId) for: ${song.title} =====")
+            parsed
+        } catch (e: Exception) {
+            Log.d(TAG, "NetEase lyrics fallback failed for '${song.title}': ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Livello 4 del pipeline lyrics: se è disponibile solo testo non sincronizzato (plainLyrics),
+     * le righe vengono ripartite su una timeline lineare basata sulla durata complessiva del
+     * brano, così da garantire una visualizzazione fluida e temporizzata nella UI senza
+     * schermate vuote.
+     */
+    private fun applyLinearTimelineFallback(lyrics: Lyrics, durationMs: Long): Lyrics {
+        if (!lyrics.synced.isNullOrEmpty()) return lyrics
+        if (lyrics.plain.isNullOrEmpty()) return lyrics
+        val distributed = LyricsUtils.distributePlainOnLinearTimeline(lyrics.plain, durationMs)
+        return if (distributed.isNotEmpty()) lyrics.copy(synced = distributed) else lyrics
+    }
+
+    /**
+     * Scrive il file sidecar `.lrc` accanto al file audio locale per i testi sincronizzati
+     * recuperati da remoto (Livelli 2/3), così da servire il Livello 1 (cache a costo zero)
+     * per tutte le richieste future dello stesso brano.
+     */
+    private fun writeSidecarLrcForRemote(song: Song, lyrics: Lyrics) {
+        if (lyrics.synced.isNullOrEmpty()) return
+        if (song.path.isBlank()) return
+        runCatching { LyricsUtils.writeSidecarLrcFile(song.path, lyrics) }
+            .onFailure { Log.w(TAG, "Could not write sidecar .lrc for '${song.title}': ${it.message}") }
     }
 
     private fun hasLyrics(response: LrcLibResponse): Boolean =
@@ -1348,11 +1468,15 @@ class LyricsRepositoryImpl @Inject constructor(
                     Log.w(TAG, "Skipping DB update for non-numeric ID in fallback: ${song.id}")
                 }
 
-                lyricsCache.put(cacheKey, parsedLyrics)
-                saveLocalLyricsJson(song, parsedLyrics)
+                // Livello 4: distribuzione lineare per testi solo-plain + sidecar .lrc locale
+                val effectiveLyrics = applyLinearTimelineFallback(parsedLyrics, song.duration)
+                writeSidecarLrcForRemote(song, effectiveLyrics)
+
+                lyricsCache.put(cacheKey, effectiveLyrics)
+                saveLocalLyricsJson(song, effectiveLyrics)
                 LogUtils.d(this@LyricsRepositoryImpl, "Fetched and cached remote lyrics (exact match) for: ${song.title}")
 
-                Result.success(Pair(parsedLyrics, rawLyricsToSave))
+                Result.success(Pair(effectiveLyrics, rawLyricsToSave))
             } else {
                 LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
                 Result.failure(NoLyricsFoundException())

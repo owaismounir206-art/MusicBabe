@@ -321,13 +321,15 @@ object AppModule {
         @ApplicationContext context: Context,
         lrcLibApiService: LrcLibApiService,
         lyricsDao: LyricsDao,
-        okHttpClient: OkHttpClient
+        okHttpClient: OkHttpClient,
+        neteaseApiService: NeteaseApiService
     ): LyricsRepository {
         return LyricsRepositoryImpl(
             context = context,
             lrcLibApiService = lrcLibApiService,
             lyricsDao = lyricsDao,
-            okHttpClient = okHttpClient
+            okHttpClient = okHttpClient,
+            neteaseApiService = neteaseApiService
         )
     }
 
@@ -517,11 +519,12 @@ object AppModule {
             .writeTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
             // Enable built-in retry on connection failure
             .retryOnConnectionFailure(true)
-            // Add headers
+            // Add headers. This client exclusively backs the LrcLib Retrofit service,
+            // which requires a descriptive User-Agent (lrclib.net API policy).
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithHeaders = originalRequest.newBuilder()
-                    .header("User-Agent", "PixelPlayer/1.0 (Android; Music Player)")
+                    .header("User-Agent", "MusicBabeApp/1.0")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(requestWithHeaders)

@@ -1,0 +1,79 @@
+# ==============================================================================
+# CLINE CONFIGURATION & ARCHITECTURAL GUIDELINES FOR MUSICBABE (PIXELPLAY)
+# ==============================================================================
+
+## 1. PROJECT OVERVIEW & ENVIRONMENT
+- **Application**: MusicBabe (Android Audio Player, package: `com.theveloper.pixelplay`)
+- **Language & Toolchain**: Kotlin 2.x, Java 21 (`JAVA_HOME=/home/owais/.jdks/jdk-21.0.12.1+1`)
+- **UI Framework**: Jetpack Compose (Material 3 Expressive, pure 120 FPS motion)
+- **Audio Engine**: Media3 ExoPlayer with custom playback dispatchers and audio processors
+- **Architecture**: Clean Architecture + MVVM (Data, Domain, Presentation), Dagger Hilt for DI, Room DB, Kotlin Coroutines & StateFlow
+- **Verification Command**:
+  ```bash
+  JAVA_HOME=/home/owais/.jdks/jdk-21.0.12.1+1 ./gradlew compileDebugKotlin
+  ```
+
+---
+
+## 2. STRICT OPERATIONAL RULES FOR CLINE
+1. **Zero Fake Stubs / Mock Rule**:
+   - NEVER create artificial dummy classes or simulate behavior using empty methods, fake sleeps, or placeholder implementations (`// TODO`, `// implement here`).
+   - Every file must be complete, production-ready, and compilable.
+   - Integrate directly into existing classes; do NOT duplicate classes or fork core services.
+
+2. **No Phantom Dependencies**:
+   - Only use libraries already defined in `app/build.gradle.kts`.
+   - Do NOT import C++/ONNX/JNI runtimes or external SDKs that are not present in gradle dependencies.
+   - For network operations, use existing `OkHttpClient` or Retrofit services.
+   - For audio tags and metadata, use `TagLib` (`com.kyant.taglib.TagLib`) or `AudioMetadataReader.kt`.
+
+3. **Code Inspection First**:
+   - ALWAYS view and analyze the target files and their existing imports/dependencies before modifying them.
+   - Respect Dagger Hilt injection (`@Inject constructor`, `@Singleton`, `@ActivityRetainedScoped`). Avoid circular dependency chains.
+
+4. **Preserve Documentation & Code Integrity**:
+   - Keep existing comments, license headers, and docstrings.
+   - Make precise, surgical modifications using diff tools rather than rewriting entire 2000-line files when possible.
+
+5. **Mandatory Build Verification**:
+   - ALWAYS verify changes by running `compileDebugKotlin` before declaring any task completed.
+   - Fix all compiler errors, unresolved references, and type mismatches immediately.
+
+---
+
+## 3. AUDIO & STREAMING GUIDELINES
+1. **Full-Length Audio vs 30s Preview Policy**:
+   - Streaming search APIs (like Deezer) return 30-second promotional clips in their `preview` fields.
+   - NEVER allow the app to store or classify a 30s preview file as a permanent downloaded song.
+   - If a track duration is >45s and a stream URL provides only ~30s of audio, trigger resolution to a full-length source (YouTube/yt-dlp, NetEase, or full CDN stream).
+   - Verify post-download audio length before committing the file to disk and notifying MediaScanner.
+
+2. **Tag Muxing & Media Indexing**:
+   - After audio downloads finish, write Title, Artist, Album, and Cover Artwork directly to file tags using `SongMetadataEditor` or `TagLib`.
+   - Trigger `MediaScannerConnection.scanFile()` so Android MediaStore and the local library pick up the track immediately.
+
+---
+
+## 4. LYRICS ENGINE CONVENTIONS
+1. **Free / Zero-API Key Policy**:
+   - Do NOT rely on paid APIs (OpenAI, Anthropic, proprietary cloud LLMs) for lyrics fetching or synchronization.
+   - Hierarchy:
+     1. Local sidecar file (`.lrc` / `.ttml`) or embedded ID3 tags (`USLT`/`SYLT`).
+     2. LrcLib public API (`https://lrclib.net/api/get`) with `User-Agent: MusicBabeApp/1.0` and 3-second timeout.
+     3. NetEase Cloud Music reverse public API (`/api/cloudsearch/pc` & `/api/song/lyric`).
+     4. Plain text formatting fallback with uniform timing distribution.
+2. **Timing & Parsing Standards**:
+   - Support both standard line LRC (`[mm:ss.xx]Text`) and Enhanced word-by-word LRC (`[mm:ss.xx] <mm:ss.xx> Word`).
+   - Timestamps must be parsed with millisecond accuracy (`startMs` and `endMs`).
+   - Emit state to UI via `StateFlow` without blocking main thread or causing layout re-composition loops.
+
+---
+
+## 5. REPOSITORY DIRECTORY CHEAT SHEET
+- `app/src/main/java/com/theveloper/pixelplay/`
+  - `data/media/`: Audio metadata readers, editors, and ExoPlayer components.
+  - `data/downloader/`: Download managers, yt-dlp / YTDLnis integration, background sync.
+  - `data/lyrics/`: Lyrics models, parsers, and multi-tier retrieval engines.
+  - `data/network/`: Retrofit API services (Deezer, NetEase, LrcLib, Telegram, etc.).
+  - `presentation/screens/`: Jetpack Compose screens (Player, Lyrics, Library, Settings).
+  - `presentation/viewmodel/`: StateHolders and ViewModels (`PlayerViewModel`, etc.).
