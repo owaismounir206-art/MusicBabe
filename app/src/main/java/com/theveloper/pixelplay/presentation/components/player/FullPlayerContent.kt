@@ -23,7 +23,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -106,7 +109,11 @@ import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.BookmarkAdded
+import com.theveloper.pixelplay.data.model.isOnlineTrack
 import androidx.compose.material3.Slider
+
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.res.stringResource
@@ -1597,20 +1604,52 @@ private fun SongMetadataDisplaySection(
                 }
             }
         } else {
-            // Portrait Mode: Just the Lyrics button (Queue is in TopBar)
-            FilledIconButton(
-                modifier = Modifier
-                    .size(width = 48.dp, height = 48.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = chipColor,
-                    contentColor = chipContentColor
-                ),
-                onClick = onClickLyrics,
+            // Portrait Mode: Lyrics button + Save Online Track button if online
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.rounded_lyrics_24),
-                    contentDescription = stringResource(R.string.common_lyrics)
-                )
+                if (song?.isOnlineTrack == true) {
+                    val isSongSaved by playerViewModel.isCurrentSongSaved.collectAsStateWithLifecycle()
+                    val context = LocalContext.current
+                    FilledIconButton(
+                        modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = if (isSongSaved) MaterialTheme.colorScheme.secondaryContainer else chipColor,
+                            contentColor = if (isSongSaved) MaterialTheme.colorScheme.onSecondaryContainer else chipContentColor
+                        ),
+                        onClick = {
+                            if (!isSongSaved) {
+                                playerViewModel.saveOnlineTrack(song) { success ->
+                                    if (success) {
+                                        android.widget.Toast.makeText(context, "Brano salvato nella libreria! 🎵", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            } else {
+                                android.widget.Toast.makeText(context, "Già salvato nella libreria", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isSongSaved) Icons.Rounded.BookmarkAdded else Icons.Rounded.BookmarkAdd,
+                            contentDescription = if (isSongSaved) "Salvato nella libreria" else "Salva nella libreria"
+                        )
+                    }
+                }
+
+                FilledIconButton(
+                    modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = chipColor,
+                        contentColor = chipContentColor
+                    ),
+                    onClick = onClickLyrics,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                        contentDescription = stringResource(R.string.common_lyrics)
+                    )
+                }
             }
         }
     }
@@ -2265,13 +2304,15 @@ private fun AlbumPlaceholder(
         tonalElevation = 0.dp
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Icon(
-                modifier = Modifier.size(86.dp),
-                painter = painterResource(R.drawable.pixelplay_base_monochrome),
-                contentDescription = null,
-                tint = onColor
+            Image(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape),
+                painter = painterResource(R.drawable.musicbabe_icon),
+                contentDescription = null
             )
         }
+
     }
 }
 

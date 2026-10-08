@@ -1059,6 +1059,20 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
+                        val showUpdateDialog by playerViewModel.showUpdateDialog.collectAsStateWithLifecycle()
+                        val latestRelease by playerViewModel.latestRelease.collectAsStateWithLifecycle()
+                        val updateDownloadState by playerViewModel.updateDownloadState.collectAsStateWithLifecycle()
+
+                        if (showUpdateDialog && latestRelease != null) {
+                            com.theveloper.pixelplay.presentation.components.AppUpdateDialog(
+                                releaseInfo = latestRelease!!,
+                                downloadState = updateDownloadState,
+                                onStartDownload = { playerViewModel.startUpdateDownload() },
+                                onInstallApk = { apkFile -> playerViewModel.installDownloadedUpdate(apkFile) },
+                                onDismiss = { playerViewModel.dismissUpdateDialog() }
+                            )
+                        }
                     }
                 }
             }

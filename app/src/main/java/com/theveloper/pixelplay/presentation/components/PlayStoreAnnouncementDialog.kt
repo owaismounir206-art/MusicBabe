@@ -1,7 +1,10 @@
 package com.theveloper.pixelplay.presentation.components
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -113,15 +116,16 @@ fun PlayStoreAnnouncementDialog(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.pixelplay_base_monochrome),
+                        Image(
+                            painter = painterResource(id = R.drawable.musicbabe_icon),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier
-                                .padding(10.dp)
-                                .size(26.dp),
+                                .padding(4.dp)
+                                .size(36.dp)
+                                .clip(CircleShape),
                         )
                     }
+
 
                     Spacer(modifier = Modifier.width(12.dp))
 

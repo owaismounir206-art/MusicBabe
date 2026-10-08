@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 import androidx.core.net.toUri
 import com.theveloper.pixelplay.data.database.FavoritesDao
 import com.theveloper.pixelplay.data.database.MusicDao
@@ -1190,4 +1191,79 @@ class MusicRepositoryImpl @Inject constructor(
             com.theveloper.pixelplay.data.worker.SyncWorker.incrementalSyncWork()
         )
     }
+
+    override suspend fun saveOnlineSong(song: Song): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val songNumericId = song.id.removePrefix("online_").toLongOrNull()
+                ?: kotlin.math.abs(song.id.hashCode().toLong()).coerceAtLeast(1000000L)
+            val artistNumericId = kotlin.math.abs((song.artist.ifBlank { "Unknown Artist" }).hashCode().toLong()).coerceAtLeast(1000L)
+            val albumNumericId = kotlin.math.abs((song.album.ifBlank { "Online Music" }).hashCode().toLong()).coerceAtLeast(1000L)
+
+            val artistEntity = com.theveloper.pixelplay.data.database.ArtistEntity(
+                id = artistNumericId,
+                name = song.artist.ifBlank { "Unknown Artist" },
+                trackCount = 1,
+                imageUrl = song.albumArtUriString
+            )
+            val albumEntity = com.theveloper.pixelplay.data.database.AlbumEntity(
+                id = albumNumericId,
+                title = song.album.ifBlank { "Online Music" },
+                artistName = song.artist.ifBlank { "Unknown Artist" },
+                artistId = artistNumericId,
+                albumArtUriString = song.albumArtUriString,
+                songCount = 1,
+                dateAdded = System.currentTimeMillis() / 1000L,
+                year = song.year
+            )
+            val songEntity = com.theveloper.pixelplay.data.database.SongEntity(
+                id = songNumericId,
+                title = song.title,
+                artistName = song.artist,
+                artistId = artistNumericId,
+                albumArtist = song.albumArtist,
+                albumName = song.album,
+                albumId = albumNumericId,
+                contentUriString = song.contentUriString,
+                albumArtUriString = song.albumArtUriString,
+                duration = song.duration,
+                genre = song.genre?.ifBlank { "Online" } ?: "Online",
+                isFavorite = false,
+                lyrics = song.lyrics,
+                trackNumber = song.trackNumber,
+                discNumber = song.discNumber,
+                filePath = song.path,
+                parentDirectoryPath = "Online",
+                dateAdded = System.currentTimeMillis() / 1000L,
+                year = song.year,
+                mimeType = "audio/mpeg",
+                bitrate = 128000,
+                sampleRate = 44100,
+                sourceType = com.theveloper.pixelplay.data.database.SourceType.LOCAL
+            )
+            val crossRef = com.theveloper.pixelplay.data.database.SongArtistCrossRef(
+                songId = songNumericId,
+                artistId = artistNumericId,
+                isPrimary = true
+            )
+
+            musicDao.insertMusicDataWithCrossRefs(
+                listOf(songEntity),
+                listOf(albumEntity),
+                listOf(artistEntity),
+                listOf(crossRef)
+            )
+
+            Timber.d("Successfully saved online song '${song.title}' to library database (id=$songNumericId)")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error saving online song '${song.title}' to library")
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun isSongInLibrary(songId: String): Boolean = withContext(Dispatchers.IO) {
+        val numericId = songId.removePrefix("online_").toLongOrNull() ?: return@withContext false
+        musicDao.getSongByIdOnce(numericId) != null
+    }
 }
+

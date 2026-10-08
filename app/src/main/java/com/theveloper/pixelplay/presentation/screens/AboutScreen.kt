@@ -49,7 +49,13 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -371,7 +377,9 @@ fun AboutScreen(
                     onVersionLongPress = {
                         navController.navigateSafely(Screen.EasterEgg.route)
                     },
+                    viewModel = viewModel,
                     modifier = Modifier
+
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(top = 8.dp),
@@ -565,8 +573,10 @@ private fun OpenSourceLicensesCard(
 private fun AboutHeroCard(
     versionName: String,
     onVersionLongPress: () -> Unit,
+    viewModel: PlayerViewModel,
     modifier: Modifier = Modifier,
 ) {
+
     val heroShape = AbsoluteSmoothCornerShape(30.dp, 60)
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -593,11 +603,13 @@ private fun AboutHeroCard(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.pixelplay_base_monochrome),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(10.dp).size(28.dp),
+                        Image(
+                            painter = painterResource(R.drawable.musicbabe_icon),
+                            contentDescription = "MusicBabe Logo",
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .size(44.dp)
+                                .clip(CircleShape),
                         )
                     }
 
@@ -608,14 +620,14 @@ private fun AboutHeroCard(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = stringResource(R.string.about_app_name),
+                            text = "MusicBabe",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = stringResource(R.string.about_tagline),
+                            text = "Your expressive audio player with pure 120 FPS motion",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -624,29 +636,81 @@ private fun AboutHeroCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onLongPress = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onVersionLongPress()
-                                },
-                            )
-                        },
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.about_version_format, versionName),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onVersionLongPress()
+                                    },
+                                )
+                            },
+                    ) {
+                        Text(
+                            text = stringResource(R.string.about_version_format, versionName),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+
+                    val isCheckingUpdates by viewModel.isCheckingUpdates.collectAsStateWithLifecycle()
+                    val latestRelease by viewModel.latestRelease.collectAsStateWithLifecycle()
+
+                    Button(
+                        onClick = {
+                            if (latestRelease?.isUpdateAvailable == true) {
+                                viewModel.openUpdateDialog()
+                            } else {
+                                viewModel.checkForUpdates(promptIfAvailable = true)
+                            }
+                        },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (latestRelease?.isUpdateAvailable == true) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            contentColor = if (latestRelease?.isUpdateAvailable == true) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        if (isCheckingUpdates) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Verifica...", style = MaterialTheme.typography.labelMedium)
+                        } else if (latestRelease?.isUpdateAvailable == true) {
+                            Icon(Icons.Rounded.SystemUpdate, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Aggiorna ora", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Aggiornamenti", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
+
 
                 Spacer(modifier = Modifier.height(12.dp))
 

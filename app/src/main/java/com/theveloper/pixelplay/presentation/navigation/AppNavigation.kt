@@ -54,7 +54,9 @@ import com.theveloper.pixelplay.presentation.screens.AboutScreen
 import com.theveloper.pixelplay.presentation.screens.OpenSourceLicensesScreen
 import com.theveloper.pixelplay.presentation.screens.SearchScreen
 import com.theveloper.pixelplay.presentation.screens.StatsScreen
+import com.theveloper.pixelplay.presentation.screens.WrappedScreen
 import com.theveloper.pixelplay.presentation.screens.SettingsScreen
+
 import com.theveloper.pixelplay.presentation.screens.SettingsCategoryScreen
 import com.theveloper.pixelplay.presentation.screens.EqualizerScreen
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
@@ -305,6 +307,17 @@ fun AppNavigation(
                     )
                 }
             }
+            composable(
+                Screen.Wrapped.route,
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    WrappedScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
+                }
+            }
+
             composable(
                 route = Screen.PlaylistDetail.route,
                 arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),

@@ -117,6 +117,10 @@ import androidx.paging.cachedIn
 import coil.imageLoader
 import coil.memory.MemoryCache
 import dagger.Lazy
+import com.theveloper.pixelplay.data.updater.AppUpdateManager
+import com.theveloper.pixelplay.data.updater.AppReleaseInfo
+import com.theveloper.pixelplay.data.updater.UpdateDownloadState
+import com.theveloper.pixelplay.data.model.isOnlineTrack
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
@@ -217,9 +221,66 @@ class PlayerViewModel @Inject constructor(
     private val mediaControllerSyncStateHolder: MediaControllerSyncStateHolder,
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
-    val onlinePreviewPlayer: OnlinePreviewPlayer
+    val onlinePreviewPlayer: OnlinePreviewPlayer,
+    val appUpdateManager: AppUpdateManager
 ) : ViewModel() {
 
+    // --- App Update Integration ---
+    val latestRelease: StateFlow<AppReleaseInfo?> = appUpdateManager.latestRelease
+    val isCheckingUpdates: StateFlow<Boolean> = appUpdateManager.isChecking
+    val updateDownloadState: StateFlow<UpdateDownloadState> = appUpdateManager.downloadState
+    val showUpdateDialog: StateFlow<Boolean> = appUpdateManager.showUpdateDialog
+
+    fun checkForUpdates(promptIfAvailable: Boolean = true) {
+        viewModelScope.launch {
+            appUpdateManager.checkForUpdates(promptIfAvailable = promptIfAvailable)
+        }
+    }
+
+    fun startUpdateDownload() {
+        latestRelease.value?.let { release ->
+            appUpdateManager.startDownload(release)
+        }
+    }
+
+    fun installDownloadedUpdate(apkFile: java.io.File) {
+        appUpdateManager.installApk(apkFile)
+    }
+
+    fun dismissUpdateDialog() {
+        appUpdateManager.dismissUpdateDialog()
+    }
+
+    fun openUpdateDialog() {
+        appUpdateManager.openUpdateDialog()
+    }
+
+    // --- Online Track Library Save State ---
+    private val _isCurrentSongSaved = MutableStateFlow(false)
+    val isCurrentSongSaved: StateFlow<Boolean> = _isCurrentSongSaved.asStateFlow()
+
+    val currentSong: Song?
+        get() = stablePlayerState.value.currentSong
+
+    fun saveOnlineTrack(song: Song, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = musicRepository.saveOnlineSong(song)
+            val success = result.isSuccess
+            if (success) {
+                if (currentSong?.id == song.id) {
+                    _isCurrentSongSaved.value = true
+                }
+            }
+            onComplete?.invoke(success)
+        }
+    }
+
+
+    fun checkIsSongSaved(songId: String) {
+        viewModelScope.launch {
+            _isCurrentSongSaved.value = musicRepository.isSongInLibrary(songId)
+        }
+    }
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())
     val playerUiState: StateFlow<PlayerUiState> = _playerUiState.asStateFlow()
@@ -229,6 +290,7 @@ class PlayerViewModel @Inject constructor(
     // queue (FullPlayer carousel, queue sheet) collect this narrower flow
     // directly, keeping the unrelated subtree stable.
     val queueFlow: StateFlow<ImmutableList<Song>> = _playerUiState
+
         .map { it.currentPlaybackQueue }
         .distinctUntilChanged()
         .stateIn(
@@ -1549,6 +1611,29 @@ class PlayerViewModel @Inject constructor(
                 userPreferencesRepository.clearFavoriteSongIds()
             }
         }
+
+        // Automatic update check on app startup (after initial UI load)
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(3500)
+            appUpdateManager.checkForUpdates(promptIfAvailable = true)
+        }
+
+        // Synchronize online track library save status for current song
+        viewModelScope.launch {
+            stablePlayerState.map { it.currentSong }
+                .distinctUntilChanged()
+                .collect { currentSong ->
+                    if (currentSong == null) {
+                        _isCurrentSongSaved.value = false
+                    } else if (!currentSong.isOnlineTrack) {
+                        _isCurrentSongSaved.value = true
+                    } else {
+                        _isCurrentSongSaved.value = musicRepository.isSongInLibrary(currentSong.id)
+                    }
+                }
+        }
+
+
 
         viewModelScope.launch {
             userPreferencesRepository.isFoldersPlaylistViewFlow.collect { isPlaylistView ->

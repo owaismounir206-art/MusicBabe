@@ -102,3 +102,7 @@ data class Song(
         }
     }
 }
+
+val Song.isOnlineTrack: Boolean
+    get() = id.startsWith("online_") || contentUriString.startsWith("http://") || contentUriString.startsWith("https://")
+

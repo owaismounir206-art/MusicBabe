@@ -372,4 +372,15 @@ interface MusicRepository {
      * in progress under the same unique work name.
      */
     fun requestTelegramUnifiedSync()
+
+    /**
+     * Saves an online stream track into the user's local database and library.
+     */
+    suspend fun saveOnlineSong(song: Song): Result<Unit>
+
+    /**
+     * Checks if a song id or online track is saved in the local database.
+     */
+    suspend fun isSongInLibrary(songId: String): Boolean
 }
+
