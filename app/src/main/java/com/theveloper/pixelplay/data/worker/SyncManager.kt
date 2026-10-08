@@ -21,7 +21,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
+import com.theveloper.pixelplay.data.database.MusicDao
+import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.notification.NewSongAlert
+import com.theveloper.pixelplay.data.notification.NewSongAlertManager
 import com.theveloper.pixelplay.data.observer.MediaStoreObserver
+import com.theveloper.pixelplay.data.scanner.MusicFolderScanner
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Job
@@ -59,7 +64,10 @@ data class SyncProgress(
 class SyncManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val mediaStoreObserver: MediaStoreObserver
+    private val mediaStoreObserver: MediaStoreObserver,
+    private val musicFolderScanner: MusicFolderScanner,
+    private val newSongAlertManager: NewSongAlertManager,
+    private val musicDao: MusicDao
 ) {
     private val workManager = WorkManager.getInstance(context)
     private val sharingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -96,6 +104,7 @@ class SyncManager @Inject constructor(
         observeStorageChanges()
         observeAppForeground()
         schedulePeriodicMaintenance()
+        observeNewSongsOutput()
     }
 
     /**
@@ -268,11 +277,75 @@ class SyncManager @Inject constructor(
      * existente. Ideal para el botón de "Refrescar Biblioteca".
      */
     fun forceRefresh() {
-        Log.i(TAG, "Force refresh requested - Scheduling incremental worker")
+        Log.i(TAG, "Force refresh requested - Scanning music folders & scheduling incremental worker")
+        sharingScope.launch {
+            musicFolderScanner.scanMusicFolders()
+        }
         enqueueSyncWork(
             request = SyncWorker.incrementalSyncWork(runMaintenance = false),
             policy = ExistingWorkPolicy.REPLACE
         )
+    }
+
+    /**
+     * Scans physical music folders and forces a full sync.
+     */
+    fun rescanMusicFolders() {
+        sharingScope.launch {
+            musicFolderScanner.scanMusicFolders {
+                forceRefresh()
+            }
+        }
+    }
+
+    @Volatile
+    private var lastNotifiedSongId: Long = -1L
+
+    private fun observeNewSongsOutput() {
+        sharingScope.launch {
+            workManager.getWorkInfosForUniqueWorkFlow(SyncWorker.WORK_NAME).collect { workInfos ->
+                val succeededWork = workInfos.firstOrNull { it.state == WorkInfo.State.SUCCEEDED }
+                if (succeededWork != null) {
+                    val newCount = succeededWork.outputData.getInt(SyncWorker.OUTPUT_NEW_SONGS_COUNT, 0)
+                    val firstNewSongId = succeededWork.outputData.getLong(SyncWorker.OUTPUT_FIRST_NEW_SONG_ID, -1L)
+                    if (newCount > 0 && firstNewSongId > 0 && lastNotifiedSongId != firstNewSongId) {
+                        lastNotifiedSongId = firstNewSongId
+                        val entity = musicDao.getSongByIdOnce(firstNewSongId)
+                        if (entity != null) {
+                            val song = Song(
+                                id = entity.id.toString(),
+                                title = entity.title,
+                                artist = entity.artistName,
+                                artistId = entity.artistId,
+                                album = entity.albumName,
+                                albumId = entity.albumId,
+                                path = entity.filePath,
+                                contentUriString = entity.contentUriString,
+                                albumArtUriString = entity.albumArtUriString,
+                                duration = entity.duration,
+                                genre = entity.genre,
+                                isFavorite = entity.isFavorite,
+                                trackNumber = entity.trackNumber,
+                                discNumber = entity.discNumber,
+                                albumArtist = entity.albumArtist,
+                                dateAdded = entity.dateAdded,
+                                year = entity.year,
+                                mimeType = entity.mimeType,
+                                bitrate = entity.bitrate,
+                                sampleRate = entity.sampleRate
+                            )
+                            newSongAlertManager.postAlert(
+                                NewSongAlert(
+                                    isSuccess = true,
+                                    song = song,
+                                    message = "Il brano è stato aggiunto. Riproduci ora"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun observeStorageChanges() {
@@ -325,7 +398,10 @@ class SyncManager @Inject constructor(
             return
         }
         lastForegroundSyncTime = now
-        Log.i(TAG, "Foreground catch-up - scheduling local incremental sync")
+        Log.i(TAG, "Foreground catch-up - scanning music folders & scheduling local incremental sync")
+        sharingScope.launch {
+            musicFolderScanner.scanMusicFolders()
+        }
         enqueueSyncWork(
             request = SyncWorker.incrementalSyncWork(runMaintenance = false),
             policy = ExistingWorkPolicy.KEEP,

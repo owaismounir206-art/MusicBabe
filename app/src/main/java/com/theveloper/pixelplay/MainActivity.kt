@@ -118,6 +118,7 @@ import com.theveloper.pixelplay.presentation.components.AllFilesAccessDialog
 import com.theveloper.pixelplay.presentation.components.AppSidebarDrawer
 import com.theveloper.pixelplay.presentation.components.CrashReportDialog
 import com.theveloper.pixelplay.presentation.components.DismissUndoBar
+import com.theveloper.pixelplay.presentation.components.NewSongNotificationBar
 import com.theveloper.pixelplay.presentation.components.DrawerDestination
 import com.theveloper.pixelplay.presentation.components.MiniPlayerBottomSpacer
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
@@ -1047,6 +1048,32 @@ class MainActivity : ComponentActivity() {
                                 onClose = onCloseDismissUndoBar,
                                 durationMillis = dismissUndoBarSlice.durationMillis
                             )
+                        }
+
+                        val newSongAlert by playerViewModel.newSongAlert.collectAsStateWithLifecycle()
+
+                        AnimatedVisibility(
+                            visible = newSongAlert != null,
+                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = innerPadding.calculateBottomPadding() + MiniPlayerBottomSpacer)
+                                .padding(horizontal = horizontalPadding)
+                        ) {
+                            newSongAlert?.let { alert ->
+                                NewSongNotificationBar(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp),
+                                    alert = alert,
+                                    onPlay = { song ->
+                                        playerViewModel.dismissNewSongAlert()
+                                        playerViewModel.playSong(song)
+                                    },
+                                    onClose = { playerViewModel.dismissNewSongAlert() }
+                                )
+                            }
                         }
 
                         if (showPlayStoreAnnouncement) {

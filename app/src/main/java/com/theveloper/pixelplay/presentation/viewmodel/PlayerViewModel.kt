@@ -48,6 +48,8 @@ import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.toLibraryTabIdOrNull
+import com.theveloper.pixelplay.data.notification.NewSongAlert
+import com.theveloper.pixelplay.data.notification.NewSongAlertManager
 import com.theveloper.pixelplay.data.provider.SharedArtworkContentProvider
 import com.theveloper.pixelplay.data.preferences.CarouselStyle
 import com.theveloper.pixelplay.data.preferences.LibraryNavigationMode
@@ -229,8 +231,16 @@ class PlayerViewModel @Inject constructor(
     val onlinePreviewPlayer: OnlinePreviewPlayer,
     val appUpdateManager: AppUpdateManager,
     val songDownloadManager: SongDownloadManager,
-    val inAppYtdlnisInstaller: InAppYtdlnisInstaller
+    val inAppYtdlnisInstaller: InAppYtdlnisInstaller,
+    val newSongAlertManager: NewSongAlertManager
 ) : ViewModel() {
+
+    // --- In-App New Song Alert Integration ---
+    val newSongAlert: StateFlow<NewSongAlert?> = newSongAlertManager.alert
+
+    fun dismissNewSongAlert() {
+        newSongAlertManager.dismiss()
+    }
 
     // --- App Update Integration ---
     val latestRelease: StateFlow<AppReleaseInfo?> = appUpdateManager.latestRelease

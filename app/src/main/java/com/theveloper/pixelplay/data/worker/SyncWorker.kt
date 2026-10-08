@@ -178,16 +178,49 @@ constructor(
                         val mediaStoreIds = fetchMediaStoreIds(directoryResolver)
 
                         // Identify IDs that are in local DB but not in MediaStore
-                        val deletedIds = localSongIds - mediaStoreIds
+                        val candidateDeletedIds = localSongIds - mediaStoreIds
 
-                        if (deletedIds.isNotEmpty()) {
-                            Timber.tag(TAG)
-                                .i("Found ${deletedIds.size} deleted songs. Removing from database...")
-                            // Chunk deletions to avoid SQLite variable limit (default 999)
-                            val batchSize = 500
-                            deletedIds.chunked(batchSize).forEach { chunk ->
-                                musicDao.deleteSongsByIds(chunk.toList())
-                                musicDao.deleteCrossRefsBySongIds(chunk.toList())
+                        if (candidateDeletedIds.isNotEmpty()) {
+                            // Check physical disk existence before deleting:
+                            // If the audio file physically exists on storage, DO NOT delete it!
+                            // Instead, request MediaScanner indexing so MediaStore can catch up.
+                            val actualDeletedIds = mutableListOf<Long>()
+                            val filesToRescan = mutableListOf<String>()
+
+                            for (id in candidateDeletedIds) {
+                                val song = musicDao.getSongByIdOnce(id)
+                                if (song != null && !song.filePath.isNullOrBlank()) {
+                                    val file = File(song.filePath)
+                                    if (file.exists() && file.isFile && file.length() > 0) {
+                                        filesToRescan.add(file.absolutePath)
+                                        continue // File exists on disk, keep it!
+                                    }
+                                }
+                                actualDeletedIds.add(id)
+                            }
+
+                            if (filesToRescan.isNotEmpty()) {
+                                Timber.tag(TAG).i("Preserved ${filesToRescan.size} songs whose files still exist on disk. Requesting MediaScanner indexing.")
+                                filesToRescan.chunked(100).forEach { batch ->
+                                    android.media.MediaScannerConnection.scanFile(
+                                        applicationContext,
+                                        batch.toTypedArray(),
+                                        null,
+                                        null
+                                    )
+                                }
+                            }
+
+                            if (actualDeletedIds.isNotEmpty()) {
+                                Timber.tag(TAG)
+                                    .i("Found ${actualDeletedIds.size} truly deleted songs. Removing from database...")
+                                val batchSize = 500
+                                actualDeletedIds.chunked(batchSize).forEach { chunk ->
+                                    musicDao.deleteSongsByIds(chunk.toList())
+                                    musicDao.deleteCrossRefsBySongIds(chunk.toList())
+                                }
+                            } else {
+                                Timber.tag(TAG).d("No truly deleted songs found.")
                             }
                         } else {
                             Timber.tag(TAG).d("No deleted songs found.")
@@ -334,6 +367,9 @@ constructor(
 
                     // Count total songs for the output
                     val totalSongs = musicDao.getSongCount().first()
+                    val newSongsCount = if (!isFreshInstall) songsToInsert.size else 0
+                    val firstNewSongId = if (!isFreshInstall && songsToInsert.isNotEmpty()) songsToInsert.first().id else -1L
+
                     if (!runMaintenance) {
                         Timber.tag(TAG).d("Skipping library maintenance phases for local-only sync.")
                         AdvancedPerformanceDiagnostics.recordEventIfEnabled(
@@ -348,7 +384,11 @@ constructor(
                             )
                         }
                         return@withContext Result.success(
-                            workDataOf(OUTPUT_TOTAL_SONGS to totalSongs.toLong())
+                            workDataOf(
+                                OUTPUT_TOTAL_SONGS to totalSongs.toLong(),
+                                OUTPUT_NEW_SONGS_COUNT to newSongsCount,
+                                OUTPUT_FIRST_NEW_SONG_ID to firstNewSongId
+                            )
                         )
                     }
 
@@ -478,7 +518,13 @@ constructor(
                             "runMaintenance" to runMaintenance.toString()
                         )
                     }
-                    Result.success(workDataOf(OUTPUT_TOTAL_SONGS to finalTotalSongs.toLong()))
+                    Result.success(
+                        workDataOf(
+                            OUTPUT_TOTAL_SONGS to finalTotalSongs.toLong(),
+                            OUTPUT_NEW_SONGS_COUNT to newSongsCount,
+                            OUTPUT_FIRST_NEW_SONG_ID to firstNewSongId
+                        )
+                    )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error during MediaStore synchronization", e)
                     AdvancedPerformanceDiagnostics.recordEventIfEnabled(
@@ -1220,6 +1266,8 @@ constructor(
         const val PROGRESS_TOTAL = "progress_total"
         const val PROGRESS_PHASE = "progress_phase"
         const val OUTPUT_TOTAL_SONGS = "output_total_songs"
+        const val OUTPUT_NEW_SONGS_COUNT = "output_new_songs_count"
+        const val OUTPUT_FIRST_NEW_SONG_ID = "output_first_new_song_id"
         // Number of Telegram songs processed per DB flush. Keeps peak memory bounded
         // regardless of channel size (e.g. 65k songs → ~130 flushes of 500 each).
         private const val TELEGRAM_SYNC_CHUNK_SIZE = 500

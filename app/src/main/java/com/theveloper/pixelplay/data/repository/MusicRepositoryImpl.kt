@@ -1232,7 +1232,7 @@ class MusicRepositoryImpl @Inject constructor(
                 trackNumber = song.trackNumber,
                 discNumber = song.discNumber,
                 filePath = song.path,
-                parentDirectoryPath = "Online",
+                parentDirectoryPath = java.io.File(song.path).parent ?: "MusicBabe",
                 dateAdded = System.currentTimeMillis() / 1000L,
                 year = song.year,
                 mimeType = "audio/mpeg",

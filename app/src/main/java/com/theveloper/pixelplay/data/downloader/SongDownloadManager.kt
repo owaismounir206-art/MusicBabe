@@ -13,7 +13,10 @@ import androidx.core.app.NotificationCompat
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.notification.NewSongAlert
+import com.theveloper.pixelplay.data.notification.NewSongAlertManager
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import com.theveloper.pixelplay.data.scanner.MusicFolderScanner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,14 +37,16 @@ import javax.inject.Singleton
 sealed class DownloadState {
     object Idle : DownloadState()
     data class Downloading(val trackId: Long, val progress: Float, val title: String) : DownloadState()
-    data class Success(val trackId: Long, val title: String, val filePath: String) : DownloadState()
+    data class Success(val trackId: Long, val title: String, val filePath: String, val song: Song? = null) : DownloadState()
     data class Error(val trackId: Long, val message: String) : DownloadState()
 }
 
 @Singleton
 class SongDownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val musicRepository: MusicRepository
+    private val musicRepository: MusicRepository,
+    private val musicFolderScanner: MusicFolderScanner,
+    private val newSongAlertManager: NewSongAlertManager
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -88,6 +93,13 @@ class SongDownloadManager @Inject constructor(
             if (streamUrl.isNullOrBlank()) {
                 val errorMsg = "Nessun flusso audio disponibile per il download"
                 _downloadState.value = DownloadState.Error(track.id, errorMsg)
+                newSongAlertManager.postAlert(
+                    NewSongAlert(
+                        isSuccess = false,
+                        song = null,
+                        message = "Il brano non è stato aggiunto"
+                    )
+                )
                 withContext(Dispatchers.Main) { onComplete?.invoke(false, errorMsg) }
                 return@launch
             }
@@ -101,9 +113,16 @@ class SongDownloadManager @Inject constructor(
                 }
 
                 if (result.isSuccess) {
-                    val savedPath = result.getOrNull() ?: ""
-                    _downloadState.value = DownloadState.Success(track.id, track.title, savedPath)
+                    val (savedPath, songSaved) = result.getOrNull() ?: ("" to null)
+                    _downloadState.value = DownloadState.Success(track.id, track.title, savedPath, songSaved)
                     showNotification(track.title, track.artistName, isSuccess = true)
+                    newSongAlertManager.postAlert(
+                        NewSongAlert(
+                            isSuccess = true,
+                            song = songSaved,
+                            message = "Il brano è stato aggiunto. Riproduci ora"
+                        )
+                    )
                     withContext(Dispatchers.Main) {
                         onComplete?.invoke(true, "Brano '${track.title}' salvato con successo!")
                     }
@@ -111,12 +130,26 @@ class SongDownloadManager @Inject constructor(
                     val err = result.exceptionOrNull()?.message ?: "Errore durante il download"
                     _downloadState.value = DownloadState.Error(track.id, err)
                     showNotification(track.title, track.artistName, isSuccess = false)
+                    newSongAlertManager.postAlert(
+                        NewSongAlert(
+                            isSuccess = false,
+                            song = null,
+                            message = "Il brano non è stato aggiunto"
+                        )
+                    )
                     withContext(Dispatchers.Main) { onComplete?.invoke(false, err) }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error downloading song in MusicBabe")
                 val msg = e.message ?: "Download non riuscito"
                 _downloadState.value = DownloadState.Error(track.id, msg)
+                newSongAlertManager.postAlert(
+                    NewSongAlert(
+                        isSuccess = false,
+                        song = null,
+                        message = "Il brano non è stato aggiunto"
+                    )
+                )
                 withContext(Dispatchers.Main) { onComplete?.invoke(false, msg) }
             }
         }
@@ -126,18 +159,26 @@ class SongDownloadManager @Inject constructor(
         track: OnlineTrack,
         audioUrl: String,
         onProgress: (Float) -> Unit
-    ): Result<String> = withContext(Dispatchers.IO) {
+    ): Result<Pair<String, Song>> = withContext(Dispatchers.IO) {
         try {
             val sanitizedTitle = track.title.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(60).trim()
             val sanitizedArtist = track.artistName.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(50).trim()
             val fileName = "${sanitizedArtist} - ${sanitizedTitle}.mp3"
+
+            val musicBabeDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                "MusicBabe"
+            )
+            if (!musicBabeDir.exists()) musicBabeDir.mkdirs()
+            val targetFile = File(musicBabeDir, fileName)
+            val absolutePath = targetFile.absolutePath
 
             val url = URL(audioUrl)
             var connection = url.openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
             connection.connectTimeout = 15000
             connection.readTimeout = 30000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.0)")
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
 
             // Follow HTTP redirects if any
             var redirectCode = connection.responseCode
@@ -150,7 +191,7 @@ class SongDownloadManager @Inject constructor(
                 connection = URL(newUrl).openConnection() as HttpURLConnection
                 connection.connectTimeout = 15000
                 connection.readTimeout = 30000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.0)")
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
                 redirectCode = connection.responseCode
                 redirects++
             }
@@ -159,7 +200,8 @@ class SongDownloadManager @Inject constructor(
             val inputStream = connection.inputStream
 
             var savedUriString = ""
-            var savedFilePath = ""
+            var savedFilePath = absolutePath
+            var mediaStoreNumericId: Long = kotlin.math.abs(track.id).coerceAtLeast(1000000L)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val resolver = context.contentResolver
@@ -195,16 +237,18 @@ class SongDownloadManager @Inject constructor(
                 contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
                 resolver.update(audioUri, contentValues, null, null)
 
-                savedUriString = audioUri.toString()
-                savedFilePath = "${Environment.DIRECTORY_MUSIC}/MusicBabe/$fileName"
-            } else {
-                val musicDir = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-                    "MusicBabe"
-                )
-                if (!musicDir.exists()) musicDir.mkdirs()
+                try {
+                    mediaStoreNumericId = android.content.ContentUris.parseId(audioUri)
+                } catch (e: Exception) {
+                    Timber.w(e, "Could not parse MediaStore ID from $audioUri")
+                }
 
-                val targetFile = File(musicDir, fileName)
+                // Scan with MediaScanner to populate duration, bitrate and headers
+                musicFolderScanner.scanFileAsync(absolutePath, "audio/mpeg")
+
+                savedUriString = audioUri.toString()
+                savedFilePath = absolutePath
+            } else {
                 FileOutputStream(targetFile).use { outputStream ->
                     val buffer = ByteArray(8192)
                     var bytesRead: Int
@@ -220,14 +264,16 @@ class SongDownloadManager @Inject constructor(
                     outputStream.flush()
                 }
 
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(targetFile.absolutePath),
-                    arrayOf("audio/mpeg"),
-                    null
-                )
+                val scannedUri = musicFolderScanner.scanFileAsync(targetFile.absolutePath, "audio/mpeg")
+                if (scannedUri != null) {
+                    try {
+                        mediaStoreNumericId = android.content.ContentUris.parseId(scannedUri)
+                    } catch (e: Exception) {
+                        Timber.w(e, "Could not parse MediaStore ID from $scannedUri")
+                    }
+                }
 
-                savedUriString = Uri.fromFile(targetFile).toString()
+                savedUriString = (scannedUri ?: Uri.fromFile(targetFile)).toString()
                 savedFilePath = targetFile.absolutePath
             }
 
@@ -237,7 +283,7 @@ class SongDownloadManager @Inject constructor(
             // Save to local library database
             val localDuration = if (track.durationSeconds > 0) track.durationSeconds * 1000L else 30_000L
             val songToSave = Song(
-                id = "online_${track.id}",
+                id = mediaStoreNumericId.toString(),
                 title = track.title,
                 artist = track.artistName,
                 album = track.albumTitle.ifBlank { "MusicBabe" },
@@ -257,8 +303,8 @@ class SongDownloadManager @Inject constructor(
             )
 
             musicRepository.saveOnlineSong(songToSave)
-            Timber.d("Song downloaded and saved to library: $savedFilePath")
-            Result.success(savedFilePath)
+            Timber.d("Song downloaded and saved to library: $savedFilePath (id=$mediaStoreNumericId)")
+            Result.success(savedFilePath to songToSave)
         } catch (e: Exception) {
             Timber.e(e, "Error in performDownload")
             Result.failure(e)
