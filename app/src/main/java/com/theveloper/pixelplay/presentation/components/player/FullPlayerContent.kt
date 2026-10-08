@@ -111,7 +111,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.BookmarkAdded
+import androidx.compose.material.icons.rounded.Download
 import com.theveloper.pixelplay.data.model.isOnlineTrack
+import com.theveloper.pixelplay.data.model.OnlineTrack
+import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
 import androidx.compose.material3.Slider
 
 import androidx.compose.material3.SliderDefaults
@@ -274,6 +277,7 @@ fun FullPlayerContent(
     }
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
+    var showOnlineSongDownloadDialog by remember { mutableStateOf(false) }
     var totalDrag by remember { mutableStateOf(0f) }
 
     val context = LocalContext.current
@@ -381,6 +385,24 @@ fun FullPlayerContent(
             )
 
         }
+    }
+
+    if (showOnlineSongDownloadDialog && song != null) {
+        val onlineTrack = OnlineTrack(
+            id = song.id.removePrefix("online_").toLongOrNull() ?: kotlin.math.abs(song.id.hashCode().toLong()),
+            title = song.title,
+            artistName = song.artist,
+            albumTitle = song.album,
+            albumCoverUrl = song.albumArtUriString,
+            durationSeconds = (song.duration / 1000).toInt(),
+            previewUrl = song.contentUriString,
+            shareLink = song.path
+        )
+        YtdlnisDownloadDialog(
+            track = onlineTrack,
+            playerViewModel = playerViewModel,
+            onDismiss = { showOnlineSongDownloadDialog = false }
+        )
     }
 
     // Observador para reaccionar al resultado de la búsqueda de letras
@@ -598,7 +620,8 @@ fun FullPlayerContent(
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
-            isPlayingProvider = isPlayingProvider
+            isPlayingProvider = isPlayingProvider,
+            onDownloadClick = { showOnlineSongDownloadDialog = true }
         )
     }
 
@@ -621,7 +644,8 @@ fun FullPlayerContent(
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
-            isPlayingProvider = isPlayingProvider
+            isPlayingProvider = isPlayingProvider,
+            onDownloadClick = { showOnlineSongDownloadDialog = true }
         )
     }
 
@@ -1334,7 +1358,8 @@ private fun FullPlayerSongMetadataSection(
     chipContentColor: Color,
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
-    isPlayingProvider: () -> Boolean = { true }
+    isPlayingProvider: () -> Boolean = { true },
+    onDownloadClick: () -> Unit = {}
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
 
@@ -1379,7 +1404,8 @@ private fun FullPlayerSongMetadataSection(
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
-            isPlayingProvider = isPlayingProvider
+            isPlayingProvider = isPlayingProvider,
+            onClickDownload = onDownloadClick
         )
     }
 }
@@ -1478,6 +1504,7 @@ private fun SongMetadataDisplaySection(
     showQueueButton: Boolean,
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
+    onClickDownload: () -> Unit = {},
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true }
 ) {
@@ -1633,6 +1660,20 @@ private fun SongMetadataDisplaySection(
                         Icon(
                             imageVector = if (isSongSaved) Icons.Rounded.BookmarkAdded else Icons.Rounded.BookmarkAdd,
                             contentDescription = if (isSongSaved) "Salvato nella libreria" else "Salva nella libreria"
+                        )
+                    }
+
+                    FilledIconButton(
+                        modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = chipColor,
+                            contentColor = chipContentColor
+                        ),
+                        onClick = onClickDownload
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Scarica brano"
                         )
                     }
                 }

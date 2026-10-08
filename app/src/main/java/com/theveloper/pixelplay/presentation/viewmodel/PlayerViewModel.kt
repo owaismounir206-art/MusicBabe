@@ -121,6 +121,11 @@ import com.theveloper.pixelplay.data.updater.AppUpdateManager
 import com.theveloper.pixelplay.data.updater.AppReleaseInfo
 import com.theveloper.pixelplay.data.updater.UpdateDownloadState
 import com.theveloper.pixelplay.data.model.isOnlineTrack
+import com.theveloper.pixelplay.data.model.OnlineTrack
+import com.theveloper.pixelplay.data.downloader.SongDownloadManager
+import com.theveloper.pixelplay.data.downloader.DownloadState
+import com.theveloper.pixelplay.data.downloader.InAppYtdlnisInstaller
+import com.theveloper.pixelplay.data.downloader.YtdlnisInstallState
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
@@ -222,7 +227,9 @@ class PlayerViewModel @Inject constructor(
     private val sessionToken: SessionToken,
     private val mediaControllerFactory: com.theveloper.pixelplay.data.media.MediaControllerFactory,
     val onlinePreviewPlayer: OnlinePreviewPlayer,
-    val appUpdateManager: AppUpdateManager
+    val appUpdateManager: AppUpdateManager,
+    val songDownloadManager: SongDownloadManager,
+    val inAppYtdlnisInstaller: InAppYtdlnisInstaller
 ) : ViewModel() {
 
     // --- App Update Integration ---
@@ -280,6 +287,33 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _isCurrentSongSaved.value = musicRepository.isSongInLibrary(songId)
         }
+    }
+
+    // --- In-App Song & YTDLnis Download Integration ---
+    val songDownloadState: StateFlow<DownloadState> = songDownloadManager.downloadState
+    val ytdlnisInstallState: StateFlow<YtdlnisInstallState> = inAppYtdlnisInstaller.installState
+
+    fun downloadSongInApp(
+        track: OnlineTrack,
+        onProgress: ((Float) -> Unit)? = null,
+        onComplete: ((Boolean, String) -> Unit)? = null
+    ) {
+        songDownloadManager.startSongDownload(track, onProgress) { success, message ->
+            if (success) {
+                if (currentSong?.id == "online_${track.id}") {
+                    _isCurrentSongSaved.value = true
+                }
+            }
+            onComplete?.invoke(success, message)
+        }
+    }
+
+    fun startInAppYtdlnisInstall() {
+        inAppYtdlnisInstaller.startInAppDownloadAndInstall()
+    }
+
+    fun resetYtdlnisInstallState() {
+        inAppYtdlnisInstaller.resetState()
     }
 
     private val _playerUiState = MutableStateFlow(PlayerUiState())

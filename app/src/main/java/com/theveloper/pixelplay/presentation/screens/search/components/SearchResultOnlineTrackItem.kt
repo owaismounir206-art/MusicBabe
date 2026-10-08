@@ -254,7 +254,7 @@ fun SearchResultOnlineTrackItem(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Download,
-                    contentDescription = "Scarica con YTDLnis",
+                    contentDescription = "Scarica brano",
                     modifier = Modifier.size(20.dp)
                 )
             }

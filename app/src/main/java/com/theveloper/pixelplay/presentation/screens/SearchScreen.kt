@@ -957,6 +957,7 @@ fun SearchScreen(
         val track = selectedOnlineTrackForDownload!!
         YtdlnisDownloadDialog(
             track = track,
+            playerViewModel = playerViewModel,
             onDismiss = {
                 showYtdlnisDialog = false
                 selectedOnlineTrackForDownload = null
@@ -1257,7 +1258,7 @@ fun SearchResultsList(
                     SearchResultSectionHeader(
                         title = when (filterType) {
                             SearchFilterType.SONGS -> "Songs"
-                            SearchFilterType.ONLINE -> "Brani Online (YTDLnis)"
+                            SearchFilterType.ONLINE -> "Brani Online"
                             SearchFilterType.ALBUMS -> "Albums"
                             SearchFilterType.ARTISTS -> "Artists"
                             SearchFilterType.PLAYLISTS -> "Playlists"
@@ -1470,7 +1471,7 @@ fun SearchResultsList(
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                text = "Cerca brani online e scarica direttamente con YTDLnis",
+                                text = "Cerca brani online, ascoltali e scaricali direttamente in MusicBabe",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                             )
