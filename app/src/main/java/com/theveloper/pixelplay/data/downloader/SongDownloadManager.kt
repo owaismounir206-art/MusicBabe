@@ -15,6 +15,8 @@ import androidx.core.app.NotificationCompat
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.data.downloader.InAppYtdlnisInstaller
+import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.data.model.Song
@@ -60,7 +62,9 @@ class SongDownloadManager @Inject constructor(
     // Cascata full-length (Passo A) e sidecar .lrc post-download.
     // Nessun ciclo DI: NeteaseRepository e LyricsRepository non dipendono dai downloader.
     private val neteaseRepository: NeteaseRepository,
-    private val lyricsRepository: LyricsRepository
+    private val lyricsRepository: LyricsRepository,
+    private val inAppYtdlnisInstaller: InAppYtdlnisInstaller,
+    private val songMetadataEditor: SongMetadataEditor
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -135,8 +139,13 @@ class SongDownloadManager @Inject constructor(
                     fullStreamUrl
                 } else {
                     val handedOffToYtDlp = launchYtDlpFullTrackBridge(track)
+                    val isYtdlnisInstalled = YtdlnisHelper.isYtdlnisInstalled(context)
                     val errorMsg = if (handedOffToYtDlp) {
-                        "Anteprima da 30s rilevata: download del brano completo delegato a YTDLnis (yt-dlp) per '${track.title}'"
+                        if (isYtdlnisInstalled) {
+                            "Anteprima da 30s rilevata: download del brano completo avviato con YTDLnis (yt-dlp) per '${track.title}'"
+                        } else {
+                            "Anteprima da 30s rilevata: installazione in-app di YTDLnis avviata per scaricare '${track.title}'"
+                        }
                     } else {
                         "Impossibile ottenere il flusso audio completo per '${track.title}': la sorgente espone solo l'anteprima promozionale da 30 secondi"
                     }
@@ -148,7 +157,11 @@ class SongDownloadManager @Inject constructor(
                             isSuccess = false,
                             song = null,
                             message = if (handedOffToYtDlp) {
-                                "Download completo avviato con YTDLnis"
+                                if (isYtdlnisInstalled) {
+                                    "Download completo avviato con YTDLnis"
+                                } else {
+                                    "Download di YTDLnis in corso per brano completo"
+                                }
                             } else {
                                 "Il brano non è stato aggiunto"
                             }
@@ -406,6 +419,21 @@ class SongDownloadManager @Inject constructor(
             )
 
             musicRepository.saveOnlineSong(songToSave)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mediaStoreNumericId > 0) {
+                runCatching {
+                    songMetadataEditor.editSongMetadata(
+                        songId = mediaStoreNumericId,
+                        newTitle = track.title,
+                        newArtist = track.artistName,
+                        newAlbum = track.albumTitle.ifBlank { "MusicBabe" },
+                        newAlbumArtist = track.artistName,
+                        newGenre = "MusicBabe",
+                        newLyrics = "",
+                        newTrackNumber = 1,
+                        newDiscNumber = null
+                    )
+                }.onFailure { Timber.w(it, "SongDownloadManager: sync SongMetadataEditor non riuscito per id=$mediaStoreNumericId") }
+            }
             Timber.d("Song downloaded and saved to library: $savedFilePath (id=$mediaStoreNumericId)")
             Result.success(savedFilePath to songToSave)
         } catch (e: Exception) {
@@ -423,9 +451,11 @@ class SongDownloadManager @Inject constructor(
      */
     private fun isPreviewSource(url: String, track: OnlineTrack): Boolean {
         if (url.contains("cdns-preview", ignoreCase = true)) return true
+        if (url.contains("deezer.com", ignoreCase = true) && url.contains("preview", ignoreCase = true)) return true
         val trackDurationMs = track.durationSeconds * 1000L
         val declaredPreviewDurationMs = 30_000L // clip promozionali Deezer: 30s a 128kbps
-        return trackDurationMs > 45_000L && declaredPreviewDurationMs in 28_000L..32_000L
+        if (trackDurationMs > 45_000L && declaredPreviewDurationMs in 28_000L..32_000L) return true
+        return trackDurationMs > 45_000L && track.previewUrl == url
     }
 
     /**
@@ -495,9 +525,10 @@ class SongDownloadManager @Inject constructor(
     /**
      * Passo B della cascata full-length: bridge in-app yt-dlp / YTDLnis.
      * Se l'app YTDLnis (motore yt-dlp) è installata, delega il recupero della migliore
-     * traccia audio completa via query `ytsearch:"<artista> - <titolo_pulito>"`.
+     * traccia audio completa via query `ytsearch1:"<artista> - <titolo_pulito>"`.
+     * Se non è installata, scarica e installa l'APK in-app tramite InAppYtdlnisInstaller.
      *
-     * @return true se l'handoff del download completo è stato eseguito.
+     * @return true se l'handoff o l'installazione in-app è stata avviata.
      */
     private fun launchYtDlpFullTrackBridge(track: OnlineTrack): Boolean {
         return try {
@@ -506,15 +537,16 @@ class SongDownloadManager @Inject constructor(
             if (YtdlnisHelper.isYtdlnisInstalled(context)) {
                 Timber.i(
                     "SongDownloadManager: handoff del download full-length a YTDLnis (yt-dlp) " +
-                        "via ytsearch per '${track.artistName} - $cleanTitle'"
+                        "via ytsearch1 per '${track.artistName} - $cleanTitle'"
                 )
                 YtdlnisHelper.downloadSong(context, track.artistName, cleanTitle)
             } else {
                 Timber.w(
                     "SongDownloadManager: YTDLnis (bridge yt-dlp) non installato; " +
-                        "impossibile risolvere il flusso completo per '${track.title}'"
+                        "avvio download e installazione in-app per '${track.title}'"
                 )
-                false
+                inAppYtdlnisInstaller.startInAppDownloadAndInstall()
+                true
             }
         } catch (e: Exception) {
             Timber.w(e, "SongDownloadManager: bridge YTDLnis fallito per '${track.title}'")
@@ -523,7 +555,7 @@ class SongDownloadManager @Inject constructor(
     }
 
     /**
-     * Guardia anti-anteprima post-download: un file che dura ~30s (27s..33s) mentre la
+     * Guardia anti-anteprima post-download: un file che dura meno di 40s mentre la
      * traccia reale dura più di 45s è un'anteprima troncata e non deve essere committata
      * su disco né notificata al MediaScanner.
      */
@@ -547,7 +579,7 @@ class SongDownloadManager @Inject constructor(
                 "SongDownloadManager: durata scaricata=${actualDurationMs}ms, " +
                     "attesa=${expectedDurationSec}s per $filePath"
             )
-            !(actualDurationMs in 27_000L..33_000L && expectedDurationSec > 45)
+            !(actualDurationMs < 40_000L && expectedDurationSec > 45)
         } catch (e: Exception) {
             Timber.w(e, "SongDownloadManager: impossibile verificare la durata di $filePath")
             true

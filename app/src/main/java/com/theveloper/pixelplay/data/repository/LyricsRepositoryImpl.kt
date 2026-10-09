@@ -444,35 +444,47 @@ class LyricsRepositoryImpl @Inject constructor(
             )
         }
 
-        // Try each source in order until we find lyrics (early return on success)
+        // Try each source in order. If synced lyrics are found, return immediately.
+        // If only plain lyrics are found, hold as fallback to allow lower tiers (e.g. NetEase) to find synced lyrics.
+        var fallbackPlainLyrics: Lyrics? = null
+        var fallbackPlainSourceName: String? = null
+
         for ((sourceName, fetcher) in sourceFetchers) {
             try {
                 val lyrics = fetcher()
                 if (lyrics != null && lyrics.isValid()) {
-                    Log.d(TAG, "Found lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
-
                     val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || lyrics.areFromRemote
 
-                    // Livello 4: se da remoto è disponibile solo testo non sincronizzato (plainLyrics),
-                    // ripartisci le righe su una timeline lineare basata sulla durata complessiva del brano.
-                    val effectiveLyrics =
-                        if (isRemoteSource) applyLinearTimelineFallback(lyrics, song.duration) else lyrics
+                    if (!lyrics.synced.isNullOrEmpty()) {
+                        Log.d(TAG, "Found synced lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
 
-                    // Cache the result
-                    lyricsCache.put(cacheKey, effectiveLyrics)
-
-                    // Persist remote lyrics to the JSON disk cache and to the sidecar .lrc file
-                    if (isRemoteSource) {
-                        saveLocalLyricsJson(song, effectiveLyrics)
-                        writeSidecarLrcForRemote(song, effectiveLyrics)
+                        lyricsCache.put(cacheKey, lyrics)
+                        if (isRemoteSource) {
+                            saveLocalLyricsJson(song, lyrics)
+                            writeSidecarLrcForRemote(song, lyrics)
+                        }
+                        return@withContext lyrics
+                    } else if (fallbackPlainLyrics == null && !lyrics.plain.isNullOrEmpty()) {
+                        Log.d(TAG, "Found plain lyrics from $sourceName for: ${song.displayArtist} - ${song.title}. Keeping as fallback.")
+                        fallbackPlainLyrics = lyrics
+                        fallbackPlainSourceName = sourceName
                     }
-
-                    return@withContext effectiveLyrics
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error fetching from source $sourceName: ${e.message}")
                 // Continue to next source
             }
+        }
+
+        // Se nessun provider ha restituito testi sincronizzati, emetti il testo plain senza inventare timestamp
+        if (fallbackPlainLyrics != null) {
+            Log.d(TAG, "Using plain lyrics fallback from $fallbackPlainSourceName for: ${song.displayArtist} - ${song.title}")
+            lyricsCache.put(cacheKey, fallbackPlainLyrics)
+            val isRemoteSource = fallbackPlainSourceName == "API" || fallbackPlainSourceName == "NetEase" || fallbackPlainLyrics.areFromRemote
+            if (isRemoteSource) {
+                saveLocalLyricsJson(song, fallbackPlainLyrics)
+            }
+            return@withContext fallbackPlainLyrics
         }
 
         // No lyrics found from any source
@@ -519,107 +531,151 @@ class LyricsRepositoryImpl @Inject constructor(
         updateLastApiCall("lrclib", System.currentTimeMillis())
 
         try {
-            val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
-            val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
-            val simplifiedArtist = cleanArtist.split(" feat.", " ft.", " featuring", " & ", " , ").first().trim()
-            val simplifiedTitle = cleanTitle.split(" feat.", " ft.", " featuring", " (").first().trim()
-            val useSimplifiedStrategy =
-                simplifiedArtist != cleanArtist || simplifiedTitle != cleanTitle
+            val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+            if (cleanTitle.isBlank()) return@withContext null
 
-            val searchStrategies = buildList {
-                add(
-                    RemoteSearchStrategy("track+artist") {
-                        lrcLibApiService.searchLyrics(trackName = cleanTitle, artistName = cleanArtist)
+            val songDurationSec = (song.duration / 1000).toInt()
+            var matchedResponse: LrcLibResponse? = null
+
+            // 1. Tenta la chiamata esatta: GET /api/get?track_name={cleanTitle}&artist_name={cleanArtist}&duration={durationSec}
+            if (songDurationSec > 0) {
+                val exactResponse = runCatching {
+                    withNetworkRetry(operationName = "lrclib_get_exact") {
+                        lrcLibApiService.getLyrics(
+                            trackName = cleanTitle,
+                            artistName = cleanArtist,
+                            albumName = null,
+                            duration = songDurationSec
+                        )
                     }
-                )
-                add(
-                    RemoteSearchStrategy("combined_query") {
-                        lrcLibApiService.searchLyrics(query = "$cleanArtist $cleanTitle")
+                }.getOrNull()
+
+                if (exactResponse != null && !exactResponse.syncedLyrics.isNullOrBlank()) {
+                    matchedResponse = exactResponse
+                } else if (exactResponse != null && !exactResponse.plainLyrics.isNullOrBlank()) {
+                    matchedResponse = exactResponse
+                }
+            }
+
+            // 2. Se restituisce 404 o non ha syncedLyrics, chiama immediatamente l'endpoint di ricerca flessibile:
+            // GET /api/search?track_name={cleanTitle}&artist_name={cleanArtist}
+            if (matchedResponse == null || matchedResponse.syncedLyrics.isNullOrBlank()) {
+                val searchResults = runCatching {
+                    withNetworkRetry(operationName = "lrclib_search_flexible") {
+                        lrcLibApiService.searchLyrics(
+                            trackName = cleanTitle,
+                            artistName = cleanArtist
+                        )
+                    }?.toList().orEmpty()
+                }.getOrNull().orEmpty()
+
+                // 3. Ispeziona l'array JSON restituito:
+                // - Filtra solo gli elementi aventi syncedLyrics != null e non vuoto.
+                // - Scegli la traccia la cui duration rientra in una tolleranza di ±6 secondi rispetto alla durata del file audio.
+                // - Se esistono più candidati, scegli quello con la durata più vicina.
+                val songDurationDbl = song.duration / 1000.0
+                val syncedCandidates = searchResults.filter { !it.syncedLyrics.isNullOrBlank() }
+
+                val bestSynced = if (songDurationDbl > 0) {
+                    syncedCandidates
+                        .filter { abs(it.duration - songDurationDbl) <= 6.0 }
+                        .minByOrNull { abs(it.duration - songDurationDbl) }
+                } else {
+                    syncedCandidates.firstOrNull()
+                }
+
+                if (bestSynced != null) {
+                    matchedResponse = bestSynced
+                } else if (matchedResponse == null) {
+                    // Fallback: cerca candidati plain (tolleranza ±6s)
+                    val plainCandidates = searchResults.filter { !it.plainLyrics.isNullOrBlank() }
+                    val bestPlain = if (songDurationDbl > 0) {
+                        plainCandidates
+                            .filter { abs(it.duration - songDurationDbl) <= 6.0 }
+                            .minByOrNull { abs(it.duration - songDurationDbl) }
+                    } else {
+                        plainCandidates.firstOrNull()
                     }
-                )
-                if (useSimplifiedStrategy) {
+                    if (bestPlain != null) {
+                        matchedResponse = bestPlain
+                    }
+                }
+            }
+
+            // Fallback secondario: se ancora nessun testo trovato, prova strategie estese (combined_query, romanized, smart_title)
+            if (matchedResponse == null) {
+                val fallbackStrategies = buildList {
                     add(
-                        RemoteSearchStrategy("simplified_track+artist") {
-                            lrcLibApiService.searchLyrics(trackName = simplifiedTitle, artistName = simplifiedArtist)
+                        RemoteSearchStrategy("combined_query") {
+                            lrcLibApiService.searchLyrics(query = "$cleanArtist $cleanTitle")
                         }
                     )
-                }
-
-                // Romanized search strategy for non-Latin titles
-                if (MultiLangRomanizer.isScriptThatNeedsRomanization(cleanTitle)) {
-                    val romanTitle = romanizeForMatch(cleanTitle)
-                    if (romanTitle != cleanTitle) {
-                        add(RemoteSearchStrategy("romanized_track") {
-                            lrcLibApiService.searchLyrics(trackName = romanTitle, artistName = cleanArtist)
-                        })
+                    if (MultiLangRomanizer.isScriptThatNeedsRomanization(cleanTitle)) {
+                        val romanTitle = romanizeForMatch(cleanTitle)
+                        if (romanTitle != cleanTitle) {
+                            add(
+                                RemoteSearchStrategy("romanized_track") {
+                                    lrcLibApiService.searchLyrics(trackName = romanTitle, artistName = cleanArtist)
+                                }
+                            )
+                        }
+                    }
+                    val smartTitle = cleanTitleSmart(cleanTitle)
+                    if (smartTitle != cleanTitle && smartTitle.isNotBlank()) {
+                        add(
+                            RemoteSearchStrategy("smart_track_only") {
+                                lrcLibApiService.searchLyrics(trackName = smartTitle)
+                            }
+                        )
                     }
                 }
-                
-                // Smart title cleanup strategy (removes leading digits/spaces and truncates at -, (, ))
-                val smartTitle = cleanTitleSmart(cleanTitle)
-                if (smartTitle != cleanTitle && smartTitle.isNotBlank()) {
-                    Log.d(TAG, "Adding smart search strategy for: '$smartTitle' (orig: '$cleanTitle')")
-                    add(RemoteSearchStrategy("smart_track_only") {
-                        lrcLibApiService.searchLyrics(trackName = smartTitle)
-                    })
+                val extraResults = runSearchStrategiesFast(fallbackStrategies)
+                if (extraResults.isNotEmpty()) {
+                    val songDurationDbl = song.duration / 1000.0
+                    val syncedCandidates = extraResults.filter { !it.syncedLyrics.isNullOrBlank() }
+                    val bestSynced = if (songDurationDbl > 0) {
+                        syncedCandidates
+                            .filter { abs(it.duration - songDurationDbl) <= 6.0 }
+                            .minByOrNull { abs(it.duration - songDurationDbl) }
+                    } else {
+                        syncedCandidates.firstOrNull()
+                    }
+                    if (bestSynced != null) {
+                        matchedResponse = bestSynced
+                    } else {
+                        val plainCandidates = extraResults.filter { !it.plainLyrics.isNullOrBlank() }
+                        matchedResponse = if (songDurationDbl > 0) {
+                            plainCandidates
+                                .filter { abs(it.duration - songDurationDbl) <= 6.0 }
+                                .minByOrNull { abs(it.duration - songDurationDbl) }
+                        } else {
+                            plainCandidates.firstOrNull()
+                        }
+                    }
                 }
             }
 
-            var results = runSearchStrategiesFast(searchStrategies)
-
-            // Strategy 4: Aggressive fallback - remove artist and trim title at separators
-            if (results.isEmpty()) {
-                 // Include common CJK/Unicode separators: \uFF0D (fullwidth hyphen-minus), \u00B7 (middle dot), \u30FB (katakana middle dot)
-                 val separators = charArrayOf('-', ',', '(', ')', ':', '\uFF0D', '\u00B7', '\u30FB')
-                 val index = cleanTitle.indexOfAny(separators)
-                 if (index != -1) {
-                     val superCleanTitle = cleanTitle.substring(0, index).trim()
-                     if (superCleanTitle.isNotEmpty()) {
-                          Log.d(TAG, "Strategy 4: Searching with super simplified title: '$superCleanTitle' (no artist)")
-                          val fallbackResults = runCatching {
-                                withNetworkRetry(operationName = "lrclib_super_clean_search") {
-                                    lrcLibApiService.searchLyrics(trackName = superCleanTitle)
-                                }
-                          }.getOrNull()
-                          if (!fallbackResults.isNullOrEmpty()) {
-                              results = fallbackResults.toList()
-                          }
-                     }
-                 }
-            }
-
-            if (results.isEmpty()) {
-                Log.d(TAG, "No results from LRCLIB API")
-                return@withContext null
-            }
-
-            val bestMatch = rankRemoteLyricsMatches(
-                song = song,
-                responses = results,
-                mode = RemoteLyricsMatchMode.AUTOMATIC
-            ).firstOrNull()?.response
-
-            if (bestMatch != null) {
-                val rawLyrics = bestMatch.syncedLyrics ?: bestMatch.plainLyrics
+            if (matchedResponse != null) {
+                val rawLyrics = matchedResponse.syncedLyrics ?: matchedResponse.plainLyrics
                 if (!rawLyrics.isNullOrBlank()) {
                     val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
                     if (parsedLyrics.isValid()) {
-                        Log.d(TAG, "LRCLIB lyrics found - Synced: ${!bestMatch.syncedLyrics.isNullOrBlank()}, Plain: ${!bestMatch.plainLyrics.isNullOrBlank()}")
-                        
+                        Log.d(TAG, "LRCLIB lyrics found - Synced: ${!matchedResponse.syncedLyrics.isNullOrBlank()}, Plain: ${!matchedResponse.plainLyrics.isNullOrBlank()}")
+
                         // Save to database
                         try {
                             lyricsDao.insert(
                                 com.theveloper.pixelplay.data.database.LyricsEntity(
                                     songId = song.id.toLong(),
                                     content = rawLyrics,
-                                    isSynced = !bestMatch.syncedLyrics.isNullOrBlank(),
+                                    isSynced = !matchedResponse.syncedLyrics.isNullOrBlank(),
                                     source = "remote"
                                 )
                             )
                         } catch (e: NumberFormatException) {
                             Log.w(TAG, "Skipping database save for non-numeric song ID: ${song.id} (possible streaming or external source). Lyrics will be cached in JSON.")
                         }
-                        
+
                         return@withContext parsedLyrics
                     }
                 }
@@ -645,8 +701,7 @@ class LyricsRepositoryImpl @Inject constructor(
      */
     private suspend fun fetchFromNeteaseLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {
-            val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, " ").trim()
-            val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, " ").trim()
+            val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
             if (cleanTitle.isBlank()) return@withContext null
 
             val query = listOf(cleanArtist, cleanTitle)
@@ -698,19 +753,6 @@ class LyricsRepositoryImpl @Inject constructor(
             Log.d(TAG, "NetEase lyrics fallback failed for '${song.title}': ${e.message}")
             null
         }
-    }
-
-    /**
-     * Livello 4 del pipeline lyrics: se è disponibile solo testo non sincronizzato (plainLyrics),
-     * le righe vengono ripartite su una timeline lineare basata sulla durata complessiva del
-     * brano, così da garantire una visualizzazione fluida e temporizzata nella UI senza
-     * schermate vuote.
-     */
-    private fun applyLinearTimelineFallback(lyrics: Lyrics, durationMs: Long): Lyrics {
-        if (!lyrics.synced.isNullOrEmpty()) return lyrics
-        if (lyrics.plain.isNullOrEmpty()) return lyrics
-        val distributed = LyricsUtils.distributePlainOnLinearTimeline(lyrics.plain, durationMs)
-        return if (distributed.isNotEmpty()) lyrics.copy(synced = distributed) else lyrics
     }
 
     /**
@@ -1435,11 +1477,13 @@ class LyricsRepositoryImpl @Inject constructor(
 
             // Fallback: Try the exact match API (less likely to succeed, but worth a shot)
             val response = withNetworkRetry(operationName = "lrclib_get_lyrics") {
+                val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+                val durationSec = (song.duration / 1000).toInt()
                 lrcLibApiService.getLyrics(
-                    trackName = song.title,
-                    artistName = song.displayArtist,
-                    albumName = song.album,
-                    duration = (song.duration / 1000).toInt()
+                    trackName = cleanTitle,
+                    artistName = cleanArtist,
+                    albumName = null,
+                    duration = if (durationSec > 0) durationSec else null
                 )
             }
 
@@ -1468,9 +1512,10 @@ class LyricsRepositoryImpl @Inject constructor(
                     Log.w(TAG, "Skipping DB update for non-numeric ID in fallback: ${song.id}")
                 }
 
-                // Livello 4: distribuzione lineare per testi solo-plain + sidecar .lrc locale
-                val effectiveLyrics = applyLinearTimelineFallback(parsedLyrics, song.duration)
-                writeSidecarLrcForRemote(song, effectiveLyrics)
+                val effectiveLyrics = parsedLyrics
+                if (!effectiveLyrics.synced.isNullOrEmpty()) {
+                    writeSidecarLrcForRemote(song, effectiveLyrics)
+                }
 
                 lyricsCache.put(cacheKey, effectiveLyrics)
                 saveLocalLyricsJson(song, effectiveLyrics)
@@ -1498,9 +1543,8 @@ class LyricsRepositoryImpl @Inject constructor(
         try {
             LogUtils.d(this@LyricsRepositoryImpl, "Searching remote for lyrics for: ${song.title} by ${song.displayArtist}")
 
-            val combinedQuery = "${song.title} ${song.displayArtist}"
-            val cleanTitle = song.title.trim()
-            val cleanArtist = song.displayArtist.trim()
+            val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+            val combinedQuery = "$cleanTitle $cleanArtist"
 
             // FAST STRATEGY: run all requests in parallel, keep first non-empty batch
             // FAST STRATEGY: run all requests in parallel, keep first non-empty batch

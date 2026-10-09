@@ -34,7 +34,7 @@ object YtdlnisHelper {
      * @return true if YTDLnis intent was launched, false otherwise
      */
     fun downloadSong(context: Context, artist: String, title: String): Boolean {
-        val searchQuery = "ytsearch:$artist - $title".trim()
+        val searchQuery = "ytsearch1:$artist - $title".trim()
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/*"
             setPackage(YTDLNIS_PACKAGE_NAME)
@@ -73,7 +73,7 @@ object YtdlnisHelper {
      */
     fun shareDownloadQuery(context: Context, artist: String, title: String) {
         try {
-            val searchQuery = "ytsearch:$artist - $title".trim()
+            val searchQuery = "ytsearch1:$artist - $title".trim()
             val sendIntent = Intent().apply {
                 action = Intent.ACTION_SEND
                 putExtra(Intent.EXTRA_TEXT, searchQuery)

@@ -524,7 +524,7 @@ object AppModule {
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithHeaders = originalRequest.newBuilder()
-                    .header("User-Agent", "MusicBabeApp/1.0")
+                    .header("User-Agent", "PixelPlayApp/1.0 (Android)")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(requestWithHeaders)

@@ -1103,32 +1103,62 @@ object LyricsUtils {
     }
 
     /**
-     * Livello 4 del pipeline lyrics: ripartisce righe di testo non sincronizzato
-     * (plainLyrics) su una timeline lineare basata sulla durata complessiva del brano.
+     * Sanitizzazione aggressiva dei metadati traccia prima di interrogare le API dei lyrics.
+     * Rimuove diciture promozionali, etichette video, suffissi audio e artisti secondari.
      *
-     * Garantisce una visualizzazione fluida e temporizzata nella UI (LyricsSheet)
-     * anche quando il provider remoto restituisce solo testo plain, evitando
-     * schermate vuote o testi statici non scorrevoli.
-     *
-     * @param plainLines Righe di testo plain da distribuire.
-     * @param durationMs Durata del brano in millisecondi (fallback 4 minuti se assente).
-     * @return Lista di [SyncedLine] con timestamp calcolati in millisecondi.
+     * @param title Titolo grezzo del brano
+     * @param artist Nome grezzo dell'artista
+     * @return Coppia (cleanTitle, cleanArtist) ottimizzata per la query sui database LRC
      */
-    fun distributePlainOnLinearTimeline(plainLines: List<String>, durationMs: Long): List<SyncedLine> {
-        val lines = plainLines
-            .map { it.substringBefore('\n').trim() }
-            .filter { it.isNotEmpty() }
-        if (lines.isEmpty()) return emptyList()
+    fun cleanTrackMetadata(title: String, artist: String): Pair<String, String> {
+        var cleanTitle = title.trim()
 
-        val duration = if (durationMs > 1_000L) durationMs else DEFAULT_LINEAR_TIMELINE_DURATION_MS
-        // Breve intro strumentale (max 5s) prima della prima riga cantata.
-        val introMs = (duration / 20L).coerceAtMost(5_000L)
-        val usableMs = (duration - introMs).coerceAtLeast(lines.size * 500L)
-        val stepMs = usableMs / lines.size
+        // 1. Rimuovi suffissi di estensione file audio
+        cleanTitle = cleanTitle.replace(Regex("""\.(mp3|flac|m4a|wav|aac|ogg|opus)$""", RegexOption.IGNORE_CASE), "")
 
-        return lines.mapIndexed { index, text ->
-            SyncedLine(time = (introMs + index * stepMs).toInt(), line = text)
+        // 2. Rimuovi etichette video e versioni comuni tra parentesi tonde o quadre
+        val noisePatterns = listOf(
+            """\s*[\(\[]\s*official\s+video\s*[\)\]]""",
+            """\s*[\(\[]\s*official\s+audio\s*[\)\]]""",
+            """\s*[\(\[]\s*official\s+music\s+video\s*[\)\]]""",
+            """\s*[\(\[]\s*lyric\s+video\s*[\)\]]""",
+            """\s*[\(\[]\s*lyrics?\s*[\)\]]""",
+            """\s*[\(\[]\s*audio\s*[\)\]]""",
+            """\s*[\(\[]\s*visualizer\s*[\)\]]""",
+            """\s*[\(\[]\s*remaster(?:ed)?(?:\s+\d{4})?\s*[\)\]]""",
+            """\s*[\(\[]\s*(?:feat|ft)\.?\s+[^)\]]+[\)\]]""",
+            """\s*[\(\[]\s*hd\s*[\)\]]""",
+            """\s*[\(\[]\s*4k\s*[\)\]]"""
+        )
+        for (pattern in noisePatterns) {
+            cleanTitle = cleanTitle.replace(Regex(pattern, RegexOption.IGNORE_CASE), "")
         }
+
+        // 3. Rimuovi qualsiasi eventuale parentesi quadra residua (es. [Remix], [2024])
+        cleanTitle = cleanTitle.replace(Regex("""\s*\[[^\]]*\]"""), "")
+
+        // 4. Rimuovi featuring non racchiusi tra parentesi (es. "Title feat. Artist")
+        cleanTitle = cleanTitle.replace(Regex("""\s+(?:feat|ft)\.?\s+.*$""", RegexOption.IGNORE_CASE), "")
+
+        // 5. Pulisci punteggiatura residua
+        cleanTitle = cleanTitle.trim().trimEnd('-', '_', '|', '/', ':')
+
+        // 6. Sanitizzazione dell'artista: isola l'artista principale
+        var cleanArtist = artist.trim()
+        cleanArtist = cleanArtist.replace(Regex("""\s*[\(\[].*?[\)\]]"""), "")
+        val artistSplitters = listOf(" feat. ", " ft. ", " featuring ", " Feat. ", " Ft. ", " & ", ", ", " x ", " X ", " / ")
+        for (splitter in artistSplitters) {
+            if (cleanArtist.contains(splitter)) {
+                cleanArtist = cleanArtist.substringBefore(splitter).trim()
+                break
+            }
+        }
+        cleanArtist = cleanArtist.trim().trimEnd('-', '_', '|', '/', ':')
+
+        val finalTitle = if (cleanTitle.isNotBlank()) cleanTitle else title.trim()
+        val finalArtist = if (cleanArtist.isNotBlank()) cleanArtist else artist.trim()
+
+        return Pair(finalTitle, finalArtist)
     }
 
     /**
@@ -1145,6 +1175,7 @@ object LyricsUtils {
     fun writeSidecarLrcFile(audioPath: String, lyrics: Lyrics): Boolean {
         val synced = lyrics.synced
         if (synced.isNullOrEmpty() || audioPath.isBlank()) return false
+        if (synced.none { it.time >= 0 && it.line.isNotBlank() }) return false
         return try {
             val parent = File(audioPath).parentFile
             if (parent == null || !parent.exists()) return false
@@ -1155,8 +1186,6 @@ object LyricsUtils {
             false
         }
     }
-
-    private const val DEFAULT_LINEAR_TIMELINE_DURATION_MS = 240_000L
 }
 
 private fun stripLeadingLyricsDocumentNoise(value: String): String {

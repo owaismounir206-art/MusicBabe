@@ -418,4 +418,41 @@ class LyricsUtilsTest {
             lrc
         )
     }
+
+    @Test
+    fun cleanTrackMetadata_removesQualifiersAudioExtensionsAndFeaturing() {
+        val (title1, artist1) = LyricsUtils.cleanTrackMetadata(
+            title = "Blinding Lights (Official Video) [Remastered 2020].mp3",
+            artist = "The Weeknd feat. Daft Punk"
+        )
+        assertEquals("Blinding Lights", title1)
+        assertEquals("The Weeknd", artist1)
+
+        val (title2, artist2) = LyricsUtils.cleanTrackMetadata(
+            title = "Starboy (Lyric Video) (feat. Daft Punk)",
+            artist = "The Weeknd ft. Daft Punk"
+        )
+        assertEquals("Starboy", title2)
+        assertEquals("The Weeknd", artist2)
+
+        val (title3, artist3) = LyricsUtils.cleanTrackMetadata(
+            title = "Song Name [Official Audio] (Lyrics).flac",
+            artist = "Main Artist featuring Guest"
+        )
+        assertEquals("Song Name", title3)
+        assertEquals("Main Artist", artist3)
+    }
+
+    @Test
+    fun parseLyrics_plainText_hasNoSyncedTimestamps() {
+        val plain = "Just a line of plain text\nAnd a second line without timestamps"
+        val parsed = LyricsUtils.parseLyrics(plain)
+
+        assertTrue(parsed.synced.isNullOrEmpty())
+        assertNotNull(parsed.plain)
+        assertEquals(2, parsed.plain?.size)
+        assertEquals("Just a line of plain text", parsed.plain?.get(0))
+        assertEquals("And a second line without timestamps", parsed.plain?.get(1))
+    }
 }
+
