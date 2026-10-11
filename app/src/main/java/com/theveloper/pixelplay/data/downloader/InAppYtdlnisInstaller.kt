@@ -20,6 +20,7 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -83,7 +84,7 @@ class InAppYtdlnisInstaller @Inject constructor(
     private suspend fun fetchLatestYtdlnisApkUrl(): String? = withContext(Dispatchers.IO) {
         try {
             val url = URL("https://api.github.com/repos/deniscerri/ytdlnis/releases/latest")
-            val connection = url.openConnection() as HttpURLConnection
+            val connection = url.ensureCleartextAllowed().openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
             connection.setRequestProperty("User-Agent", "MusicBabe/1.3.0")
@@ -141,7 +142,7 @@ class InAppYtdlnisInstaller @Inject constructor(
                 if (targetFile.exists()) targetFile.delete()
 
                 val url = URL(downloadUrl)
-                var connection = url.openConnection() as HttpURLConnection
+                var connection = url.ensureCleartextAllowed().openConnection() as HttpURLConnection
                 connection.instanceFollowRedirects = true
                 connection.connectTimeout = 15000
                 connection.readTimeout = 30000
@@ -155,7 +156,7 @@ class InAppYtdlnisInstaller @Inject constructor(
                         redirectCode == 307 || redirectCode == 308) && redirects < 5) {
                     val newUrl = connection.getHeaderField("Location")
                     connection.disconnect()
-                    connection = URL(newUrl).openConnection() as HttpURLConnection
+                    connection = URL(newUrl).ensureCleartextAllowed().openConnection() as HttpURLConnection
                     connection.connectTimeout = 15000
                     connection.readTimeout = 30000
                     connection.setRequestProperty("User-Agent", "MusicBabe/1.3.0")

@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.data.service
 
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
+import com.theveloper.pixelplay.data.network.isCleartextBlocked
+import com.theveloper.pixelplay.data.network.CleartextPolicy
 import android.app.AlarmManager
 import android.app.BackgroundServiceStartNotAllowedException
 import android.app.ForegroundServiceStartNotAllowedException
@@ -1461,7 +1464,11 @@ class MusicService : MediaLibraryService() {
                 val trackTitle = currentMediaItem?.mediaMetadata?.title?.toString()
                     ?: currentMediaItem?.mediaId
                     ?: getString(R.string.common_unknown_track)
-                val errorMessage = error.localizedMessage ?: error.message ?: "Unknown error"
+                val errorMessage = if (error.isCleartextBlocked()) {
+                    getString(R.string.network_cleartext_not_permitted)
+                } else {
+                    error.localizedMessage ?: error.message ?: getString(R.string.common_unknown_error)
+                }
                 val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
                 android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()
             }
@@ -2349,10 +2356,10 @@ class MusicService : MediaLibraryService() {
                     null
                 }
             }
-            scheme == "http" || scheme == "https" -> {
+            (scheme == "http" || scheme == "https") && CleartextPolicy.isAllowed(uriString) -> {
                 var connection: HttpURLConnection? = null
                 try {
-                    connection = (URL(uriString).openConnection() as? HttpURLConnection)
+                    connection = (URL(uriString).ensureCleartextAllowed().openConnection() as? HttpURLConnection)
                         ?: return null
                     connection.connectTimeout = 4_000
                     connection.readTimeout = 6_000

@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.service.player
 
+import com.theveloper.pixelplay.data.network.CleartextGuardDataSourceFactory
 import android.app.ActivityManager
 import android.content.Context
 import android.media.AudioAttributes
@@ -1112,7 +1113,7 @@ class DualPlayerEngine @Inject constructor(
             }
         }
         
-        val dataSourceFactory = DefaultDataSource.Factory(context)
+        val dataSourceFactory = CleartextGuardDataSourceFactory(DefaultDataSource.Factory(context))
         val resolvingFactory = ResolvingDataSource.Factory(dataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             // FLAG_WORKAROUND_IGNORE_EDIT_LISTS intentionally removed: it breaks Opus files

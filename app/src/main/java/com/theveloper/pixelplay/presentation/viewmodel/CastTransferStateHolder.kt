@@ -18,6 +18,7 @@ import com.google.android.gms.cast.framework.SessionManager
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.http.CastSessionSecurity
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
@@ -1027,7 +1028,7 @@ class CastTransferStateHolder @Inject constructor(
     ): Boolean = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         runCatching {
-            connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            connection = (URL(endpoint).ensureCleartextAllowed().openConnection() as HttpURLConnection).apply {
                 connectTimeout = 150
                 readTimeout = 150
                 instanceFollowRedirects = false

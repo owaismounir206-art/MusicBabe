@@ -1,0 +1,78 @@
+# ==============================================================================
+# CLINE IGNORE RULES FOR PIXELPLAY / MUSICBABE
+# ==============================================================================
+# Purpose: Prevent Cline from reading, searching, indexing, or traversing
+# heavy build artifacts, caches, large binary assets, and generated code.
+# This saves massive amounts of context tokens and drastically reduces API costs.
+# ==============================================================================
+
+# --- Android / Gradle Build Outputs & Caches (CRITICAL TOKEN SAVER) ---
+build/
+**/build/
+.gradle/
+**/.gradle/
+.gradle-local/
+.gradle-temp/
+.kotlin/
+**/.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+benchmark-results/
+app/build/
+wear/build/
+shared/build/
+baselineprofile/build/
+
+# --- Compiled Binaries & Large Package Archives ---
+# Notice: root APK files (139MB+) must NEVER be indexed or traversed
+*.apk
+*.aab
+*.dex
+*.class
+*.jar
+*.aar
+*.so
+*.dylib
+*.bin
+
+# --- Version Control & IDE Metadata ---
+.git/
+**/.git/
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+
+# --- Binary Assets, Fonts & Media (Never read by LLM) ---
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.ico
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.mp3
+*.flac
+*.m4a
+*.opus
+*.ogg
+*.wav
+assets/
+**/assets/
+wear/src/main/res/font/
+app/src/main/res/font/
+
+# --- Keystores & Sensitive Local Properties ---
+*.jks
+*.keystore
+local.properties
+keystore.properties
+
+# --- Logs, Crash Dumps & Temp Files ---
+*.log
+hs_err_pid*.log
+*.tmp
+*.temp

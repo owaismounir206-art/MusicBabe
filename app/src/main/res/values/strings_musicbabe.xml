@@ -2,4 +2,6 @@
 <!-- Strings added by the MusicBabe fork. English is the default; other locales fall back to it until translated. -->
 <resources>
     <string name="ai_api_key_secure_storage_unavailable">Secure storage is unavailable on this device: the API key was not saved.</string>
+    <string name="network_cleartext_not_permitted">Unencrypted connection blocked: plain HTTP is only allowed for servers on your local network. Use an https:// address.</string>
+    <string name="common_unknown_error">Unknown error</string>
 </resources>

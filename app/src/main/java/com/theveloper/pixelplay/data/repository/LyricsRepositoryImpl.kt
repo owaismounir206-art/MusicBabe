@@ -719,12 +719,17 @@ class LyricsRepositoryImpl @Inject constructor(
 
             for (i in 0 until songsArray.length()) {
                 val item = songsArray.optJSONObject(i) ?: continue
-                val candidateTitle = normalizeForMatch(item.optString("name", ""))
-                if (normalizedTitle.isBlank() || !candidateTitle.contains(normalizedTitle)) continue
+                val candidateNorm = normalizeForMatch(item.optString("name", ""))
+                if (normalizedTitle.isBlank()) continue
+                val isTitleMatch = candidateNorm == normalizedTitle ||
+                    candidateNorm.contains(normalizedTitle) ||
+                    normalizedTitle.contains(candidateNorm) ||
+                    (candidateNorm.split(" ").take(2) == normalizedTitle.split(" ").take(2))
+                if (!isTitleMatch) continue
 
                 val candidateDurationMs = item.optLong("dt", 0L)
                 if (targetDurationMs > 0 && candidateDurationMs > 0 &&
-                    abs(candidateDurationMs - targetDurationMs) > NETEASE_DURATION_TOLERANCE_MS
+                    abs(candidateDurationMs - targetDurationMs) > 15_000L
                 ) continue
 
                 val delta = if (targetDurationMs > 0 && candidateDurationMs > 0) {
@@ -1523,8 +1528,36 @@ class LyricsRepositoryImpl @Inject constructor(
 
                 Result.success(Pair(effectiveLyrics, rawLyricsToSave))
             } else {
-                LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
-                Result.failure(NoLyricsFoundException())
+                // Tier 3 fallback: NetEase Cloud Music reverse public scraper
+                val neteaseLyrics = runCatching { fetchFromNeteaseLyrics(song) }.getOrNull()
+                if (neteaseLyrics != null && neteaseLyrics.isValid()) {
+                    val rawLyricsToSave = LyricsUtils.toLrcString(neteaseLyrics)
+                    try {
+                        lyricsDao.insert(
+                            com.theveloper.pixelplay.data.database.LyricsEntity(
+                                songId = song.id.toLong(),
+                                content = rawLyricsToSave,
+                                isSynced = !neteaseLyrics.synced.isNullOrEmpty(),
+                                source = "netease"
+                            )
+                        )
+                    } catch (e: NumberFormatException) {
+                        Log.w(TAG, "Skipping DB update for non-numeric ID in NetEase fallback: ${song.id}")
+                    }
+
+                    if (!neteaseLyrics.synced.isNullOrEmpty()) {
+                        writeSidecarLrcForRemote(song, neteaseLyrics)
+                    }
+
+                    lyricsCache.put(cacheKey, neteaseLyrics)
+                    saveLocalLyricsJson(song, neteaseLyrics)
+                    LogUtils.d(this@LyricsRepositoryImpl, "Fetched and cached remote lyrics (NetEase fallback) for: ${song.title}")
+
+                    Result.success(Pair(neteaseLyrics, rawLyricsToSave))
+                } else {
+                    LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
+                    Result.failure(NoLyricsFoundException())
+                }
             }
         } catch (e: Exception) {
             LogUtils.e(this@LyricsRepositoryImpl, e, "Error fetching lyrics from remote")
@@ -1599,12 +1632,22 @@ class LyricsRepositoryImpl @Inject constructor(
                     LogUtils.d(this@LyricsRepositoryImpl, "Found ${results.size} lyrics for: ${song.title} ($syncedCount with synced)")
                     Result.success(Pair(combinedQuery, results))
                 } else {
-                    LogUtils.d(this@LyricsRepositoryImpl, "No matching lyrics found for: ${song.title}")
-                    Result.failure(NoLyricsFoundException(combinedQuery))
+                    val neteaseResult = findNeteaseLyricsSearchResult(song)
+                    if (neteaseResult != null) {
+                        Result.success(Pair(combinedQuery, listOf(neteaseResult)))
+                    } else {
+                        LogUtils.d(this@LyricsRepositoryImpl, "No matching lyrics found for: ${song.title}")
+                        Result.failure(NoLyricsFoundException(combinedQuery))
+                    }
                 }
             } else {
-                LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
-                Result.failure(NoLyricsFoundException(combinedQuery))
+                val neteaseResult = findNeteaseLyricsSearchResult(song)
+                if (neteaseResult != null) {
+                    Result.success(Pair(combinedQuery, listOf(neteaseResult)))
+                } else {
+                    LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
+                    Result.failure(NoLyricsFoundException(combinedQuery))
+                }
             }
         } catch (e: Exception) {
             LogUtils.e(this@LyricsRepositoryImpl, e, "Error searching remote for lyrics")
@@ -1616,6 +1659,25 @@ class LyricsRepositoryImpl @Inject constructor(
                 else -> Result.failure(LyricsException(context.getString(R.string.lyrics_failed_to_search), e))
             }
         }
+    }
+
+    private suspend fun findNeteaseLyricsSearchResult(song: Song): LyricsSearchResult? {
+        val neteaseLyrics = runCatching { fetchFromNeteaseLyrics(song) }.getOrNull() ?: return null
+        if (!neteaseLyrics.isValid()) return null
+        val rawLyrics = LyricsUtils.toLrcString(neteaseLyrics)
+        return LyricsSearchResult(
+            record = LrcLibResponse(
+                id = song.id.hashCode(),
+                name = song.title,
+                artistName = song.displayArtist,
+                albumName = song.album,
+                duration = song.duration / 1000.0,
+                plainLyrics = if (neteaseLyrics.synced.isNullOrEmpty()) rawLyrics else null,
+                syncedLyrics = if (!neteaseLyrics.synced.isNullOrEmpty()) rawLyrics else null
+            ),
+            lyrics = neteaseLyrics,
+            rawLyrics = rawLyrics
+        )
     }
 
     override suspend fun searchRemoteByQuery(title: String, artist: String?): Result<Pair<String, List<LyricsSearchResult>>> = withContext(Dispatchers.IO) {

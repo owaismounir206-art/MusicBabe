@@ -83,6 +83,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.consumePositionChange
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.scaleIn
@@ -1250,7 +1251,10 @@ fun SyncedLyricsList(
         LaunchedEffect(currentLineIndex, lines.size, metrics, isPreviewSeeking) {
             if (lines.isEmpty()) return@LaunchedEffect
             if (currentLineIndex !in lines.indices) return@LaunchedEffect
-            if (listState.layoutInfo.totalItemsCount == 0) return@LaunchedEffect
+
+            if (listState.layoutInfo.totalItemsCount == 0) {
+                snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
+            }
 
             if (!hasAlignedInitialLine) {
                 listState.scrollToItem(currentLineIndex)
@@ -1875,9 +1879,19 @@ internal fun normalizeWordEndTime(
 }
 
 internal fun resolveLineEndTimeMs(line: SyncedLine, nextLineStartMs: Int): Long {
-    val baseEnd = nextLineStartMs.toLong()
     val lastWordStart = line.words?.maxOfOrNull { it.time.toLong() } ?: line.time.toLong()
-    return maxOf(baseEnd, lastWordStart + 1L)
+    val minEnd = lastWordStart + 1L
+    val baseEnd = if (nextLineStartMs == Int.MAX_VALUE) {
+        line.time.toLong() + 8_000L
+    } else {
+        val durationToNext = nextLineStartMs.toLong() - line.time.toLong()
+        if (durationToNext > 12_000L) {
+            line.time.toLong() + 8_000L
+        } else {
+            nextLineStartMs.toLong()
+        }
+    }
+    return maxOf(baseEnd, minEnd)
 }
 
 internal fun resolveHighlightedWordIndex(

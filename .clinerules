@@ -10,7 +10,7 @@
 - **Architecture**: Clean Architecture + MVVM (Data, Domain, Presentation), Dagger Hilt for DI, Room DB, Kotlin Coroutines & StateFlow
 - **Verification Command**:
   ```bash
-  JAVA_HOME=/home/owais/.jdks/jdk-21.0.12.1+1 ./gradlew compileDebugKotlin
+  JAVA_HOME=/home/owais/.jdks/jdk-21.0.12.1+1 ./gradlew compileDebugKotlin --quiet --console=plain
   ```
 
 ---
@@ -36,7 +36,7 @@
    - Make precise, surgical modifications using diff tools rather than rewriting entire 2000-line files when possible.
 
 5. **Mandatory Build Verification**:
-   - ALWAYS verify changes by running `compileDebugKotlin` before declaring any task completed.
+   - ALWAYS verify changes by running `compileDebugKotlin --quiet --console=plain` before declaring any task completed.
    - Fix all compiler errors, unresolved references, and type mismatches immediately.
 
 ---
@@ -77,3 +77,22 @@
   - `data/network/`: Retrofit API services (Deezer, NetEase, LrcLib, Telegram, etc.).
   - `presentation/screens/`: Jetpack Compose screens (Player, Lyrics, Library, Settings).
   - `presentation/viewmodel/`: StateHolders and ViewModels (`PlayerViewModel`, etc.).
+
+---
+
+## 6. TOKEN CONSERVATION & COST REDUCTION RULES FOR CLINE
+1. **Diff-Only Surgical Edits**:
+   - NEVER overwrite entire files (>100 lines) with complete file rewrite tools (`write_to_file`).
+   - ALWAYS use precision search-and-replace / diff patching to minimize output tokens.
+2. **Targeted Reading**:
+   - NEVER dump or read entire 1000+ line files (e.g. `MusicService.kt`, `DualPlayerEngine.kt`, `PlayerScreen.kt`) in a single view.
+   - Use line ranges (`start_line`, `end_line`) or targeted regex/grep searches to inspect only relevant functions.
+3. **Quiet Build Commands**:
+   - Always run gradle verification with `--quiet --console=plain` to avoid dumping hundreds of lines of gradle output into the context window.
+4. **Terse Technical Communication**:
+   - Do NOT produce conversational filler, apologies, unrequested summaries, or re-explain what the code does.
+   - State what changed and provide the build verification status in as few words as possible.
+5. **No Redundant Re-Reading**:
+   - If a file or schema was already read in the conversation turn, do not re-read it.
+6. **Follow Roadmap**:
+   - Consult `GLM_5.3_AUDIT_AND_FIXES.md` for prioritized architectural and security tasks.

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ai_api_key_secure_storage_unavailable">L\'archivio sicuro non è disponibile su questo dispositivo: la chiave API non è stata salvata.</string>
+    <string name="network_cleartext_not_permitted">Connessione non cifrata bloccata: HTTP semplice è consentito solo per i server della rete locale. Usa un indirizzo https://.</string>
+    <string name="common_unknown_error">Errore sconosciuto</string>
 </resources>

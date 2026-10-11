@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.viewmodel.exts
 
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultDataSource
+import com.theveloper.pixelplay.data.network.CleartextGuardDataSourceFactory
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.OptIn
@@ -89,6 +92,9 @@ class DeckController(
             .build()
 
         return ExoPlayer.Builder(context, renderersFactory)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(CleartextGuardDataSourceFactory(DefaultDataSource.Factory(context)))
+            )
             .build()
             .apply {
                 setAudioAttributes(audioAttributes, false)

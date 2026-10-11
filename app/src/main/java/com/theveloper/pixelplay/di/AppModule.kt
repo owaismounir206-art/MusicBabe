@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.di
 
+import com.theveloper.pixelplay.data.network.enforceCleartextPolicy
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.datastore.core.DataStore
@@ -277,6 +278,7 @@ object AppModule {
     ): ImageLoader {
         // Add interceptor for QQ Music images
         val okHttpClient = OkHttpClient.Builder()
+            .enforceCleartextPolicy()
             .addInterceptor { chain ->
                 val request = chain.request()
                 val url = request.url.toString()
@@ -465,6 +467,7 @@ object AppModule {
         )
         
         return OkHttpClient.Builder()
+            .enforceCleartextPolicy()
             .connectionPool(connectionPool)
             .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
@@ -512,6 +515,7 @@ object AppModule {
         }
 
         return OkHttpClient.Builder()
+            .enforceCleartextPolicy()
             .dns(dns)
             .connectionPool(connectionPool)
             // Use HTTP/1.1 to avoid HTTP/2 stream issues with some servers
@@ -531,7 +535,7 @@ object AppModule {
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithHeaders = originalRequest.newBuilder()
-                    .header("User-Agent", "PixelPlayApp/1.0 (Android)")
+                    .header("User-Agent", "MusicBabeApp/1.0 (Android)")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(requestWithHeaders)

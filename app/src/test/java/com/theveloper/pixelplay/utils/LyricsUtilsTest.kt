@@ -454,5 +454,39 @@ class LyricsUtilsTest {
         assertEquals("Just a line of plain text", parsed.plain?.get(0))
         assertEquals("And a second line without timestamps", parsed.plain?.get(1))
     }
+
+    @Test
+    fun parseLyrics_parsesVariableDigitFractionalTimestamps() {
+        val lrc = "[01:05.4]One digit fraction\n" +
+            "[01:05.45]Two digit fraction\n" +
+            "[01:05.456]Three digit fraction"
+        val parsed = LyricsUtils.parseLyrics(lrc)
+        val synced = requireNotNull(parsed.synced)
+
+        assertEquals(3, synced.size)
+        assertEquals(65_400, synced[0].time)
+        assertEquals("One digit fraction", synced[0].line)
+        assertEquals(65_450, synced[1].time)
+        assertEquals("Two digit fraction", synced[1].line)
+        assertEquals(65_456, synced[2].time)
+        assertEquals("Three digit fraction", synced[2].line)
+    }
+
+    @Test
+    fun parseLyrics_parsesWordLevelTimestampsWithVariableDigits() {
+        val lrc = "[00:01.00]Hello <00:01.5>world <00:02.123>!"
+        val parsed = LyricsUtils.parseLyrics(lrc)
+        val synced = requireNotNull(parsed.synced)
+
+        assertEquals(1, synced.size)
+        val words = requireNotNull(synced[0].words)
+        assertEquals(3, words.size)
+        assertEquals(1_000, words[0].time)
+        assertEquals("Hello", words[0].word)
+        assertEquals(1_500, words[1].time)
+        assertEquals("world", words[1].word)
+        assertEquals(2_123, words[2].time)
+        assertEquals("!", words[2].word)
+    }
 }
 

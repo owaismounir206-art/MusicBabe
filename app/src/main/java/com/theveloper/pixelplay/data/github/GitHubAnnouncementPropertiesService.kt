@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.github
 
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import java.io.StringReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -45,7 +46,7 @@ class GitHubAnnouncementPropertiesService @Inject constructor() {
             var connection: HttpURLConnection? = null
             try {
                 val rawUrl = "https://raw.githubusercontent.com/$owner/$repo/$branch/$configPath"
-                connection = (URL(rawUrl).openConnection() as HttpURLConnection).apply {
+                connection = (URL(rawUrl).ensureCleartextAllowed().openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 10_000
                     readTimeout = 10_000

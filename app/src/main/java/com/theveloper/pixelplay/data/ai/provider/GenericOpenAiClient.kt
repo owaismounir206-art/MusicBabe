@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.ai.provider
 
+import com.theveloper.pixelplay.data.network.enforceCleartextPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -48,6 +49,7 @@ class GenericOpenAiClient(
     private data class ModelsResponse(val data: List<ModelItem>)
     
     private val client = OkHttpClient.Builder()
+        .enforceCleartextPolicy()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)

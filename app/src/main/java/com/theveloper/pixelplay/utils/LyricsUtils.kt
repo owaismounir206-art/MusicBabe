@@ -705,10 +705,10 @@ private fun String.capitalizeFirstLetter(): String {
 
 object LyricsUtils {
 
-    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})](.*)$")
-    private val LRC_WORD_REGEX = Pattern.compile("<(\\d{2}):(\\d{2})[.:](\\d{2,3})>([^<]*)")
-    private val LRC_WORD_TAG_REGEX = Regex("<\\d{2}:\\d{2}[.:]\\d{2,3}>")
-    private val LRC_WORD_SPLIT_REGEX = Regex("(?=<\\d{2}:\\d{2}[.:]\\d{2,3}>)")
+    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{1,3}):(\\d{2})[.:](\\d{1,3})](.*)$")
+    private val LRC_WORD_REGEX = Pattern.compile("<(\\d{1,3}):(\\d{2})[.:](\\d{1,3})>([^<]*)")
+    private val LRC_WORD_TAG_REGEX = Regex("<\\d{1,3}:\\d{2}[.:]\\d{1,3}>")
+    private val LRC_WORD_SPLIT_REGEX = Regex("(?=<\\d{1,3}:\\d{2}[.:]\\d{1,3}>)")
     private val LRC_TIMESTAMP_TAG_REGEX = Regex("\\[\\d{1,2}:\\d{2}(?:[.:]\\d{1,3})?]")
     private val TRANSLATION_CREDIT_REGEX = Regex("^\\s*by\\s*[:：].+", RegexOption.IGNORE_CASE)
     private val LRC_METADATA_PATTERN = Pattern.compile("^\\[[a-zA-Z]+:.*]$")
@@ -765,7 +765,12 @@ object LyricsUtils {
                 val textWithTags = stripFormatCharacters(lineMatcher.group(4)?.trim() ?: "")
                 val text = stripLrcTimestamps(textWithTags)
 
-                val millis = if (lineMatcher.group(3)?.length == 2) fraction * 10 else fraction
+                val fracLen = lineMatcher.group(3)?.length ?: 0
+                val millis = when (fracLen) {
+                    1 -> fraction * 100
+                    2 -> fraction * 10
+                    else -> fraction
+                }
                 val lineTimestamp = minutes * 60 * 1000 + seconds * 1000 + millis
 
                 // Enhanced word-by-word parsing
@@ -793,7 +798,12 @@ object LyricsUtils {
                                 timedWordTextRaw.firstOrNull()?.isWhitespace() == true
                             val timedWordText = timedWordTextRaw.trim()
                             pendingWordBoundary = timedWordTextRaw.lastOrNull()?.isWhitespace() == true
-                            val wordMillis = if (wordMatcher.group(3)?.length == 2) wordFraction * 10 else wordFraction
+                            val wordFracLen = wordMatcher.group(3)?.length ?: 0
+                            val wordMillis = when (wordFracLen) {
+                                1 -> wordFraction * 100
+                                2 -> wordFraction * 10
+                                else -> wordFraction
+                            }
                             val wordTimestamp = wordMinutes * 60 * 1000 + wordSeconds * 1000 + wordMillis
                             if (timedWordText.isNotEmpty()) {
                                 words.add(

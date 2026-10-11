@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.theveloper.pixelplay.BuildConfig
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +63,7 @@ class AppUpdateManager @Inject constructor(
         _isChecking.value = true
         try {
             val url = URL("https://api.github.com/repos/owaismounir206-art/MusicBabe/releases/latest")
-            val connection = url.openConnection() as HttpURLConnection
+            val connection = url.ensureCleartextAllowed().openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
             connection.connectTimeout = 10000
@@ -147,7 +148,7 @@ class AppUpdateManager @Inject constructor(
                 }
 
                 val url = URL(downloadUrl)
-                val connection = url.openConnection() as HttpURLConnection
+                val connection = url.ensureCleartextAllowed().openConnection() as HttpURLConnection
                 connection.instanceFollowRedirects = true
                 connection.connectTimeout = 15000
                 connection.readTimeout = 30000
@@ -161,7 +162,7 @@ class AppUpdateManager @Inject constructor(
                         redirectCode == 307 || redirectCode == 308) && redirectCount < 5) {
                     val newUrl = redirectConnection.getHeaderField("Location")
                     redirectConnection.disconnect()
-                    redirectConnection = URL(newUrl).openConnection() as HttpURLConnection
+                    redirectConnection = URL(newUrl).ensureCleartextAllowed().openConnection() as HttpURLConnection
                     redirectConnection.connectTimeout = 15000
                     redirectConnection.readTimeout = 30000
                     redirectCode = redirectConnection.responseCode

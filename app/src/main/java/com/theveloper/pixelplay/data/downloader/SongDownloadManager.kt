@@ -18,6 +18,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.downloader.InAppYtdlnisInstaller
 import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.netease.NeteaseRepository
@@ -78,8 +79,18 @@ class SongDownloadManager @Inject constructor(
         const val CHANNEL_ID = "musicbabe_song_downloads"
         const val NOTIFICATION_ID = 4040
 
-        // Tolleranza di durata (±6s) per il match della traccia full-length su NetEase.
-        private const val NETEASE_DURATION_TOLERANCE_MS = 6_000L
+        // Tolleranza di durata (±15s) per il match della traccia full-length su NetEase.
+        private const val NETEASE_DURATION_TOLERANCE_MS = 15_000L
+
+        // Estensioni dei file audio diretti (per distinguere un flusso da una pagina web).
+        private val AUDIO_FILE_EXTENSIONS = listOf(
+            ".mp3", ".m4a", ".flac", ".ogg", ".oga", ".aac", ".opus", ".wav", ".wma"
+        )
+
+        // Content-Type che non sono MAI flussi audio scaricabili (pagine web o payload di errore).
+        private val NON_AUDIO_CONTENT_TYPES = listOf(
+            "text/html", "application/xhtml+xml", "application/json", "text/plain"
+        )
     }
 
     init {
@@ -125,12 +136,20 @@ class SongDownloadManager @Inject constructor(
                 return@launch
             }
 
-            // FIX STREAMING REALE: rilevamento deterministico dell'anteprima promozionale.
-            // I link "cdns-preview-*" di Deezer sono MP3 promo di ~30s e NON devono mai
-            // essere salvati in libreria come brani completi.
-            val isPreview = previewUrl != null && isPreviewSource(previewUrl, track)
+            // FIX STREAMING REALE: rilevamento deterministico dell'anteprima promozionale
+            // e dei link di condivisione. I link "cdns-preview-*" di Deezer sono MP3 promo
+            // di ~30s e NON devono mai essere salvati in libreria come brani completi.
+            // Uno `shareLink` (es. https://www.deezer.com/track/…) è una pagina web HTML,
+            // non un flusso audio: non deve mai essere scritto su disco come .mp3.
+            // Si usa quindi solo il primo URL che punta direttamente a un flusso audio
+            // (preview o CDN full-length); se non ne esiste nessuno, si entra comunque
+            // nella cascata di risoluzione full-length (NetEase -> yt-dlp).
+            val directAudioUrl = listOfNotNull(previewUrl, shareLink)
+                .firstOrNull { isDirectAudioStreamUrl(it) }
 
-            val effectiveUrl: String = if (isPreview) {
+            val isPreview = directAudioUrl != null && isPreviewSource(directAudioUrl, track)
+
+            val effectiveUrl: String = if (isPreview || directAudioUrl == null) {
                 // Cascata di risoluzione full-length: Passo A (NetEase full stream) e,
                 // in caso di fallimento, Passo B (bridge yt-dlp / YTDLnis).
                 val fullStreamUrl = resolveNetEaseFullStream(track)
@@ -171,7 +190,7 @@ class SongDownloadManager @Inject constructor(
                     return@launch
                 }
             } else {
-                previewUrl ?: shareLink!!
+                directAudioUrl!!
             }
 
             _downloadState.value = DownloadState.Downloading(track.id, 0f, track.title)
@@ -234,6 +253,9 @@ class SongDownloadManager @Inject constructor(
         audioUrl: String,
         onProgress: (Float) -> Unit
     ): Result<Pair<String, Song>> = withContext(Dispatchers.IO) {
+        var insertedAudioUri: Uri? = null
+        var connection: HttpURLConnection? = null
+        var inputStream: java.io.InputStream? = null
         try {
             val sanitizedTitle = track.title.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(60).trim()
             val sanitizedArtist = track.artistName.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(50).trim()
@@ -247,31 +269,13 @@ class SongDownloadManager @Inject constructor(
             val targetFile = File(musicBabeDir, fileName)
             val absolutePath = targetFile.absolutePath
 
-            val url = URL(audioUrl)
-            var connection = url.openConnection() as HttpURLConnection
-            connection.instanceFollowRedirects = true
-            connection.connectTimeout = 15000
-            connection.readTimeout = 30000
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
-
-            // Follow HTTP redirects if any
-            var redirectCode = connection.responseCode
-            var redirects = 0
-            while ((redirectCode == HttpURLConnection.HTTP_MOVED_PERM ||
-                    redirectCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                    redirectCode == 307 || redirectCode == 308) && redirects < 5) {
-                val newUrl = connection.getHeaderField("Location")
-                connection.disconnect()
-                connection = URL(newUrl).openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 30000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
-                redirectCode = connection.responseCode
-                redirects++
-            }
+            // Apertura della connessione con follow dei redirect HTTP e guardia anti-HTML:
+            // una risposta `text/html` è una pagina web, non un flusso audio scaricabile.
+            val openedConnection = openAudioConnection(audioUrl)
+            connection = openedConnection.first
+            inputStream = openedConnection.second
 
             val totalLength = connection.contentLengthLong
-            val inputStream = connection.inputStream
 
             var savedUriString = ""
             var savedFilePath = absolutePath
@@ -291,6 +295,7 @@ class SongDownloadManager @Inject constructor(
 
                 val audioUri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                     ?: throw IllegalStateException("Impossibile creare la voce MediaStore per il brano")
+                insertedAudioUri = audioUri
 
                 resolver.openOutputStream(audioUri)?.use { outputStream ->
                     val buffer = ByteArray(8192)
@@ -316,6 +321,7 @@ class SongDownloadManager @Inject constructor(
                 if (!verifyDownloadedDuration(absolutePath, audioUri, track.durationSeconds)) {
                     try {
                         resolver.delete(audioUri, null, null)
+                        insertedAudioUri = null
                     } catch (e: Exception) {
                         Timber.w(e, "Could not delete preview-only MediaStore entry $audioUri")
                     }
@@ -393,9 +399,6 @@ class SongDownloadManager @Inject constructor(
                 savedFilePath = targetFile.absolutePath
             }
 
-            inputStream.close()
-            connection.disconnect()
-
             // Save to local library database
             val localDuration = if (track.durationSeconds > 0) track.durationSeconds * 1000L else 30_000L
             val songToSave = Song(
@@ -437,8 +440,16 @@ class SongDownloadManager @Inject constructor(
             Timber.d("Song downloaded and saved to library: $savedFilePath (id=$mediaStoreNumericId)")
             Result.success(savedFilePath to songToSave)
         } catch (e: Exception) {
+            insertedAudioUri?.let { uri ->
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
             Timber.e(e, "Error in performDownload")
             Result.failure(e)
+        } finally {
+            // Chiusura deterministica di stream e connessione anche in caso di errore a
+            // metà trasferimento o di annullamento: nessun leak di socket o file descriptor.
+            runCatching { inputStream?.close() }
+            runCatching { connection?.disconnect() }
         }
     }
 
@@ -452,10 +463,74 @@ class SongDownloadManager @Inject constructor(
     private fun isPreviewSource(url: String, track: OnlineTrack): Boolean {
         if (url.contains("cdns-preview", ignoreCase = true)) return true
         if (url.contains("deezer.com", ignoreCase = true) && url.contains("preview", ignoreCase = true)) return true
+        // I CDN full-length noti (es. NetEase music.126.net) non sono mai anteprime.
+        if (isKnownFullLengthCdn(url)) return false
+        // Un clip promozionale dichiarato ~30s (28s..32s, clip promo Deezer a 128kbps)
+        // per una traccia reale più lunga di 45s è un'anteprima.
         val trackDurationMs = track.durationSeconds * 1000L
-        val declaredPreviewDurationMs = 30_000L // clip promozionali Deezer: 30s a 128kbps
-        if (trackDurationMs > 45_000L && declaredPreviewDurationMs in 28_000L..32_000L) return true
         return trackDurationMs > 45_000L && track.previewUrl == url
+    }
+
+    /**
+     * Un flusso audio diretto è un URL con estensione di file audio oppure un CDN
+     * multimediale full-length noto (es. NetEase `music.126.net`). Le pagine web di
+     * condivisione (es. `deezer.com/track/…`) NON sono flussi e non devono mai essere
+     * salvate su disco come file audio.
+     */
+    private fun isDirectAudioStreamUrl(url: String): Boolean {
+        if (isKnownFullLengthCdn(url)) return true
+        val path = url.substringBefore('#').substringBefore('?').lowercase()
+        return AUDIO_FILE_EXTENSIONS.any { path.endsWith(it) }
+    }
+
+    private fun isKnownFullLengthCdn(url: String): Boolean =
+        url.contains("music.126.net", ignoreCase = true)
+
+    /**
+     * Apre la connessione HTTP verso il flusso audio, segue fino a 5 redirect e valida
+     * la risposta: codice 2xx obbligatorio e Content-Type non testuale (una pagina web
+     * `text/html` o un payload `application/json` di errore non sono flussi audio e non
+     * devono mai essere commessi su disco come .mp3).
+     */
+    private fun openAudioConnection(audioUrl: String): Pair<HttpURLConnection, java.io.InputStream> {
+        var connection = URL(audioUrl).ensureCleartextAllowed().openConnection() as HttpURLConnection
+        try {
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
+
+            // Follow HTTP redirects if any
+            var responseCode = connection.responseCode
+            var redirects = 0
+            while ((responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                    responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                    responseCode == 307 || responseCode == 308) && redirects < 5) {
+                val newUrl = connection.getHeaderField("Location")
+                    ?: throw java.io.IOException("Redirect HTTP senza intestazione Location per $audioUrl")
+                connection.disconnect()
+                connection = URL(newUrl).ensureCleartextAllowed().openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; MusicBabe/1.3.2)")
+                responseCode = connection.responseCode
+                redirects++
+            }
+
+            if (responseCode !in 200..299) {
+                throw java.io.IOException("Risposta HTTP $responseCode per il flusso audio di $audioUrl")
+            }
+            val contentType = connection.contentType?.lowercase().orEmpty()
+            if (NON_AUDIO_CONTENT_TYPES.any { contentType.startsWith(it) }) {
+                throw java.io.IOException(
+                    "La sorgente risponde con '$contentType', non con un flusso audio: $audioUrl"
+                )
+            }
+            return connection to connection.inputStream
+        } catch (e: Exception) {
+            runCatching { connection.disconnect() }
+            throw e
+        }
     }
 
     /**
@@ -494,8 +569,11 @@ class SongDownloadManager @Inject constructor(
             val match = candidates
                 .filter { (it.neteaseId ?: 0L) > 0L }
                 .filter { candidate ->
-                    normalizedTitle.isNotBlank() &&
-                        normalizeForTitleMatch(candidate.title).contains(normalizedTitle)
+                    if (normalizedTitle.isBlank()) return@filter true
+                    val candTitle = normalizeForTitleMatch(candidate.title)
+                    candTitle.contains(normalizedTitle) ||
+                        normalizedTitle.contains(candTitle) ||
+                        candTitle.split(" ").filter { it.length > 2 }.any { word -> normalizedTitle.contains(word) }
                 }
                 .filter { candidate ->
                     targetDurationMs <= 45_000L || candidate.duration <= 0L ||
@@ -514,8 +592,11 @@ class SongDownloadManager @Inject constructor(
                 "SongDownloadManager: match NetEase per '${track.title}' -> songId=$songId " +
                     "('${match.title}', ${match.duration}ms)"
             )
-            neteaseRepository.getSongUrl(songId, quality = "exhigh").getOrNull()
+            val streamUrl = neteaseRepository.getSongUrl(songId, quality = "exhigh").getOrNull()
                 ?.takeIf { it.isNotBlank() && it != "null" }
+                ?: neteaseRepository.getSongUrl(songId, quality = "standard").getOrNull()
+                    ?.takeIf { it.isNotBlank() && it != "null" }
+            streamUrl
         } catch (e: Exception) {
             Timber.w(e, "SongDownloadManager: risoluzione full-length NetEase fallita per '${track.title}'")
             null
@@ -564,12 +645,17 @@ class SongDownloadManager @Inject constructor(
         contentUri: Uri?,
         expectedDurationSec: Int
     ): Boolean {
+        // Guardia anti-spazzatura: sniffing dei magic byte — una pagina HTML salvata con
+        // estensione .mp3 non è audio e non deve mai essere committata in MediaStore.
+        if (looksLikeHtmlFile(contentUri, filePath)) {
+            Timber.w("SongDownloadManager: file HTML rilevato al posto dell'audio per $filePath")
+            return false
+        }
         val retriever = MediaMetadataRetriever()
         return try {
-            val file = File(filePath)
             when {
-                file.exists() -> retriever.setDataSource(filePath)
                 contentUri != null -> retriever.setDataSource(context, contentUri)
+                File(filePath).exists() -> retriever.setDataSource(filePath)
                 else -> return true
             }
             val actualDurationMs = retriever.extractMetadata(
@@ -589,6 +675,35 @@ class SongDownloadManager @Inject constructor(
     }
 
     /**
+     * Sniffing dei primi byte del file scaricato: un documento HTML (che inizia con
+     * `<!DOCTYPE html` o `<html`) non è un file audio, anche con estensione .mp3.
+     */
+    private fun looksLikeHtmlFile(contentUri: Uri?, filePath: String): Boolean {
+        return try {
+            val stream = when {
+                contentUri != null -> context.contentResolver.openInputStream(contentUri)
+                File(filePath).exists() -> File(filePath).inputStream()
+                else -> return false
+            } ?: return false
+            stream.use { input ->
+                val header = ByteArray(512)
+                var read = 0
+                while (read < header.size) {
+                    val n = input.read(header, read, header.size - read)
+                    if (n == -1) break
+                    read += n
+                }
+                val text = String(header, 0, read, Charsets.ISO_8859_1)
+                    .trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+                text.startsWith("<!doctype html", ignoreCase = true) ||
+                    text.startsWith("<html", ignoreCase = true)
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Muxing dei metadati direttamente nei tag del file audio tramite TagLib:
      * Titolo, Artista, Album e copertina frontale JPEG ad alta risoluzione.
      */
@@ -601,13 +716,14 @@ class SongDownloadManager @Inject constructor(
         coverBytes: ByteArray?
     ) {
         try {
-            val audioFile = File(filePath)
-            val pfd: ParcelFileDescriptor = if (audioFile.exists()) {
-                ParcelFileDescriptor.open(audioFile, ParcelFileDescriptor.MODE_READ_WRITE)
+            val pfd: ParcelFileDescriptor = if (contentUri != null) {
+                runCatching { context.contentResolver.openFileDescriptor(contentUri, "rw") }.getOrNull()
+                    ?: runCatching { ParcelFileDescriptor.open(File(filePath), ParcelFileDescriptor.MODE_READ_WRITE) }.getOrNull()
             } else {
-                contentUri?.let { uri ->
-                    runCatching { context.contentResolver.openFileDescriptor(uri, "rw") }.getOrNull()
-                } ?: return
+                runCatching { ParcelFileDescriptor.open(File(filePath), ParcelFileDescriptor.MODE_READ_WRITE) }.getOrNull()
+            } ?: run {
+                Timber.w("SongDownloadManager: impossibile aprire ParcelFileDescriptor per $filePath (uri=$contentUri)")
+                return
             }
 
             pfd.use { fd ->
@@ -667,7 +783,7 @@ class SongDownloadManager @Inject constructor(
         for (url in candidateUrls) {
             var connection: HttpURLConnection? = null
             try {
-                connection = URL(url).openConnection() as HttpURLConnection
+                connection = URL(url).ensureCleartextAllowed().openConnection() as HttpURLConnection
                 connection.instanceFollowRedirects = true
                 connection.connectTimeout = 8_000
                 connection.readTimeout = 12_000

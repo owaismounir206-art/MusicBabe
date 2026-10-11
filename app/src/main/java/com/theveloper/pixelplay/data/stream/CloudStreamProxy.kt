@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.stream
 
+import com.theveloper.pixelplay.data.network.CleartextAllowListedRequest
 import android.net.Uri
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -206,7 +207,11 @@ abstract class CloudStreamProxy<K : Any>(
                             return@get
                         }
 
-                        val requestBuilder = Request.Builder().url(streamUrl)
+                        // The URL was just validated against this proxy's own host allow-list,
+                        // which for some providers deliberately includes plain-HTTP CDNs.
+                        val requestBuilder = Request.Builder()
+                            .url(streamUrl)
+                            .tag(CleartextAllowListedRequest::class.java, CleartextAllowListedRequest)
                         rangeValidation.normalizedHeader?.let {
                             requestBuilder.header("Range", it)
                         }

@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.ai
 
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.worker.AiWorkerManager
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,7 @@ class GeminiModelService @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
-                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                val connection = java.net.URL(url).ensureCleartextAllowed().openConnection() as java.net.HttpURLConnection
 
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000

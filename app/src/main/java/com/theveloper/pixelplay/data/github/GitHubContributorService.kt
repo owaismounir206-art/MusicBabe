@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.github
 
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -31,7 +32,7 @@ class GitHubContributorService @Inject constructor() {
         return withContext(Dispatchers.IO) {
             try {
                 val url = "https://api.github.com/repos/$owner/$repo/contributors?per_page=100"
-                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                val connection = java.net.URL(url).ensureCleartextAllowed().openConnection() as java.net.HttpURLConnection
 
                 connection.requestMethod = "GET"
                 connection.addRequestProperty("Accept", "application/vnd.github.v3+json")

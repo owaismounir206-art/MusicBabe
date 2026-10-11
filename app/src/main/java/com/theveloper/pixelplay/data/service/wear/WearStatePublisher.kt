@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.data.service.wear
  
+import com.theveloper.pixelplay.data.network.CleartextPolicy
+import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import android.app.Application
 import android.content.Context
 import android.graphics.Color as AndroidColor
@@ -215,7 +217,7 @@ class WearStatePublisher @Inject constructor(
                             }
                     }?.let { return it }
                 }
-                scheme == "http" || scheme == "https" -> {
+                (scheme == "http" || scheme == "https") && CleartextPolicy.isAllowed(uriString) -> {
                     downloadAndSanitizeRemoteArtwork(uriString)?.let { return it }
                 }
             }
@@ -229,7 +231,7 @@ class WearStatePublisher @Inject constructor(
     private fun downloadAndSanitizeRemoteArtwork(uriString: String): ByteArray? {
         var connection: HttpURLConnection? = null
         return try {
-            connection = (URL(uriString).openConnection() as? HttpURLConnection)
+            connection = (URL(uriString).ensureCleartextAllowed().openConnection() as? HttpURLConnection)
                 ?: return null
             connection.connectTimeout = 4_000
             connection.readTimeout = 6_000

@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.network.netease
 
+import com.theveloper.pixelplay.data.network.enforceCleartextPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cookie
@@ -37,6 +38,7 @@ class NeteaseApiService @Inject constructor() {
     private var persistedCookies: Map<String, String> = emptyMap()
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .enforceCleartextPolicy()
         .cookieJar(object : CookieJar {
             override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
                 val host = url.host
