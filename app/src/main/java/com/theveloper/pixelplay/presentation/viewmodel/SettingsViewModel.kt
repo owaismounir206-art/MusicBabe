@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.theveloper.pixelplay.data.backup.BackupManager
@@ -323,11 +324,24 @@ class SettingsViewModel @Inject constructor(
     val aiIncludeExtendedFields: StateFlow<Boolean> = aiPreferencesRepository.aiIncludeExtendedFields
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    /** Saves the key in secure storage; tells the user and returns false if that is impossible. */
+    private suspend fun saveApiKey(provider: AiProvider, apiKey: String): Boolean {
+        val saved = aiPreferencesRepository.setApiKey(provider, apiKey)
+        if (!saved) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.ai_api_key_secure_storage_unavailable),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        return saved
+    }
+
     fun onAiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
             val providerStr = aiProvider.value
             val provider = AiProvider.fromString(providerStr)
-            aiPreferencesRepository.setApiKey(provider, apiKey)
+            if (!saveApiKey(provider, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, providerStr)
             else clearModelsState(providerStr)
         }
@@ -336,77 +350,77 @@ class SettingsViewModel @Inject constructor(
     // Specific on-change methods for UI binding
     fun onGeminiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.GEMINI, apiKey)
+            if (!saveApiKey(AiProvider.GEMINI, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GEMINI")
             else clearModelsState("GEMINI")
         }
     }
     fun onDeepseekApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.DEEPSEEK, apiKey)
+            if (!saveApiKey(AiProvider.DEEPSEEK, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "DEEPSEEK")
             else clearModelsState("DEEPSEEK")
         }
     }
     fun onGroqApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.GROQ, apiKey)
+            if (!saveApiKey(AiProvider.GROQ, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GROQ")
             else clearModelsState("GROQ")
         }
     }
     fun onMistralApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.MISTRAL, apiKey)
+            if (!saveApiKey(AiProvider.MISTRAL, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "MISTRAL")
             else clearModelsState("MISTRAL")
         }
     }
     fun onNvidiaApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.NVIDIA, apiKey)
+            if (!saveApiKey(AiProvider.NVIDIA, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "NVIDIA")
             else clearModelsState("NVIDIA")
         }
     }
     fun onKimiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.KIMI, apiKey)
+            if (!saveApiKey(AiProvider.KIMI, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "KIMI")
             else clearModelsState("KIMI")
         }
     }
     fun onGlmApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.GLM, apiKey)
+            if (!saveApiKey(AiProvider.GLM, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "GLM")
             else clearModelsState("GLM")
         }
     }
     fun onOpenAiApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.OPENAI, apiKey)
+            if (!saveApiKey(AiProvider.OPENAI, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENAI")
             else clearModelsState("OPENAI")
         }
     }
     fun onOpenrouterApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.OPENROUTER, apiKey)
+            if (!saveApiKey(AiProvider.OPENROUTER, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OPENROUTER")
             else clearModelsState("OPENROUTER")
         }
     }
     fun onOllamaApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.OLLAMA, apiKey)
+            if (!saveApiKey(AiProvider.OLLAMA, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "OLLAMA")
             else clearModelsState("OLLAMA")
         }
     }
     fun onCustomApiKeyChange(apiKey: String) {
         viewModelScope.launch {
-            aiPreferencesRepository.setApiKey(AiProvider.CUSTOM, apiKey)
+            if (!saveApiKey(AiProvider.CUSTOM, apiKey)) return@launch
             if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, "CUSTOM")
             else clearModelsState("CUSTOM")
         }

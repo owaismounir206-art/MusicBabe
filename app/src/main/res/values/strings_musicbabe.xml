@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings added by the MusicBabe fork. English is the default; other locales fall back to it until translated. -->
+<resources>
+    <string name="ai_api_key_secure_storage_unavailable">Secure storage is unavailable on this device: the API key was not saved.</string>
+</resources>

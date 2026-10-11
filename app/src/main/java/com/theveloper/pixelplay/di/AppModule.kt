@@ -96,6 +96,13 @@ object AppModule {
         @ApplicationContext context: Context
     ): DataStore<Preferences> = context.dataStore
 
+    @Provides
+    @Singleton
+    fun provideAiApiKeyStore(
+        @ApplicationContext context: Context
+    ): com.theveloper.pixelplay.data.preferences.AiApiKeyStore =
+        com.theveloper.pixelplay.data.preferences.EncryptedAiApiKeyStore(context)
+
     @Singleton
     @Provides
     fun provideJson(): Json { // Proveer Json

@@ -7,15 +7,27 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import com.theveloper.pixelplay.data.ai.provider.AiProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AiPreferencesRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val apiKeyStore: AiApiKeyStore
 ) {
     companion object {
         val DEFAULT_SYSTEM_PROMPT = """
@@ -47,15 +59,64 @@ class AiPreferencesRepository @Inject constructor(
         val AI_DIGEST_MODE = stringPreferencesKey("ai_digest_mode")
         val AI_INCLUDE_EXTENDED_FIELDS = booleanPreferencesKey("ai_include_extended_fields")
 
-        fun getApiKey(provider: AiProvider) = stringPreferencesKey("${provider.name.lowercase()}_api_key")
+        /** Legacy clear-text location, only read to migrate keys into [AiApiKeyStore]. */
+        fun getLegacyApiKey(provider: AiProvider) = stringPreferencesKey(SensitivePreferenceKeys.apiKeyName(provider))
         fun getModel(provider: AiProvider) = stringPreferencesKey("${provider.name.lowercase()}_model")
         fun getSystemPrompt(provider: AiProvider) = stringPreferencesKey("${provider.name.lowercase()}_system_prompt")
-        fun getBaseUrl(provider: AiProvider) = stringPreferencesKey("${provider.name.lowercase()}_base_url")
+        fun getBaseUrl(provider: AiProvider) = stringPreferencesKey(SensitivePreferenceKeys.baseUrlName(provider))
+    }
+
+    /** Decrypted API keys; `null` until [ensureApiKeysLoaded] has run. */
+    private val apiKeys = MutableStateFlow<Map<AiProvider, String>?>(null)
+    private val apiKeysLoadMutex = Mutex()
+
+    /**
+     * Loads API keys from [apiKeyStore], migrating any clear-text key left in the DataStore by
+     * older versions: it is written to secure storage and then removed from the DataStore.
+     * If secure storage is unavailable the legacy value stays where it is (and is still used),
+     * so an existing setup keeps working, but no new key is ever written in clear text.
+     */
+    private suspend fun ensureApiKeysLoaded() {
+        if (apiKeys.value != null) return
+        apiKeysLoadMutex.withLock {
+            if (apiKeys.value != null) return
+            withContext(Dispatchers.IO) {
+                val legacyPrefs = dataStore.data.first()
+                val loaded = mutableMapOf<AiProvider, String>()
+                val legacyToRemove = mutableListOf<AiProvider>()
+                AiProvider.entries.forEach { provider ->
+                    val legacyValue = legacyPrefs[Keys.getLegacyApiKey(provider)]?.trim()
+                    val secureValue = apiKeyStore.get(provider)
+                    when {
+                        secureValue != null -> {
+                            loaded[provider] = secureValue
+                            if (legacyValue != null) legacyToRemove += provider
+                        }
+                        legacyValue.isNullOrEmpty() -> {
+                            if (legacyValue != null) legacyToRemove += provider
+                        }
+                        apiKeyStore.put(provider, legacyValue) -> {
+                            loaded[provider] = legacyValue
+                            legacyToRemove += provider
+                        }
+                        else -> loaded[provider] = legacyValue
+                    }
+                }
+                if (legacyToRemove.isNotEmpty()) {
+                    dataStore.edit { preferences ->
+                        legacyToRemove.forEach { preferences.remove(Keys.getLegacyApiKey(it)) }
+                    }
+                }
+                apiKeys.value = loaded
+            }
+        }
     }
 
     // Generic accessors for AiHandler
-    fun getApiKey(provider: AiProvider): Flow<String> =
-        dataStore.data.map { preferences -> preferences[Keys.getApiKey(provider)]?.trim() ?: "" }
+    fun getApiKey(provider: AiProvider): Flow<String> = flow {
+        ensureApiKeysLoaded()
+        emitAll(apiKeys.filterNotNull().map { it[provider].orEmpty() }.distinctUntilChanged())
+    }
 
     fun getModel(provider: AiProvider): Flow<String> =
         dataStore.data.map { preferences -> preferences[Keys.getModel(provider)] ?: "" }
@@ -68,8 +129,25 @@ class AiPreferencesRepository @Inject constructor(
     fun getBaseUrl(provider: AiProvider): Flow<String> =
         dataStore.data.map { preferences -> preferences[Keys.getBaseUrl(provider)] ?: "" }
 
-    suspend fun setApiKey(provider: AiProvider, apiKey: String) {
-        dataStore.edit { preferences -> preferences[Keys.getApiKey(provider)] = apiKey.trim() }
+    /**
+     * Stores [apiKey] in secure storage. Returns `false` (and stores nothing) if secure storage is
+     * unavailable; the caller must tell the user. A blank key removes the stored one.
+     */
+    suspend fun setApiKey(provider: AiProvider, apiKey: String): Boolean {
+        ensureApiKeysLoaded()
+        val trimmed = apiKey.trim()
+        val saved = withContext(Dispatchers.IO) {
+            if (trimmed.isEmpty()) {
+                apiKeyStore.remove(provider)
+                true
+            } else {
+                apiKeyStore.put(provider, trimmed)
+            }
+        }
+        if (!saved) return false
+        dataStore.edit { preferences -> preferences.remove(Keys.getLegacyApiKey(provider)) }
+        apiKeys.update { current -> current.orEmpty() + (provider to trimmed) }
+        return true
     }
 
     suspend fun setModel(provider: AiProvider, model: String) {

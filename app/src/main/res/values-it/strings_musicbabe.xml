@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_api_key_secure_storage_unavailable">L\'archivio sicuro non è disponibile su questo dispositivo: la chiave API non è stata salvata.</string>
+</resources>
