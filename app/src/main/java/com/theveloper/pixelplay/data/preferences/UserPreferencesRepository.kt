@@ -87,6 +87,10 @@ class UserPreferencesRepository @Inject constructor(
         PreferencesKeys.INITIAL_SETUP_DONE.name
     )
 
+    /** Keys that a backup must never contain, overwrite or clear (device state and credentials). */
+    private fun isBackupExcluded(keyName: String): Boolean =
+        keyName in backupExcludedKeyNames || SensitivePreferenceKeys.isSensitive(keyName)
+
     // ─── Preference keys ────────────────────────────────────────────────────
 
     private object PreferencesKeys {
@@ -1289,7 +1293,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         if (keyNames.isEmpty()) return
         dataStore.edit { preferences ->
             preferences.asMap().keys
-                .filter { key -> key.name in keyNames && key.name !in backupExcludedKeyNames }
+                .filter { key -> key.name in keyNames && !isBackupExcluded(key.name) }
                 .forEach { key ->
                     @Suppress("UNCHECKED_CAST")
                     preferences.remove(key as Preferences.Key<Any>)
@@ -1298,10 +1302,9 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     }
 
     suspend fun clearPreferencesExceptKeys(excludedKeyNames: Set<String>) {
-        val protected = excludedKeyNames + backupExcludedKeyNames
         dataStore.edit { preferences ->
             preferences.asMap().keys
-                .filterNot { key -> key.name in protected }
+                .filterNot { key -> key.name in excludedKeyNames || isBackupExcluded(key.name) }
                 .forEach { key ->
                     @Suppress("UNCHECKED_CAST")
                     preferences.remove(key as Preferences.Key<Any>)
@@ -1312,7 +1315,7 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
     suspend fun exportPreferencesForBackup(): List<PreferenceBackupEntry> {
         val snapshot = dataStore.data.first().asMap()
         return snapshot.mapNotNull { (key, value) ->
-            if (key.name in backupExcludedKeyNames) return@mapNotNull null
+            if (isBackupExcluded(key.name)) return@mapNotNull null
             when (value) {
                 is String  -> PreferenceBackupEntry(key = key.name, type = "string",     stringValue = value)
                 is Int     -> PreferenceBackupEntry(key = key.name, type = "int",        intValue = value)
@@ -1336,14 +1339,14 @@ suspend fun markDirectoryRulesVersionApplied(version: Int) {
         dataStore.edit { preferences ->
             if (clearExisting) {
                 preferences.asMap().keys
-                    .filterNot { key -> key.name in backupExcludedKeyNames }
+                    .filterNot { key -> isBackupExcluded(key.name) }
                     .forEach { key ->
                         @Suppress("UNCHECKED_CAST")
                         preferences.remove(key as Preferences.Key<Any>)
                     }
             }
             entries.forEach { entry ->
-                if (entry.key in backupExcludedKeyNames) return@forEach
+                if (isBackupExcluded(entry.key)) return@forEach
                 when (entry.type) {
                     "string"     -> entry.stringValue?.let { preferences[stringPreferencesKey(entry.key)] = it }
                     "int"        -> (entry.intValue ?: entry.doubleValue?.toInt() ?: entry.longValue?.toInt())
