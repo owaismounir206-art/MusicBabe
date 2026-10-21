@@ -948,6 +948,25 @@ fun SettingsCategoryScreen(
                                         )
                                     }
                                 )
+                                SwitchSettingItem(
+                                    title = stringResource(R.string.settings_auto_lyrics_sync_title),
+                                    subtitle = if (uiState.isAutoLyricsSyncEnabled) {
+                                        stringResource(R.string.settings_auto_lyrics_sync_on)
+                                    } else {
+                                        stringResource(R.string.settings_auto_lyrics_sync_off)
+                                    },
+                                    checked = uiState.isAutoLyricsSyncEnabled,
+                                    onCheckedChange = { settingsViewModel.setAutoLyricsSyncEnabled(it) },
+                                    leadingIcon = {
+                                        Icon(
+                                            painterResource(R.drawable.rounded_music_note_24),
+                                            null,
+                                            tint = if (uiState.isAutoLyricsSyncEnabled) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.tertiary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                )
                             }
                             
                             // Consolidated API Key Section

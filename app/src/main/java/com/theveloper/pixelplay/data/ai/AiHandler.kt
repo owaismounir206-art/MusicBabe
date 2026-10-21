@@ -156,6 +156,18 @@ class AiHandler @Inject constructor(
         return recoveredModel
     }
 
+    /**
+     * True when at least one provider in the user's provider chain has a non-blank API key,
+     * i.e. AI features (such as automatic lyrics sync) can actually run without an immediate
+     * authentication failure. Mirrors the provider-chain walk performed by [generateContent].
+     */
+    suspend fun isConfigured(): Boolean {
+        val userProvider = AiProvider.fromString(preferencesRepo.aiProvider.first())
+        return com.theveloper.pixelplay.data.ai.provider.AiProviderSupport
+            .buildProviderChain(userProvider)
+            .any { provider -> getApiKey(provider).isNotBlank() }
+    }
+
     suspend fun generateContent(
         prompt: String,
         type: AiSystemPromptType = AiSystemPromptType.GENERAL,

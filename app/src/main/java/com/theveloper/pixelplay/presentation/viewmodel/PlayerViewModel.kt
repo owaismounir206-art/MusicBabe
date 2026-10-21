@@ -132,6 +132,8 @@ import com.theveloper.pixelplay.data.downloader.YtdlnisInstallState
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
 private const val HOME_MIX_PREVIEW_LIMIT = 48
+/** Maximum number of songs auto-synced via AI per app session (cost guard). */
+private const val MAX_AUTO_SYNC_PER_SESSION = 50
 private const val EXTERNAL_SONG_ID_PREFIX = "external:"
 
 internal fun List<Song>.toPlaybackQueue(): ImmutableList<Song> = when (this) {
@@ -318,6 +320,20 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Download avviato dalla barra di ricerca: la query digitata dall'utente viene risolta
+     * interamente in-app su una sorgente full-length (NetEase, poi KuGou), senza dover
+     * passare per un risultato online con anteprima da 30s. YTDLnis viene coinvolto solo
+     * se è già installato sul dispositivo.
+     */
+    fun downloadQueryInApp(
+        query: String,
+        onProgress: ((Float) -> Unit)? = null,
+        onComplete: ((Boolean, String) -> Unit)? = null
+    ) {
+        songDownloadManager.startQueryDownload(query, onProgress, onComplete)
+    }
+
     fun startInAppYtdlnisInstall() {
         inAppYtdlnisInstaller.startInAppDownloadAndInstall()
     }
@@ -381,6 +397,47 @@ class PlayerViewModel @Inject constructor(
                 if (state.currentSong?.id != songId) state
                 else state.copy(isLoadingLyrics = false, lyrics = lyrics)
             }
+            maybeAutoGenerateSyncedLyrics(songId, lyrics)
+        }
+    }
+
+    /** Song IDs already attempted for automatic AI lyrics sync in this session. */
+    private val autoSyncAttemptedSongIds = mutableSetOf<String>()
+
+    /**
+     * Automatic lyrics sync: when the 4-tier cascade (ID3 → local .lrc → LrcLib → NetEase)
+     * produced no timestamped lyrics — plain-only or none at all — and the user has an AI
+     * provider configured, the app generates and synchronizes the lyrics itself.
+     *
+     * Runs at most once per song per session, silently (no toasts on failure) and only when
+     * the "Auto-sync lyrics" preference is enabled.
+     */
+    private fun maybeAutoGenerateSyncedLyrics(songId: String, lyrics: Lyrics?) {
+        if (lyrics?.synced?.isNotEmpty() == true) return
+        if (songId in autoSyncAttemptedSongIds) return
+
+        val song = stablePlayerState.value.currentSong ?: return
+        if (song.id != songId) return
+        // Skip very short clips/jingles: not worth an AI request.
+        if (song.duration < 45_000L) return
+
+        viewModelScope.launch {
+            if (!aiPreferencesRepository.autoLyricsSyncEnabled.first()) return@launch
+            if (!aiStateHolder.isAiConfigured()) return@launch
+            if (autoSyncAttemptedSongIds.size >= MAX_AUTO_SYNC_PER_SESSION) return@launch
+            if (!autoSyncAttemptedSongIds.add(songId)) return@launch
+            lyricsStateHolder.generateSyncedLyricsViaAi(
+                currentSong = song,
+                cb = LyricsTranslationCallbacks(
+                    translate = { rawLyrics -> aiStateHolder.translateLyrics(rawLyrics) },
+                    generateSynced = { title, artist, durationMs, existingLyrics ->
+                        aiStateHolder.generateSyncedLyrics(title, artist, durationMs, existingLyrics)
+                    },
+                    getString = { resId -> context.getString(resId) },
+                    getErrorString = { detail -> context.getString(R.string.ai_state_error_generic, detail) }
+                ),
+                autoMode = true
+            )
         }
     }
 

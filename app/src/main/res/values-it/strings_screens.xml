@@ -78,6 +78,7 @@
     <string name="search_placeholder">Cerca…</string>
     <string name="search_cd_search_icon">Cerca</string>
     <string name="search_cd_clear_search_query">Cancella ricerca</string>
+    <string name="search_cd_download_query">Scarica quello che ho scritto</string>
     <string name="search_recent_searches">Ricerche recenti</string>
     <string name="search_action_clear_all">Cancella tutto</string>
     <string name="search_cd_search_history_icon">Cronologia</string>
@@ -87,6 +88,9 @@
     <string name="search_nothing_found">Nessun risultato trovato</string>
     <string name="search_try_different_or_filters">Prova un termine di ricerca diverso o controlla i filtri.</string>
     <string name="search_no_results_found">Nessun risultato trovato.</string>
+    <string name="search_online_in_progress">Ricerca online in corso…</string>
+    <string name="search_action_search_online_query">Cerca \"%1$s\" online</string>
+    <string name="search_action_download_query">Scarica \"%1$s\"</string>
     <string name="browse_by_genre">Esplora per genere</string>
     <string name="no_genres_available">Nessun genere disponibile.</string>
 

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-10-21
+
+### Added
+- **Download da ricerca, tutto in-app**: il pulsante della barra di ricerca scarica ora il brano completo usando solo sorgenti interne — NetEase (stream integrale) e il nuovo `KugouFullTrackResolver` (API pubbliche, senza chiavi né login). Nessuna app esterna da installare.
+- **`SearchQueryMatcher`**: scoring puro e testato (token su titolo/artista, bonus titolo/artista, soglia minima) usato sia dalla ricerca NetEase sia da KuGou.
+- **Test unitari** per il matcher di query (7 casi: punteggiatura, parentesi, solo artista, query estranea, input vuoto, token corti).
+
+### Changed
+- **Cascata download**: NetEase → KuGou → YTDLnis (solo se già installato). L'installazione automatica di YTDLnis non viene più avviata dal download.
+- **Anti-anteprima**: entrambe le sorgenti interne scartano risultati sotto i 45s e KuGou ignora le tracce a pagamento (`url` vuoto) invece di ripiegare su clip promozionali.
+- Il pulsante di download nella barra di ricerca resta sempre toccabile (spinner durante il download, guardia nel click) e la tastiera si chiude al tocco.
+
+### Fixed
+- Download da query libera: nessun salvataggio di MP3 da 30s, metadati e copertina scritti nei tag anche per i brani risolti da KuGou.
+
 ## [0.7.5-beta] - 2026-06-13
 
 ### Added

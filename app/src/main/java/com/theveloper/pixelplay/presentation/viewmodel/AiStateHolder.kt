@@ -382,6 +382,9 @@ Track Duration: $durationSec seconds
         }
     }
 
+    /** True when at least one AI provider in the user's chain has a configured API key. */
+    suspend fun isAiConfigured(): Boolean = aiHandler.isConfigured()
+
     fun onCleared() {
 
         scope = null

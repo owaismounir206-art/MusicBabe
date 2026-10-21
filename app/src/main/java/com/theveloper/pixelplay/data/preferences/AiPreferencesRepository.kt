@@ -58,6 +58,7 @@ class AiPreferencesRepository @Inject constructor(
         val AI_SAMPLE_SIZE = intPreferencesKey("ai_sample_size")
         val AI_DIGEST_MODE = stringPreferencesKey("ai_digest_mode")
         val AI_INCLUDE_EXTENDED_FIELDS = booleanPreferencesKey("ai_include_extended_fields")
+        val AUTO_LYRICS_SYNC = booleanPreferencesKey("auto_lyrics_sync")
 
         /** Legacy clear-text location, only read to migrate keys into [AiApiKeyStore]. */
         fun getLegacyApiKey(provider: AiProvider) = stringPreferencesKey(SensitivePreferenceKeys.apiKeyName(provider))
@@ -220,6 +221,10 @@ class AiPreferencesRepository @Inject constructor(
     val isSafeTokenLimitEnabled: Flow<Boolean> =
         dataStore.data.map { preferences -> preferences[Keys.SAFE_TOKEN_LIMIT] ?: true }
 
+    /** Automatic AI lyrics sync when the 4-tier cascade yields no timestamped lyrics. */
+    val autoLyricsSyncEnabled: Flow<Boolean> =
+        dataStore.data.map { preferences -> preferences[Keys.AUTO_LYRICS_SYNC] ?: true }
+
     val aiTemperature: Flow<Float> =
         dataStore.data.map { preferences -> preferences[Keys.AI_TEMPERATURE] ?: 0.7f }
 
@@ -253,6 +258,10 @@ class AiPreferencesRepository @Inject constructor(
 
     suspend fun setSafeTokenLimitEnabled(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[Keys.SAFE_TOKEN_LIMIT] = enabled }
+    }
+
+    suspend fun setAutoLyricsSyncEnabled(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[Keys.AUTO_LYRICS_SYNC] = enabled }
     }
 
     suspend fun setAiTemperature(value: Float) {

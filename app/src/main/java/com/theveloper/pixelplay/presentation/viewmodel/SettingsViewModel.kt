@@ -112,6 +112,7 @@ data class SettingsUiState(
     val replayGainEnabled: Boolean = false,
     val replayGainUseAlbumGain: Boolean = false,
     val isSafeTokenLimitEnabled: Boolean = true,
+    val isAutoLyricsSyncEnabled: Boolean = true,
     val showScrollbar: Boolean = true
 )
 
@@ -525,6 +526,9 @@ class SettingsViewModel @Inject constructor(
     val isSafeTokenLimitEnabled: StateFlow<Boolean> = aiPreferencesRepository.isSafeTokenLimitEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val isAutoLyricsSyncEnabled: StateFlow<Boolean> = aiPreferencesRepository.autoLyricsSyncEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val recentAiUsage: StateFlow<List<AiUsageEntity>> = aiUsageDao.getRecentUsages(20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -808,6 +812,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             aiPreferencesRepository.isSafeTokenLimitEnabled.collect { enabled ->
                 _uiState.update { it.copy(isSafeTokenLimitEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            aiPreferencesRepository.autoLyricsSyncEnabled.collect { enabled ->
+                _uiState.update { it.copy(isAutoLyricsSyncEnabled = enabled) }
             }
         }
     }
@@ -1147,6 +1157,12 @@ class SettingsViewModel @Inject constructor(
     fun setSafeTokenLimitEnabled(enabled: Boolean) {
         viewModelScope.launch {
             aiPreferencesRepository.setSafeTokenLimitEnabled(enabled)
+        }
+    }
+
+    fun setAutoLyricsSyncEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            aiPreferencesRepository.setAutoLyricsSyncEnabled(enabled)
         }
     }
 

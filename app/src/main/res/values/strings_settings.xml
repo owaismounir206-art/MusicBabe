@@ -310,6 +310,9 @@
     <string name="settings_safe_token_title">Safe Token Mode</string>
     <string name="settings_safe_token_on">ON — Fast &amp; cheap. Sends minimal data (~1K tokens) to AI.</string>
     <string name="settings_safe_token_off">OFF — Deep context. Sends full listening profile (~8K tokens) for richer results.</string>
+    <string name="settings_auto_lyrics_sync_title">Auto-sync lyrics (AI)</string>
+    <string name="settings_auto_lyrics_sync_on">ON — When no synced lyrics are found, the app generates and synchronizes them with the song via AI.</string>
+    <string name="settings_auto_lyrics_sync_off">OFF — Lyrics are only generated manually from the lyrics screen.</string>
     <string name="settings_credentials_section">Credentials</string>
     <string name="settings_ai_api_key_title">%1$s API Key</string>
     <string name="settings_ai_api_key_subtitle">Get from %1$s</string>

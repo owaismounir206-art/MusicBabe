@@ -15,7 +15,6 @@ import androidx.core.app.NotificationCompat
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.data.downloader.InAppYtdlnisInstaller
 import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
@@ -28,6 +27,7 @@ import com.theveloper.pixelplay.data.repository.LyricsRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.scanner.MusicFolderScanner
 import com.theveloper.pixelplay.utils.LyricsUtils
+import com.theveloper.pixelplay.utils.SearchQueryMatcher
 import com.theveloper.pixelplay.utils.YtdlnisHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -63,8 +63,8 @@ class SongDownloadManager @Inject constructor(
     // Cascata full-length (Passo A) e sidecar .lrc post-download.
     // Nessun ciclo DI: NeteaseRepository e LyricsRepository non dipendono dai downloader.
     private val neteaseRepository: NeteaseRepository,
+    private val kugouResolver: KugouFullTrackResolver,
     private val lyricsRepository: LyricsRepository,
-    private val inAppYtdlnisInstaller: InAppYtdlnisInstaller,
     private val songMetadataEditor: SongMetadataEditor
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -81,6 +81,13 @@ class SongDownloadManager @Inject constructor(
 
         // Tolleranza di durata (±15s) per il match della traccia full-length su NetEase.
         private const val NETEASE_DURATION_TOLERANCE_MS = 15_000L
+
+        // Download avviato dalla barra di ricerca: sotto questa durata il risultato è una
+        // clip promozionale e non va mai considerato un brano completo.
+        private const val MIN_QUERY_DOWNLOAD_DURATION_MS = 45_000L
+
+        // Qualità richieste in ordine di preferenza per il download da query.
+        private val NETEASE_STREAM_QUALITIES = listOf("exhigh", "standard")
 
         // Estensioni dei file audio diretti (per distinguere un flusso da una pagina web).
         private val AUDIO_FILE_EXTENSIONS = listOf(
@@ -117,12 +124,29 @@ class SongDownloadManager @Inject constructor(
         track: OnlineTrack,
         onProgress: ((Float) -> Unit)? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
+    ) = startSongDownloadInternal(
+        track = track,
+        resolvedAudioUrl = null,
+        onProgress = onProgress,
+        onComplete = onComplete
+    )
+
+    /**
+     * Core del download: [resolvedAudioUrl] è un flusso full-length già validato da una
+     * pipeline a monte (es. download dalla barra di ricerca via [startQueryDownload]).
+     * Quando è presente ha priorità assoluta e salta la classificazione anteprima/HTML.
+     */
+    private fun startSongDownloadInternal(
+        track: OnlineTrack,
+        resolvedAudioUrl: String?,
+        onProgress: ((Float) -> Unit)?,
+        onComplete: ((Boolean, String) -> Unit)?
     ) {
         scope.launch {
             val previewUrl = track.previewUrl?.takeIf { it.isNotBlank() }
             val shareLink = track.shareLink?.takeIf { it.isNotBlank() }
 
-            if (previewUrl == null && shareLink == null) {
+            if (previewUrl == null && shareLink == null && resolvedAudioUrl.isNullOrBlank()) {
                 val errorMsg = "Nessun flusso audio disponibile per il download"
                 _downloadState.value = DownloadState.Error(track.id, errorMsg)
                 newSongAlertManager.postAlert(
@@ -149,24 +173,27 @@ class SongDownloadManager @Inject constructor(
 
             val isPreview = directAudioUrl != null && isPreviewSource(directAudioUrl, track)
 
-            val effectiveUrl: String = if (isPreview || directAudioUrl == null) {
-                // Cascata di risoluzione full-length: Passo A (NetEase full stream) e,
-                // in caso di fallimento, Passo B (bridge yt-dlp / YTDLnis).
-                val fullStreamUrl = resolveNetEaseFullStream(track)
+            // Un URL già risolto da una pipeline a monte (download avviato dalla barra di
+            // ricerca) è un flusso full-length validato: non va riclassificato come anteprima
+            // né risolto di nuovo tramite la cascata NetEase -> KuGou.
+            val resolvedUrl = resolvedAudioUrl?.takeIf { it.isNotBlank() }
+            val effectiveUrl: String = if (resolvedUrl != null) {
+                Timber.i("SongDownloadManager: uso il flusso già risolto per '${track.title}'")
+                resolvedUrl
+            } else if (isPreview || directAudioUrl == null) {
+                // Cascata full-length, interamente in-app: Passo A NetEase, Passo B KuGou.
+                // Solo se entrambe le sorgenti interne falliscono si valuta YTDLnis
+                // (unicamente se già installato: nessuna installazione forzata).
+                val fullStreamUrl = resolveInAppFullStream(track)
                 if (fullStreamUrl != null) {
-                    Timber.i("SongDownloadManager: risolto flusso full-length via NetEase per '${track.title}'")
+                    Timber.i("SongDownloadManager: risolto flusso full-length in-app per '${track.title}'")
                     fullStreamUrl
                 } else {
                     val handedOffToYtDlp = launchYtDlpFullTrackBridge(track)
-                    val isYtdlnisInstalled = YtdlnisHelper.isYtdlnisInstalled(context)
                     val errorMsg = if (handedOffToYtDlp) {
-                        if (isYtdlnisInstalled) {
-                            "Anteprima da 30s rilevata: download del brano completo avviato con YTDLnis (yt-dlp) per '${track.title}'"
-                        } else {
-                            "Anteprima da 30s rilevata: installazione in-app di YTDLnis avviata per scaricare '${track.title}'"
-                        }
+                        "Sorgenti interne senza il brano completo: download avviato con YTDLnis per '${track.title}'"
                     } else {
-                        "Impossibile ottenere il flusso audio completo per '${track.title}': la sorgente espone solo l'anteprima promozionale da 30 secondi"
+                        "Nessuna sorgente interna (NetEase/KuGou) espone il brano completo per '${track.title}'"
                     }
                     Timber.w("SongDownloadManager: $errorMsg")
                     _downloadState.value = DownloadState.Error(track.id, errorMsg)
@@ -176,11 +203,7 @@ class SongDownloadManager @Inject constructor(
                             isSuccess = false,
                             song = null,
                             message = if (handedOffToYtDlp) {
-                                if (isYtdlnisInstalled) {
-                                    "Download completo avviato con YTDLnis"
-                                } else {
-                                    "Download di YTDLnis in corso per brano completo"
-                                }
+                                "Download completo avviato con YTDLnis"
                             } else {
                                 "Il brano non è stato aggiunto"
                             }
@@ -550,6 +573,31 @@ class SongDownloadManager @Inject constructor(
         value.lowercase().replace(Regex("""[^\p{L}\p{N}]+"""), " ").trim()
 
     /**
+     * Cascata full-length **interamente in-app**, nell'ordine:
+     *  1. NetEase (stream integrale, nessun login richiesto);
+     *  2. KuGou ([KugouFullTrackResolver], API pubbliche senza chiavi).
+     *
+     * Nessuna delle due sorgenti restituisce mai anteprime: se il brano non è
+     * disponibile integralmente si restituisce `null` e la decisione passa al chiamante.
+     */
+    private suspend fun resolveInAppFullStream(track: OnlineTrack): String? {
+        val neteaseUrl = resolveNetEaseFullStream(track)
+        if (neteaseUrl != null) return neteaseUrl
+
+        val query = listOf(track.artistName.trim(), cleanQueryTitle(track.title))
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+        if (query.isBlank()) return null
+
+        val kugouTrack = kugouResolver.resolve(query) ?: return null
+        Timber.i(
+            "SongDownloadManager: risolto flusso full-length via KuGou per '${track.title}' " +
+                "('${kugouTrack.artist} - ${kugouTrack.title}', ${kugouTrack.durationMs}ms)"
+        )
+        return kugouTrack.streamUrl
+    }
+
+    /**
      * Passo A della cascata full-length: risolve lo stream audio integrale tramite
      * l'API di ricerca NetEase già presente nel progetto (nessuna dipendenza esterna),
      * ripulendo il titolo e accettando solo corrispondenze con durata congruente (±6s).
@@ -604,33 +652,209 @@ class SongDownloadManager @Inject constructor(
     }
 
     /**
-     * Passo B della cascata full-length: bridge in-app yt-dlp / YTDLnis.
-     * Se l'app YTDLnis (motore yt-dlp) è installata, delega il recupero della migliore
-     * traccia audio completa via query `ytsearch1:"<artista> - <titolo_pulito>"`.
-     * Se non è installata, scarica e installa l'APK in-app tramite InAppYtdlnisInstaller.
+     * Ultima spiaggia (facoltativa): handoff a YTDLnis **solo se l'app è già installata**.
+     * Il download standard avviene interamente in MusicBabe (NetEase -> KuGou): qui non
+     * viene mai avviata l'installazione di un'altra applicazione.
      *
-     * @return true se l'handoff o l'installazione in-app è stata avviata.
+     * @return true se l'handoff è stato effettivamente avviato.
      */
     private fun launchYtDlpFullTrackBridge(track: OnlineTrack): Boolean {
         return try {
             val cleanTitle = cleanQueryTitle(track.title)
             if (cleanTitle.isBlank()) return false
-            if (YtdlnisHelper.isYtdlnisInstalled(context)) {
+            if (!YtdlnisHelper.isYtdlnisInstalled(context)) {
                 Timber.i(
-                    "SongDownloadManager: handoff del download full-length a YTDLnis (yt-dlp) " +
-                        "via ytsearch1 per '${track.artistName} - $cleanTitle'"
+                    "SongDownloadManager: YTDLnis non installato; nessun handoff esterno per '${track.title}'"
                 )
-                YtdlnisHelper.downloadSong(context, track.artistName, cleanTitle)
-            } else {
-                Timber.w(
-                    "SongDownloadManager: YTDLnis (bridge yt-dlp) non installato; " +
-                        "avvio download e installazione in-app per '${track.title}'"
-                )
-                inAppYtdlnisInstaller.startInAppDownloadAndInstall()
-                true
+                return false
             }
+            Timber.i(
+                "SongDownloadManager: handoff del download full-length a YTDLnis (yt-dlp) " +
+                    "via ytsearch1 per '${track.artistName} - $cleanTitle'"
+            )
+            YtdlnisHelper.downloadSong(context, track.artistName, cleanTitle)
+            true
         } catch (e: Exception) {
             Timber.w(e, "SongDownloadManager: bridge YTDLnis fallito per '${track.title}'")
+            false
+        }
+    }
+
+    /**
+     * Download completo a partire da una query di testo libera, cioè esattamente il testo
+     * digitato nella barra di ricerca. Non serve che il brano compaia tra i risultati
+     * online: la query viene risolta direttamente su una sorgente completa.
+     *
+     * Cascata:
+     *  - Passo A: ricerca NetEase -> miglior match (titolo/artista coerenti, durata >= 45s)
+     *             -> URL del flusso full-length;
+     *  - Passo B: KuGou ([KugouFullTrackResolver], API pubbliche) -> URL del file integrale;
+     *  - Passo C: solo se YTDLnis è già installato, handoff con `ytsearch1:"<query>"`.
+     *
+     * Tutto avviene dentro MusicBabe: nessuna app esterna viene installata. Le anteprime
+     * promozionali da 30 secondi non vengono mai salvate.
+     */
+    fun startQueryDownload(
+        query: String,
+        onProgress: ((Float) -> Unit)? = null,
+        onComplete: ((Boolean, String) -> Unit)? = null
+    ) {
+        val trimmedQuery = query.trim()
+        if (trimmedQuery.isBlank()) {
+            onComplete?.invoke(false, "Query di ricerca vuota")
+            return
+        }
+
+        if (_downloadState.value is DownloadState.Downloading) {
+            // Un download è già in corso: il manager ha un solo stato di download, quindi
+            // un secondo tap non deve sovrascrivere la risoluzione in corso.
+            Timber.i("SongDownloadManager: download già in corso, query '$trimmedQuery' ignorata")
+            onComplete?.invoke(false, "Download già in corso")
+            return
+        }
+
+        scope.launch {
+            // Spinner immediato: la risoluzione NetEase/KuGou può richiedere qualche secondo.
+            _downloadState.value = DownloadState.Downloading(trackId = 0L, progress = 0f, title = trimmedQuery)
+            val match = resolveNeteaseMatchForQuery(trimmedQuery)
+            val resolvedStreamUrl = match
+                ?.neteaseId
+                ?.takeIf { it > 0L }
+                ?.let { songId -> resolveNeteaseStreamUrl(songId) }
+
+            if (match != null && resolvedStreamUrl != null) {
+                val track = OnlineTrack(
+                    id = match.neteaseId ?: 0L,
+                    title = match.title,
+                    artistName = match.artist.ifBlank { trimmedQuery },
+                    albumTitle = match.album,
+                    albumCoverUrl = match.albumArtUriString,
+                    durationSeconds = (match.duration / 1000L).toInt(),
+                    previewUrl = resolvedStreamUrl,
+                    shareLink = null
+                )
+                Timber.i(
+                    "SongDownloadManager: query '$trimmedQuery' risolta in full-length " +
+                        "NetEase (songId=${match.neteaseId})"
+                )
+                startSongDownloadInternal(
+                    track = track,
+                    resolvedAudioUrl = resolvedStreamUrl,
+                    onProgress = onProgress,
+                    onComplete = onComplete
+                )
+                return@launch
+            }
+
+            // Passo B, sempre in-app: KuGou (API pubbliche, nessuna chiave).
+            val kugouTrack = kugouResolver.resolve(trimmedQuery)
+            if (kugouTrack != null) {
+                val track = OnlineTrack(
+                    id = abs(kugouTrack.streamUrl.hashCode().toLong()),
+                    title = kugouTrack.title,
+                    artistName = kugouTrack.artist.ifBlank { trimmedQuery },
+                    albumTitle = kugouTrack.album,
+                    albumCoverUrl = kugouTrack.coverUrl,
+                    durationSeconds = (kugouTrack.durationMs / 1000L).toInt(),
+                    previewUrl = kugouTrack.streamUrl,
+                    shareLink = null
+                )
+                Timber.i("SongDownloadManager: query '$trimmedQuery' risolta in full-length KuGou")
+                startSongDownloadInternal(
+                    track = track,
+                    resolvedAudioUrl = kugouTrack.streamUrl,
+                    onProgress = onProgress,
+                    onComplete = onComplete
+                )
+                return@launch
+            }
+
+            // Passo C (solo se già presente sul dispositivo): YTDLnis. Nessuna installazione
+            // forzata di altre app: il download standard resta dentro MusicBabe.
+            val handedOff = launchYtDlpQueryBridge(trimmedQuery)
+            val message = if (handedOff) {
+                "Sorgenti interne senza il brano completo: download avviato con YTDLnis per \"$trimmedQuery\""
+            } else {
+                "Nessuna sorgente interna (NetEase/KuGou) espone il brano completo per \"$trimmedQuery\""
+            }
+            Timber.w("SongDownloadManager: $message")
+            _downloadState.value = DownloadState.Error(0L, message)
+            newSongAlertManager.postAlert(
+                NewSongAlert(
+                    isSuccess = false,
+                    song = null,
+                    message = message
+                )
+            )
+            withContext(Dispatchers.Main) { onComplete?.invoke(false, message) }
+        }
+    }
+
+    /**
+     * Miglior match NetEase per una query libera: scarta gli ID non validi e i risultati
+     * più corti di [MIN_QUERY_DOWNLOAD_DURATION_MS] (clip promozionali), poi sceglie il
+     * candidato con il punteggio di corrispondenza più alto. Un punteggio troppo basso
+     * significa "nessuna corrispondenza credibile" e lascia spazio al bridge yt-dlp.
+     */
+    private suspend fun resolveNeteaseMatchForQuery(query: String): Song? = withContext(Dispatchers.IO) {
+        try {
+            val candidates = neteaseRepository.searchOnline(query, limit = 15)
+                .getOrNull()
+                .orEmpty()
+                .filter { (it.neteaseId ?: 0L) > 0L }
+                .filter { it.duration <= 0L || it.duration >= MIN_QUERY_DOWNLOAD_DURATION_MS }
+            if (candidates.isEmpty()) return@withContext null
+
+            candidates
+                .maxByOrNull { candidate ->
+                    SearchQueryMatcher.score(query, candidate.title, candidate.artist)
+                }
+                ?.takeIf { candidate ->
+                    SearchQueryMatcher.score(query, candidate.title, candidate.artist) >=
+                        SearchQueryMatcher.MIN_SCORE
+                }
+        } catch (e: Exception) {
+            Timber.w(e, "SongDownloadManager: ricerca NetEase per query fallita ('$query')")
+            null
+        }
+    }
+
+    /**
+     * URL del flusso full-length NetEase con degrado di qualità (`exhigh`, poi `standard`).
+     * Nessun fallback su anteprime: se nessuna qualità è disponibile si restituisce null
+     * e la cascata prosegue verso yt-dlp.
+     */
+    private suspend fun resolveNeteaseStreamUrl(songId: Long): String? {
+        for (quality in NETEASE_STREAM_QUALITIES) {
+            val url = neteaseRepository.getSongUrl(songId, quality = quality)
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() && it != "null" }
+            if (url != null) {
+                Timber.i("SongDownloadManager: flusso NetEase risolto a qualità $quality (songId=$songId)")
+                return url
+            }
+        }
+        return null
+    }
+
+    /**
+     * Passo C del download da query: handoff a YTDLnis (yt-dlp) usando direttamente il
+     * testo digitato, **solo se l'app è già installata**. Nessuna installazione forzata:
+     * in-app restano NetEase e KuGou.
+     *
+     * @return true se l'handoff è stato effettivamente avviato.
+     */
+    private fun launchYtDlpQueryBridge(query: String): Boolean {
+        return try {
+            if (!YtdlnisHelper.isYtdlnisInstalled(context)) {
+                Timber.i("SongDownloadManager: YTDLnis assente, nessun handoff esterno per '$query'")
+                return false
+            }
+            Timber.i("SongDownloadManager: handoff query '$query' a YTDLnis (yt-dlp)")
+            YtdlnisHelper.downloadQuery(context, query)
+            true
+        } catch (e: Exception) {
+            Timber.w(e, "SongDownloadManager: bridge YTDLnis fallito per la query '$query'")
             false
         }
     }

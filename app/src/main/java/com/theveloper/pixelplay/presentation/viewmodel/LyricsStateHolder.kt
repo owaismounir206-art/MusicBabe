@@ -402,13 +402,24 @@ class LyricsStateHolder @Inject constructor(
     }
 
     /**
-     * Generates synchronized lyrics via AI or smart rhythmic calibration.
+     * Generates and synchronizes lyrics via the configured AI provider.
+     *
+     * The AI result is the only accepted source: no synthetic/estimated timing is fabricated,
+     * per the app policy that lyrics must be real. When [autoMode] is true (automatic sync
+     * triggered by playback) the operation is silent — no progress toast and no failure toasts —
+     * so background generation never spams the UI.
      */
-    fun generateSyncedLyricsViaAi(currentSong: Song, cb: LyricsTranslationCallbacks) {
+    fun generateSyncedLyricsViaAi(
+        currentSong: Song,
+        cb: LyricsTranslationCallbacks,
+        autoMode: Boolean = false
+    ) {
         val songId = currentSong.id.toLongOrNull() ?: return
 
         scope?.launch {
-            _messageEvents.emit("Generazione testo sincronizzato in corso...")
+            if (!autoMode) {
+                _messageEvents.emit("Generazione testo sincronizzato in corso...")
+            }
 
             val existingPlainLyrics = withContext(Dispatchers.IO) {
                 currentSong.lyrics?.takeIf { it.isNotBlank() }
@@ -435,25 +446,20 @@ class LyricsStateHolder @Inject constructor(
                 }
             }
 
-            // Fallback: if AI was unavailable or failed, but we have plain lyrics, use rhythmic synchronization
-            if (lrcToImport == null && !existingPlainLyrics.isNullOrBlank()) {
-                lrcToImport = createRhythmicSyncedLrc(
-                    plainLyrics = existingPlainLyrics,
-                    durationMs = durationMs
-                )
-            }
-
             if (lrcToImport != null) {
                 val validation = LyricsImportSecurity.validateImportedLrcContent(lrcToImport)
                 if (validation is LyricsImportValidationResult.Valid) {
                     importLyricsFromFile(songId, validation.value, currentSong)
-                    _messageEvents.emit("Testo sincronizzato generato con successo!")
+                    _messageEvents.emit(
+                        if (autoMode) "Testo sincronizzato generato automaticamente per ${currentSong.title}"
+                        else "Testo sincronizzato generato con successo!"
+                    )
                     _searchUiState.value = LyricsSearchUiState.Success(validation.value.parsedLyrics)
-                } else {
+                } else if (!autoMode) {
                     val reason = (validation as LyricsImportValidationResult.Invalid).reason
                     _messageEvents.emit(cb.getErrorString(LyricsImportSecurity.messageFor(reason)))
                 }
-            } else {
+            } else if (!autoMode) {
                 val error = aiResult?.exceptionOrNull()
                 if (error?.message?.contains("key", ignoreCase = true) == true ||
                     error?.message?.contains("config", ignoreCase = true) == true
@@ -466,30 +472,6 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
-    private fun createRhythmicSyncedLrc(plainLyrics: String, durationMs: Long): String {
-        val lines = plainLyrics.lines().map { it.trim() }.filter { it.isNotBlank() }
-        if (lines.isEmpty()) return ""
-
-        val totalDurationSec = (durationMs / 1000.0).coerceAtLeast(30.0)
-        val introSec = 3.5
-        val usableDurationSec = (totalDurationSec - introSec - 4.0).coerceAtLeast(10.0)
-
-        val totalChars = lines.sumOf { it.length.coerceAtLeast(4) }.toDouble()
-        var currentSec = introSec
-
-        val sb = StringBuilder()
-        for (line in lines) {
-            val min = (currentSec / 60).toInt()
-            val sec = (currentSec % 60).toInt()
-            val hundredths = ((currentSec - currentSec.toInt()) * 100).toInt()
-            sb.append(String.format(java.util.Locale.US, "[%02d:%02d.%02d] %s\n", min, sec, hundredths, line))
-
-            val lineWeight = line.length.coerceAtLeast(4).toDouble() / totalChars
-            val lineDuration = (lineWeight * usableDurationSec).coerceIn(2.0, 7.0)
-            currentSec += lineDuration
-        }
-        return sb.toString()
-    }
 
     fun resetLyrics(songId: Long) {
 

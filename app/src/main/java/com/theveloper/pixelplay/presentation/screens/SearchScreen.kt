@@ -57,7 +57,9 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
+import com.theveloper.pixelplay.data.downloader.DownloadState
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
 import com.theveloper.pixelplay.presentation.screens.search.components.SearchResultOnlineTrackItem
@@ -426,6 +428,41 @@ fun SearchScreen(
                         contentDescription = stringResource(R.string.library_cd_open_settings)
                     )
                 }
+
+                if (searchQuery.isNotBlank()) {
+                    // Stato raccolto qui e non a livello di schermata: il progresso di download
+                    // emette molte volte al secondo e deve ricomporre solo questo bottone.
+                    val downloadState by playerViewModel.songDownloadState
+                        .collectAsStateWithLifecycle()
+                    val isQueryDownloading = downloadState is DownloadState.Downloading
+                    FilledIconButton(
+                        modifier = Modifier.padding(bottom = 2.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        onClick = {
+                            val query = searchQuery.trim()
+                            if (!isQueryDownloading && query.isNotBlank()) {
+                                keyboardController?.hide()
+                                playerViewModel.downloadQueryInApp(query)
+                            }
+                        }
+                    ) {
+                        if (isQueryDownloading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.Download,
+                                contentDescription = stringResource(R.string.search_cd_download_query)
+                            )
+                        }
+                    }
+                }
             }
 
             val showGenreBrowse by remember(searchQuery) { derivedStateOf { searchQuery.isBlank() } }
@@ -591,6 +628,13 @@ fun SearchScreen(
                                         isSearchingOnline = isSearchingOnline,
                                         onSearchOnlineClick = {
                                             playerViewModel.updateSearchFilter(SearchFilterType.ONLINE)
+                                        },
+                                        onDownloadQueryClick = {
+                                            val query = searchQuery.trim()
+                                            if (query.isNotBlank()) {
+                                                keyboardController?.hide()
+                                                playerViewModel.downloadQueryInApp(query)
+                                            }
                                         }
                                     )
                                 } else {
@@ -1067,7 +1111,8 @@ fun EmptySearchResults(
     searchQuery: String,
     colorScheme: ColorScheme,
     isSearchingOnline: Boolean = false,
-    onSearchOnlineClick: (() -> Unit)? = null
+    onSearchOnlineClick: (() -> Unit)? = null,
+    onDownloadQueryClick: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -1083,7 +1128,7 @@ fun EmptySearchResults(
                 color = colorScheme.primary
             )
             Text(
-                text = "Ricerca online in corso...",
+                text = stringResource(R.string.search_online_in_progress),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.SemiBold
@@ -1134,7 +1179,26 @@ fun EmptySearchResults(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Cerca \"$searchQuery\" online",
+                        text = stringResource(R.string.search_action_search_online_query, searchQuery),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (searchQuery.isNotBlank() && onDownloadQueryClick != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onDownloadQueryClick,
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.search_action_download_query, searchQuery),
                         fontWeight = FontWeight.SemiBold
                     )
                 }

@@ -34,7 +34,31 @@ object YtdlnisHelper {
      * @return true if YTDLnis intent was launched, false otherwise
      */
     fun downloadSong(context: Context, artist: String, title: String): Boolean {
-        val searchQuery = "ytsearch1:$artist - $title".trim()
+        return downloadQuery(context, listOf(artist, title).filter { it.isNotBlank() }.joinToString(" - "))
+    }
+
+    /**
+     * Sends a free-text query (exactly what the user typed in the search bar) to YTDLnis,
+     * letting yt-dlp resolve the full-length audio with `ytsearch1:"<query>"`.
+     *
+     * A query that already carries a yt-dlp prefix (`ytsearch…`, `ytdl:`) or is an explicit
+     * URL is passed through untouched, so callers cannot double-prefix the request.
+     *
+     * @return true if the YTDLnis intent was launched, false otherwise
+     */
+    fun downloadQuery(context: Context, query: String): Boolean {
+        val rawQuery = query.trim()
+        if (rawQuery.isBlank()) return false
+        val searchQuery = if (
+            rawQuery.startsWith("ytsearch", ignoreCase = true) ||
+            rawQuery.startsWith("ytdl:", ignoreCase = true) ||
+            rawQuery.startsWith("http://", ignoreCase = true) ||
+            rawQuery.startsWith("https://", ignoreCase = true)
+        ) {
+            rawQuery
+        } else {
+            "ytsearch1:$rawQuery"
+        }
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/*"
             setPackage(YTDLNIS_PACKAGE_NAME)

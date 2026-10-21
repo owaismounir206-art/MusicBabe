@@ -78,6 +78,7 @@
     <string name="search_placeholder">Search…</string>
     <string name="search_cd_search_icon">Search</string>
     <string name="search_cd_clear_search_query">Clear search</string>
+    <string name="search_cd_download_query">Download what I typed</string>
     <string name="search_recent_searches">Recent searches</string>
     <string name="search_action_clear_all">Clear all</string>
     <string name="search_cd_search_history_icon">History</string>
@@ -87,6 +88,9 @@
     <string name="search_nothing_found">Nothing found</string>
     <string name="search_try_different_or_filters">Try a different search term or check your filters.</string>
     <string name="search_no_results_found">No results found.</string>
+    <string name="search_online_in_progress">Searching online…</string>
+    <string name="search_action_search_online_query">Search \"%1$s\" online</string>
+    <string name="search_action_download_query">Download \"%1$s\"</string>
     <string name="browse_by_genre">Browse by genre</string>
     <string name="no_genres_available">No genres available.</string>
 

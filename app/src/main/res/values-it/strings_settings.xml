@@ -310,6 +310,9 @@
     <string name="settings_safe_token_title">Modalità token sicuri</string>
     <string name="settings_safe_token_on">ATTIVA — Veloce ed economica. Invia dati minimi (~1K token) all\'AI.</string>
     <string name="settings_safe_token_off">SPENTA — Contesto profondo. Invia il profilo di ascolto completo (~8K token) per risultati più ricchi.</string>
+    <string name="settings_auto_lyrics_sync_title">Sincronizzazione automatica testi (AI)</string>
+    <string name="settings_auto_lyrics_sync_on">ATTIVA — Se non trova testi sincronizzati, l\'app li genera e li sincronizza con la canzone tramite AI.</string>
+    <string name="settings_auto_lyrics_sync_off">SPENTA — I testi vengono generati solo manualmente dalla schermata testi.</string>
     <string name="settings_credentials_section">Credenziali</string>
     <string name="settings_ai_api_key_title">Chiave API %1$s</string>
     <string name="settings_ai_api_key_subtitle">Ottieni da %1$s</string>
