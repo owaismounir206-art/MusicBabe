@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.7] - 2026-10-21
+
+### Added
+- **Coda di download con hub dedicato**: `SongDownloadManager` espone ora `downloadTasks` (`StateFlow<List<DownloadTask>>`) con stati espliciti (in coda, risoluzione, download, completato, fallito, annullato), `cancelDownload`, `retryDownload`, `removeDownload` e `clearFinishedDownloads`. Nuova schermata `DownloadsScreen` (ricerca → icona hub, oppure Impostazioni → Download) con coda attiva, cronologia, annullamento, retry e riproduzione del brano scaricato.
+- **Foglio "Scarica" dalla barra di ricerca**: anteprima della migliore corrispondenza (`previewQueryCandidates`) e scelta manuale tra i risultati NetEase già validati, con accesso diretto all'hub dei download.
+- **Preferenze download**: "Solo Wi-Fi" (i download su rete a consumo falliscono con messaggio esplicito) e qualità audio (Automatica/Alta/Standard) applicata a NetEase e KuGou.
+- **Progresso per riga**: il bottone dei risultati online mostra il progresso reale del download e diventa ✓ quando il brano è già presente.
+
+### Changed
+- **Foglio azioni unificato**: i risultati online hanno una sola azione che apre un bottom sheet con Riproduci / Salva in libreria / Scarica (in-app) / Scarica con YTDLnis, eliminando i due bottoni affiancati.
+- **Feedback di fine download**: snackbar con "Apri" (riproduce il brano scaricato) o "Riprova" per i download avviati dalla ricerca; non più download silenziosi.
+- **Notifica di avanzamento persistente** con percentuale reale e apertura dell'app; le notifiche finali usano stringhe localizzate (EN/IT) invece di testi hardcoded.
+- **Dedupe**: lo stesso brano non viene più scaricato due volte; l'indice dei file in `Music/MusicBabe` viene ricostruito all'avvio e aggiornato a ogni download.
+
+### Fixed
+- **Estensione e MIME corretti**: il formato viene derivato dal `Content-Type` della risposta (fallback sull'URL) — i flussi m4a/flac/ogg non vengono più salvati come `.mp3` con MIME `audio/mpeg`.
+- **Durata locale reale**: se la sorgente non dichiara la durata viene letta dal file scritto, invece di forzare 30s.
+- Il doppio tap su "Scarica" non avvia più due download (guardia sulla coda con chiave `titolo|artista`).
+
 ## [1.3.6] - 2026-10-21
 
 ### Added

@@ -34,6 +34,7 @@ import com.theveloper.pixelplay.presentation.components.subcomps.SelectionAction
 import com.theveloper.pixelplay.presentation.components.subcomps.SelectionCountPill
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,12 +55,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import com.theveloper.pixelplay.data.downloader.DownloadState
+import com.theveloper.pixelplay.data.downloader.DownloadCandidate
+import com.theveloper.pixelplay.data.downloader.DownloadRequest
+import com.theveloper.pixelplay.data.downloader.DownloadStatus
+import com.theveloper.pixelplay.data.downloader.DownloadTask
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
 import com.theveloper.pixelplay.presentation.screens.search.components.SearchResultOnlineTrackItem
@@ -77,8 +84,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DockedSearchBar
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -255,6 +268,70 @@ fun SearchScreen(
     val isSearchingOnline by playerViewModel.isSearchingOnline.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // --- Coda download: stato osservato una sola volta, condiviso con le righe ---
+    val downloadTasks by playerViewModel.downloadTasks.collectAsStateWithLifecycle()
+    val downloadedTrackKeys by playerViewModel.downloadedTrackKeys.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showQueryDownloadSheet by remember { mutableStateOf(false) }
+    var trackedDownloadIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
+    /**
+     * Mette in coda il download e registra l'id per il feedback (snackbar con azione
+     * "Apri"/"Riprova") quando il task si conclude.
+     */
+    val enqueueQueryDownload: (String) -> Unit = { query ->
+        val trimmedQuery = query.trim()
+        if (trimmedQuery.isNotBlank()) {
+            keyboardController?.hide()
+            val taskId = playerViewModel.downloadQueryInApp(trimmedQuery)
+            trackedDownloadIds = trackedDownloadIds + taskId
+        }
+    }
+
+    val enqueueTrackDownload: (OnlineTrack) -> Unit = { track ->
+        val taskId = playerViewModel.downloadSongInApp(track)
+        trackedDownloadIds = trackedDownloadIds + taskId
+    }
+    // Feedback di fine download: snackbar con azione contestuale ("Apri" / "Riprova").
+    LaunchedEffect(downloadTasks, trackedDownloadIds) {
+        downloadTasks.forEach { task ->
+            if (task.id !in trackedDownloadIds || !task.isFinished) return@forEach
+            trackedDownloadIds = trackedDownloadIds - task.id
+
+            val isCompleted = task.status == DownloadStatus.COMPLETED
+            val actionLabel = if (isCompleted) {
+                context.getString(R.string.downloads_action_open)
+            } else {
+                context.getString(R.string.downloads_action_retry)
+            }
+            val result = snackbarHostState.showSnackbar(
+                message = task.message
+                    ?: task.title.ifBlank { context.getString(R.string.downloads_title) },
+                actionLabel = actionLabel,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                if (isCompleted) {
+                    playerViewModel.playDownloadedTask(task)
+                } else {
+                    playerViewModel.retryDownload(task.id)
+                }
+            }
+        }
+    }
+
+    // Task della query attualmente digitata: alimenta lo stato del bottone della barra.
+    val activeQueryTask = remember(downloadTasks, searchQuery) {
+        val trimmedQuery = searchQuery.trim()
+        downloadTasks.firstOrNull { task ->
+            task.isActive && task.request is DownloadRequest.Query &&
+                (trimmedQuery.isBlank() || task.title.equals(trimmedQuery, ignoreCase = true))
+        } ?: downloadTasks.firstOrNull { it.isActive && it.request is DownloadRequest.Query }
+    }
+    val activeDownloadsCount = remember(downloadTasks) { downloadTasks.count { it.isActive } }
+
+
     val searchInputFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -430,11 +507,7 @@ fun SearchScreen(
                 }
 
                 if (searchQuery.isNotBlank()) {
-                    // Stato raccolto qui e non a livello di schermata: il progresso di download
-                    // emette molte volte al secondo e deve ricomporre solo questo bottone.
-                    val downloadState by playerViewModel.songDownloadState
-                        .collectAsStateWithLifecycle()
-                    val isQueryDownloading = downloadState is DownloadState.Downloading
+                    val isQueryDownloading = activeQueryTask != null
                     FilledIconButton(
                         modifier = Modifier.padding(bottom = 2.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -442,15 +515,15 @@ fun SearchScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         onClick = {
-                            val query = searchQuery.trim()
-                            if (!isQueryDownloading && query.isNotBlank()) {
+                            if (!isQueryDownloading) {
                                 keyboardController?.hide()
-                                playerViewModel.downloadQueryInApp(query)
+                                showQueryDownloadSheet = true
                             }
                         }
                     ) {
                         if (isQueryDownloading) {
                             CircularProgressIndicator(
+                                progress = { activeQueryTask?.progress ?: 0f },
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary
@@ -459,6 +532,32 @@ fun SearchScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Download,
                                 contentDescription = stringResource(R.string.search_cd_download_query)
+                            )
+                        }
+                    }
+                }
+
+                if (downloadTasks.isNotEmpty()) {
+                    FilledIconButton(
+                        modifier = Modifier.padding(bottom = 2.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        onClick = { navController.navigateSafely(Screen.Downloads.route) }
+                    ) {
+                        androidx.compose.material3.BadgedBox(
+                            badge = {
+                                if (activeDownloadsCount > 0) {
+                                    androidx.compose.material3.Badge {
+                                        Text(activeDownloadsCount.toString())
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DownloadDone,
+                                contentDescription = stringResource(R.string.downloads_open_hub)
                             )
                         }
                     }
@@ -630,11 +729,8 @@ fun SearchScreen(
                                             playerViewModel.updateSearchFilter(SearchFilterType.ONLINE)
                                         },
                                         onDownloadQueryClick = {
-                                            val query = searchQuery.trim()
-                                            if (query.isNotBlank()) {
-                                                keyboardController?.hide()
-                                                playerViewModel.downloadQueryInApp(query)
-                                            }
+                                            keyboardController?.hide()
+                                            showQueryDownloadSheet = true
                                         }
                                     )
                                 } else {
@@ -643,10 +739,13 @@ fun SearchScreen(
                                         searchQuery = searchQuery,
                                         playerViewModel = playerViewModel,
                                         currentFilter = currentFilter,
-                                        onOnlineTrackDownload = { track ->
+                                        onOnlineTrackDownload = { track -> enqueueTrackDownload(track) },
+                                        onOnlineTrackYtdlnisDownload = { track ->
                                             selectedOnlineTrackForDownload = track
                                             showYtdlnisDialog = true
                                         },
+                                        downloadTasks = downloadTasks,
+                                        downloadedTrackKeys = downloadedTrackKeys,
                                         onItemSelected = {
                                             if (searchQuery.isNotBlank()) {
                                                 playerViewModel.onSearchQuerySubmitted(searchQuery)
@@ -737,6 +836,13 @@ fun SearchScreen(
                 .height(bottomGradientHeight)
                 .background(brush = bottomGradientBrush)
         )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
+        )
+
 
 
     }
@@ -1008,6 +1114,28 @@ fun SearchScreen(
             }
         )
     }
+
+    if (showQueryDownloadSheet) {
+        val sheetQuery = searchQuery.trim()
+        SearchQueryDownloadSheet(
+            query = sheetQuery,
+            playerViewModel = playerViewModel,
+            onDismiss = { showQueryDownloadSheet = false },
+            onDownloadBestMatch = {
+                showQueryDownloadSheet = false
+                enqueueQueryDownload(sheetQuery)
+            },
+            onDownloadCandidate = { candidate ->
+                showQueryDownloadSheet = false
+                enqueueTrackDownload(candidate.track)
+            },
+            onOpenDownloadHub = {
+                showQueryDownloadSheet = false
+                navController.navigateSafely(Screen.Downloads.route)
+            }
+        )
+    }
+
 }
 
 @Composable
@@ -1221,6 +1349,9 @@ fun SearchResultsList(
     navController: NavHostController,
     currentFilter: SearchFilterType = SearchFilterType.ALL,
     onOnlineTrackDownload: (OnlineTrack) -> Unit = {},
+    onOnlineTrackYtdlnisDownload: (OnlineTrack) -> Unit = {},
+    downloadTasks: List<DownloadTask> = emptyList(),
+    downloadedTrackKeys: Set<String> = emptySet(),
     isSelectionMode: Boolean = false,
     selectedSongIds: Set<String> = emptySet(),
     getSelectionIndex: (String) -> Int? = { null },
@@ -1373,10 +1504,16 @@ fun SearchResultsList(
                             }
 
                             is SearchResultItem.OnlineTrackItem -> {
+                                val trackKey = searchTrackKey(item.track.title, item.track.artistName)
+                                val taskForTrack = downloadTasks.firstOrNull { task ->
+                                    task.dedupeKey == trackKey || task.title.equals(item.track.title, ignoreCase = true)
+                                }
                                 SearchResultOnlineTrackItem(
                                     track = item.track,
-                                    onDownloadClick = { onOnlineTrackDownload(item.track) },
-                                    playerViewModel = playerViewModel
+                                    onDownloadClick = { onOnlineTrackYtdlnisDownload(item.track) },
+                                    playerViewModel = playerViewModel,
+                                    downloadTask = taskForTrack,
+                                    isDownloaded = trackKey in downloadedTrackKeys
                                 )
                             }
 
@@ -1950,4 +2087,145 @@ fun SearchFilterChip(
              null
          }
     )
+}
+
+/** Chiave normalizzata usata per abbinare risultati online, coda download e libreria. */
+private fun searchTrackKey(title: String, artist: String): String =
+    "${normalizeSearchKey(title)}|${normalizeSearchKey(artist)}"
+
+private fun normalizeSearchKey(value: String): String =
+    value.lowercase().replace(Regex("""[^\p{L}\p{N}]+"""), " ").trim()
+
+/**
+ * Foglio "Scarica" della barra di ricerca: download immediato della migliore
+ * corrispondenza oppure scelta esplicita tra i risultati già validati (mai anteprime).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchQueryDownloadSheet(
+    query: String,
+    playerViewModel: PlayerViewModel,
+    onDismiss: () -> Unit,
+    onDownloadBestMatch: () -> Unit,
+    onDownloadCandidate: (DownloadCandidate) -> Unit,
+    onOpenDownloadHub: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var candidates by remember(query) { mutableStateOf<List<DownloadCandidate>>(emptyList()) }
+    var isLoadingCandidates by remember(query) { mutableStateOf(true) }
+
+    LaunchedEffect(query) {
+        isLoadingCandidates = true
+        candidates = playerViewModel.loadDownloadCandidates(query)
+        isLoadingCandidates = false
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 28.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.search_download_sheet_title, query),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onDownloadBestMatch,
+                shape = CircleShape,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.search_download_action) + " • " +
+                        stringResource(R.string.search_download_best_match),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (isLoadingCandidates) {
+                Spacer(Modifier.height(16.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else if (candidates.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = stringResource(R.string.search_download_choose),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                candidates.forEach { candidate ->
+                    DownloadCandidateRow(
+                        candidate = candidate,
+                        onClick = { onDownloadCandidate(candidate) }
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = onOpenDownloadHub,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(stringResource(R.string.downloads_open_hub))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadCandidateRow(
+    candidate: DownloadCandidate,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+        ) {
+            SmartImage(
+                model = candidate.track.albumCoverUrl,
+                contentDescription = candidate.track.title,
+                targetSize = SmartImageListTargetSize,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = candidate.track.title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${candidate.track.artistName} • ${candidate.source}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Icon(
+            imageVector = Icons.Rounded.Download,
+            contentDescription = stringResource(R.string.search_download_action),
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
 }

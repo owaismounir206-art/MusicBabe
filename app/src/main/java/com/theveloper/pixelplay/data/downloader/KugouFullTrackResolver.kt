@@ -66,7 +66,8 @@ class KugouFullTrackResolver @Inject constructor() {
      * @return il brano risolto oppure `null` se KuGou non ha una versione integrale e
      *         liberamente accessibile (in quel caso la cascata prosegue).
      */
-    suspend fun resolve(query: String): ResolvedFullTrack? = withContext(Dispatchers.IO) {
+    suspend fun resolve(query: String, bitrate: String? = null): ResolvedFullTrack? =
+        withContext(Dispatchers.IO) {
         val trimmedQuery = query.trim()
         if (trimmedQuery.isBlank()) return@withContext null
         try {
@@ -76,7 +77,7 @@ class KugouFullTrackResolver @Inject constructor() {
                 return@withContext null
             }
             for (candidate in candidates) {
-                val resolved = fetchPlayInfo(candidate)
+                val resolved = fetchPlayInfo(candidate, bitrate)
                 if (resolved != null) {
                     Timber.i(
                         "KugouFullTrackResolver: full-length risolto per '$trimmedQuery' -> " +
@@ -128,9 +129,15 @@ class KugouFullTrackResolver @Inject constructor() {
             .take(MAX_CANDIDATES)
     }
 
-    /** URL del file integrale per un candidato; `null` se la traccia non è scaricabile. */
-    private fun fetchPlayInfo(candidate: Candidate): ResolvedFullTrack? {
-        val body = httpGet("$PLAY_INFO_ENDPOINT?cmd=playInfo&hash=${candidate.hash}") ?: return null
+    /**
+     * URL del file integrale per un candidato; `null` se la traccia non è scaricabile.
+     * [bitrate] è una preferenza (`"320"`/`"128"`): l'endpoint pubblico può ignorarla e
+     * restituire comunque il flusso disponibile, senza mai degradare ad anteprima.
+     */
+    private fun fetchPlayInfo(candidate: Candidate, bitrate: String? = null): ResolvedFullTrack? {
+        val bitrateQuery = bitrate?.takeIf { it.isNotBlank() }?.let { "&bitrate=$it" }.orEmpty()
+        val body = httpGet("$PLAY_INFO_ENDPOINT?cmd=playInfo&hash=${candidate.hash}$bitrateQuery")
+            ?: return null
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
 
         val streamUrl = json.optString("url").trim().replace("\\/", "/")

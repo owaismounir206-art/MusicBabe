@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notifiche -->
+    <string name="download_notification_channel_name">Download di MusicBabe</string>
+    <string name="download_notification_channel_description">Avanzamento ed esito dei download audio in-app</string>
+    <string name="download_notification_progress_title">Download di %1$s</string>
+    <string name="download_notification_progress_text">%1$s • %2$d%%</string>
+    <string name="download_notification_success_title">Scaricato: %1$s</string>
+    <string name="download_notification_error_title">Errore download: %1$s</string>
+    <string name="download_notification_saved_location">Salvato in Musica/MusicBabe</string>
+    <string name="download_notification_failed_text">Il brano non è stato aggiunto</string>
+
+    <!-- Messaggi dei task -->
+    <string name="download_status_queued">In coda</string>
+    <string name="download_status_resolving">Ricerca del brano completo…</string>
+    <string name="download_status_downloading">Download in corso…</string>
+    <string name="download_status_completed">Scaricato</string>
+    <string name="download_status_failed">Non riuscito</string>
+    <string name="download_status_cancelled">Download annullato</string>
+    <string name="download_error_generic">Download non riuscito</string>
+    <string name="download_error_wifi_only">I download sono limitati al Wi-Fi. Collegati a una rete Wi-Fi o disattiva il limite nelle Impostazioni.</string>
+    <string name="download_error_no_source">Nessuna sorgente espone il brano completo per “%1$s”</string>
+    <string name="download_info_success">“%1$s” salvato nella libreria</string>
+    <string name="download_info_already_present">“%1$s” è già presente nella libreria</string>
+    <string name="download_info_handoff_ytdlnis">Sorgenti interne senza il brano: download avviato con YTDLnis</string>
+
+    <!-- Hub download -->
+    <string name="downloads_title">Download</string>
+    <string name="downloads_subtitle">Coda, avanzamento e cronologia</string>
+    <string name="downloads_empty_title">Nessun download</string>
+    <string name="downloads_empty_body">Cerca un brano e tocca il pulsante di download per salvarlo nella libreria.</string>
+    <string name="downloads_action_cancel">Annulla</string>
+    <string name="downloads_action_retry">Riprova</string>
+    <string name="downloads_action_remove">Rimuovi</string>
+    <string name="downloads_action_open">Apri</string>
+    <string name="downloads_action_play">Riproduci</string>
+    <string name="downloads_action_clear_finished">Pulisci completati</string>
+    <string name="downloads_section_active">In corso</string>
+    <string name="downloads_section_finished">Cronologia</string>
+    <string name="downloads_open_hub">Hub download</string>
+
+    <!-- Ricerca -->
+    <string name="search_download_sheet_title">Scarica “%1$s”</string>
+    <string name="search_download_best_match">Migliore corrispondenza</string>
+    <string name="search_download_choose">Oppure scegli un risultato specifico</string>
+    <string name="search_download_action">Scarica</string>
+    <string name="search_downloaded_badge">Scaricato</string>
+    <string name="search_download_in_progress">Download in corso…</string>
+    <string name="search_result_actions_title">Azioni brano</string>
+    <string name="search_result_action_play">Riproduci ora</string>
+    <string name="search_result_action_save">Salva in libreria</string>
+    <string name="search_result_action_saved">Salvato in libreria</string>
+    <string name="search_result_action_download">Scarica</string>
+    <string name="search_result_action_downloaded">Scaricato</string>
+    <string name="search_result_action_download_ytdlnis">Scarica con YTDLnis</string>
+
+    <!-- Impostazioni -->
+    <string name="settings_download_section_title">Download</string>
+    <string name="settings_download_section_summary">Qualità, solo Wi-Fi e hub download</string>
+    <string name="settings_download_wifi_only_title">Solo Wi-Fi</string>
+    <string name="settings_download_wifi_only_summary">Non avviare mai download con i dati mobili</string>
+    <string name="settings_download_quality_title">Qualità audio</string>
+    <string name="settings_download_quality_auto">Automatica</string>
+    <string name="settings_download_quality_high">Alta</string>
+    <string name="settings_download_quality_standard">Standard</string>
+    <string name="settings_download_open_hub">Apri hub download</string>
+</resources>

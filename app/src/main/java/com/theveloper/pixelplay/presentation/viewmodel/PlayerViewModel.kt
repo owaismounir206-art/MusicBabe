@@ -125,9 +125,14 @@ import com.theveloper.pixelplay.data.updater.UpdateDownloadState
 import com.theveloper.pixelplay.data.model.isOnlineTrack
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.data.downloader.SongDownloadManager
+import com.theveloper.pixelplay.data.downloader.DownloadCandidate
 import com.theveloper.pixelplay.data.downloader.DownloadState
+import com.theveloper.pixelplay.data.downloader.DownloadStatus
+import com.theveloper.pixelplay.data.downloader.DownloadTask
 import com.theveloper.pixelplay.data.downloader.InAppYtdlnisInstaller
 import com.theveloper.pixelplay.data.downloader.YtdlnisInstallState
+import com.theveloper.pixelplay.data.preferences.DownloadPreferencesRepository
+import com.theveloper.pixelplay.data.preferences.DownloadQuality
 
 private const val CAST_LOG_TAG = "PlayerCastTransfer"
 private const val ENABLE_FOLDERS_SOURCE_SWITCHING = true
@@ -234,6 +239,7 @@ class PlayerViewModel @Inject constructor(
     val appUpdateManager: AppUpdateManager,
     val songDownloadManager: SongDownloadManager,
     val inAppYtdlnisInstaller: InAppYtdlnisInstaller,
+    private val downloadPreferencesRepository: DownloadPreferencesRepository,
     val newSongAlertManager: NewSongAlertManager
 ) : ViewModel() {
 
@@ -301,16 +307,44 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // --- In-App Song & YTDLnis Download Integration ---
+    // --- In-App Song & YTDlnis Download Integration ---
     val songDownloadState: StateFlow<DownloadState> = songDownloadManager.downloadState
     val ytdlnisInstallState: StateFlow<YtdlnisInstallState> = inAppYtdlnisInstaller.installState
+
+    /** Coda download osservabile: voci attive e cronologia recente. */
+    val downloadTasks: StateFlow<List<DownloadTask>> = songDownloadManager.downloadTasks
+
+    val downloadWifiOnly: StateFlow<Boolean> = downloadPreferencesRepository.wifiOnlyFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val downloadQuality: StateFlow<DownloadQuality> = downloadPreferencesRepository.qualityFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadQuality.AUTO)
+
+    /**
+     * Chiavi `titolo|artista` normalizzate dei brani già scaricati: unione tra i file in
+     * Music/MusicBabe e la libreria locale, così il badge "Scaricato" resta corretto
+     * anche per i brani presenti da prima.
+     */
+    val downloadedTrackKeys: StateFlow<Set<String>> =
+        combine(songDownloadManager.downloadedKeys, libraryStateHolder.allSongs) { keys, songs ->
+            keys + songs.map { song -> downloadTrackKey(song.title, song.artist) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun isTrackDownloaded(title: String, artist: String): Boolean =
+        downloadTrackKey(title, artist) in downloadedTrackKeys.value
+
+    private fun downloadTrackKey(title: String, artist: String): String =
+        "${normalizeDownloadKey(title)}|${normalizeDownloadKey(artist)}"
+
+    private fun normalizeDownloadKey(value: String): String =
+        value.lowercase().replace(Regex("""[^\p{L}\p{N}]+"""), " ").trim()
 
     fun downloadSongInApp(
         track: OnlineTrack,
         onProgress: ((Float) -> Unit)? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
-    ) {
-        songDownloadManager.startSongDownload(track, onProgress) { success, message ->
+    ): Long {
+        return songDownloadManager.startSongDownload(track, onProgress) { success, message ->
             if (success) {
                 if (currentSong?.id == "online_${track.id}") {
                     _isCurrentSongSaved.value = true
@@ -330,9 +364,47 @@ class PlayerViewModel @Inject constructor(
         query: String,
         onProgress: ((Float) -> Unit)? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
-    ) {
-        songDownloadManager.startQueryDownload(query, onProgress, onComplete)
+    ): Long = songDownloadManager.startQueryDownload(query, onProgress, onComplete)
+
+    /** Candidati per il foglio "Scarica" della ricerca (risultati già validati). */
+    suspend fun loadDownloadCandidates(query: String): List<DownloadCandidate> =
+        songDownloadManager.previewQueryCandidates(query)
+
+    fun cancelDownload(taskId: Long) = songDownloadManager.cancelDownload(taskId)
+
+    fun retryDownload(taskId: Long) = songDownloadManager.retryDownload(taskId)
+
+    fun removeDownload(taskId: Long) = songDownloadManager.removeDownload(taskId)
+
+    fun clearFinishedDownloads() = songDownloadManager.clearFinishedDownloads()
+
+    fun setDownloadWifiOnly(enabled: Boolean) {
+        viewModelScope.launch { downloadPreferencesRepository.setWifiOnly(enabled) }
     }
+
+    fun setDownloadQuality(quality: DownloadQuality) {
+        viewModelScope.launch { downloadPreferencesRepository.setQuality(quality) }
+    }
+
+    /**
+     * Riproduce il brano di un task completato: prima dalla libreria in memoria, poi dal
+     * DB tramite il percorso appena scritto (il MediaScanner è asincrono).
+     */
+    fun playDownloadedTask(task: DownloadTask) {
+        viewModelScope.launch {
+            val songId = task.songId
+            val song = songId?.let { id -> libraryStateHolder.allSongsById.value[id] }
+                ?: allSongsFlow.value.firstOrNull { it.id == songId }
+                ?: task.filePath?.takeIf { it.isNotBlank() }
+                    ?.let { path -> musicRepository.getSongByPath(path) }
+            if (song != null) {
+                showAndPlaySong(song = song, contextSongs = listOf(song), queueName = "Download")
+            } else {
+                Timber.w("PlayerViewModel: brano scaricato non ancora indicizzato (task=${task.id})")
+            }
+        }
+    }
+
 
     fun startInAppYtdlnisInstall() {
         inAppYtdlnisInstaller.startInAppDownloadAndInstall()

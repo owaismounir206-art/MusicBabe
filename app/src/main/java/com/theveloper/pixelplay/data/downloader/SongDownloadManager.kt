@@ -2,10 +2,14 @@ package com.theveloper.pixelplay.data.downloader
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -23,6 +27,8 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.netease.NeteaseRepository
 import com.theveloper.pixelplay.data.notification.NewSongAlert
 import com.theveloper.pixelplay.data.notification.NewSongAlertManager
+import com.theveloper.pixelplay.data.preferences.DownloadPreferencesRepository
+import com.theveloper.pixelplay.data.preferences.DownloadQuality
 import com.theveloper.pixelplay.data.repository.LyricsRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.scanner.MusicFolderScanner
@@ -30,12 +36,19 @@ import com.theveloper.pixelplay.utils.LyricsUtils
 import com.theveloper.pixelplay.utils.SearchQueryMatcher
 import com.theveloper.pixelplay.utils.YtdlnisHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -43,6 +56,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -65,19 +79,59 @@ class SongDownloadManager @Inject constructor(
     private val neteaseRepository: NeteaseRepository,
     private val kugouResolver: KugouFullTrackResolver,
     private val lyricsRepository: LyricsRepository,
-    private val songMetadataEditor: SongMetadataEditor
+    private val songMetadataEditor: SongMetadataEditor,
+    private val downloadPreferencesRepository: DownloadPreferencesRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-
+    // ─── Coda di download ────────────────────────────────────────────────────────
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private val _downloadTasks = MutableStateFlow<List<DownloadTask>>(emptyList())
+    val downloadTasks: StateFlow<List<DownloadTask>> = _downloadTasks.asStateFlow()
+
+    /** Chiavi normalizzate `titolo|artista` dei brani già presenti in Music/MusicBabe. */
+    private val _downloadedKeys = MutableStateFlow<Set<String>>(emptySet())
+    val downloadedKeys: StateFlow<Set<String>> = _downloadedKeys.asStateFlow()
+
+    /**
+     * Stato sintetico dell'ultimo download attivo o concluso: mantenuto per i consumer
+     * storici. La UI nuova osserva [downloadTasks] e gestisce coda, annullamento e retry.
+     */
+    val downloadState: StateFlow<DownloadState> = _downloadTasks
+        .map { tasks -> tasks.toDownloadState() }
+        .stateIn(scope, SharingStarted.Eagerly, DownloadState.Idle)
+
+    private val nextTaskId = AtomicLong(0L)
+    private val pumpLock = Any()
+    private var pumpJob: Job? = null
+    private var runningTaskId: Long? = null
+    private var runningTaskJob: Job? = null
+    private val taskCallbacks = mutableMapOf<Long, TaskCallbacks>()
+
+    // Ultima percentuale (0..100) notificata per task: aggiornamenti UI e notifiche
+    // vengono emessi solo al cambio di percentuale, non a ogni chunk di 8KB.
+    private val lastProgressPercent = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+
+    private data class TaskCallbacks(
+        val onProgress: ((Float) -> Unit)?,
+        val onComplete: ((Boolean, String) -> Unit)?
+    )
+
+    private data class ResolvedDownload(val track: OnlineTrack, val streamUrl: String)
+
+    private data class AudioFormat(val extension: String, val mimeType: String)
+
+    /** Errore "atteso" del download: messaggio già localizzato, mostrato all'utente. */
+    private class DownloadFailure(message: String) : Exception(message)
 
     companion object {
         const val CHANNEL_ID = "musicbabe_song_downloads"
         const val NOTIFICATION_ID = 4040
+
+        // Le notifiche di avanzamento usano ID distinti per singolo task, in questo range.
+        private const val PROGRESS_NOTIFICATION_SLOT = 500
 
         // Tolleranza di durata (±15s) per il match della traccia full-length su NetEase.
         private const val NETEASE_DURATION_TOLERANCE_MS = 15_000L
@@ -98,178 +152,707 @@ class SongDownloadManager @Inject constructor(
         private val NON_AUDIO_CONTENT_TYPES = listOf(
             "text/html", "application/xhtml+xml", "application/json", "text/plain"
         )
+
+        // Quanti download conclusi restano visibili nella cronologia della coda.
+        private const val MAX_FINISHED_TASKS = 30
     }
 
     init {
         createNotificationChannel()
+        scope.launch { refreshDownloadedIndex() }
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Download Brani MusicBabe",
+                context.getString(R.string.download_notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Notifiche sullo stato di avanzamento dei download audio di MusicBabe"
+                description = context.getString(R.string.download_notification_channel_description)
+                setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
         }
     }
 
+    // ─── API pubblica della coda ─────────────────────────────────────────────────
+
     /**
-     * Downloads an online track directly inside MusicBabe into the device's Music library.
+     * Mette in coda il download di un risultato online. [onProgress] e [onComplete]
+     * vengono invocati sul main thread; il download prosegue anche se la UI viene chiusa.
      */
     fun startSongDownload(
         track: OnlineTrack,
         onProgress: ((Float) -> Unit)? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
-    ) = startSongDownloadInternal(
-        track = track,
-        resolvedAudioUrl = null,
-        onProgress = onProgress,
-        onComplete = onComplete
-    )
+    ): Long = enqueue(DownloadRequest.Track(track), onProgress, onComplete)
 
     /**
-     * Core del download: [resolvedAudioUrl] è un flusso full-length già validato da una
-     * pipeline a monte (es. download dalla barra di ricerca via [startQueryDownload]).
-     * Quando è presente ha priorità assoluta e salta la classificazione anteprima/HTML.
+     * Mette in coda il download a partire dal testo digitato nella barra di ricerca:
+     * la risoluzione avviene interamente in-app (NetEase, poi KuGou, YTDLnis solo se
+     * già installato).
      */
-    private fun startSongDownloadInternal(
-        track: OnlineTrack,
-        resolvedAudioUrl: String?,
+    fun startQueryDownload(
+        query: String,
+        onProgress: ((Float) -> Unit)? = null,
+        onComplete: ((Boolean, String) -> Unit)? = null
+    ): Long = enqueue(DownloadRequest.Query(query), onProgress, onComplete)
+
+    fun enqueueTrackDownload(track: OnlineTrack): Long =
+        enqueue(DownloadRequest.Track(track), null, null)
+
+    fun enqueueQueryDownload(query: String): Long =
+        enqueue(DownloadRequest.Query(query), null, null)
+
+    /** Annulla un download in corso o in attesa; le voci già concluse vengono rimosse. */
+    fun cancelDownload(taskId: Long) {
+        val task = _downloadTasks.value.firstOrNull { it.id == taskId } ?: return
+        if (task.isFinished) {
+            removeDownload(taskId)
+            return
+        }
+        val cancelledMessage = context.getString(R.string.download_status_cancelled)
+        updateTask(taskId) { it.copy(status = DownloadStatus.CANCELLED, message = cancelledMessage) }
+        lastProgressPercent.remove(taskId)
+        cancelProgressNotification(taskId)
+        if (runningTaskId == taskId) {
+            runningTaskJob?.cancel()
+        }
+        taskCallbacks.remove(taskId)?.onComplete?.let { callback ->
+            scope.launch(Dispatchers.Main) { callback(false, cancelledMessage) }
+        }
+    }
+
+    /** Rimette in coda un download fallito o annullato, mantenendo la richiesta originale. */
+    fun retryDownload(taskId: Long) {
+        val task = _downloadTasks.value.firstOrNull { it.id == taskId } ?: return
+        if (task.isActive) return
+        updateTask(taskId) {
+            it.copy(
+                status = DownloadStatus.QUEUED,
+                progress = 0f,
+                message = null,
+                filePath = null,
+                songId = null
+            )
+        }
+        pump()
+    }
+
+    /** Rimuove una voce dalla cronologia della coda (annullandola se ancora attiva). */
+    fun removeDownload(taskId: Long) {
+        val task = _downloadTasks.value.firstOrNull { it.id == taskId } ?: return
+        if (task.isActive) {
+            cancelDownload(taskId)
+        }
+        _downloadTasks.update { tasks -> tasks.filterNot { it.id == taskId } }
+        taskCallbacks.remove(taskId)
+        cancelProgressNotification(taskId)
+    }
+
+    /** Svuota la cronologia delle voci concluse lasciando intatte quelle attive. */
+    fun clearFinishedDownloads() {
+        _downloadTasks.update { tasks -> tasks.filter { it.isActive } }
+    }
+
+    /**
+     * Candidati per il foglio "Scarica" della ricerca: solo risultati con durata completa
+     * e corrispondenza credibile con la query, ordinati per punteggio.
+     */
+    suspend fun previewQueryCandidates(query: String, limit: Int = 5): List<DownloadCandidate> =
+        withContext(Dispatchers.IO) {
+            val trimmedQuery = query.trim()
+            if (trimmedQuery.isBlank()) return@withContext emptyList()
+            try {
+                neteaseRepository.searchOnline(trimmedQuery, limit = 15)
+                    .getOrNull()
+                    .orEmpty()
+                    .filter { (it.neteaseId ?: 0L) > 0L }
+                    .filter { it.duration <= 0L || it.duration >= MIN_QUERY_DOWNLOAD_DURATION_MS }
+                    .map { song ->
+                        DownloadCandidate(
+                            track = OnlineTrack(
+                                id = song.neteaseId ?: 0L,
+                                title = song.title,
+                                artistName = song.artist,
+                                albumTitle = song.album,
+                                albumCoverUrl = song.albumArtUriString,
+                                durationSeconds = (song.duration / 1000L).toInt(),
+                                previewUrl = null,
+                                shareLink = null
+                            ),
+                            source = "NetEase",
+                            score = SearchQueryMatcher.score(trimmedQuery, song.title, song.artist)
+                        )
+                    }
+                    .filter { it.score >= SearchQueryMatcher.MIN_SCORE }
+                    .sortedByDescending { it.score }
+                    .take(limit)
+            } catch (e: Exception) {
+                Timber.w(e, "SongDownloadManager: anteprima candidati non disponibile ('$trimmedQuery')")
+                emptyList()
+            }
+        }
+
+    // ─── Motore della coda ───────────────────────────────────────────────────────
+
+    private fun enqueue(
+        request: DownloadRequest,
         onProgress: ((Float) -> Unit)?,
         onComplete: ((Boolean, String) -> Unit)?
-    ) {
-        scope.launch {
-            val previewUrl = track.previewUrl?.takeIf { it.isNotBlank() }
-            val shareLink = track.shareLink?.takeIf { it.isNotBlank() }
-
-            if (previewUrl == null && shareLink == null && resolvedAudioUrl.isNullOrBlank()) {
-                val errorMsg = "Nessun flusso audio disponibile per il download"
-                _downloadState.value = DownloadState.Error(track.id, errorMsg)
-                newSongAlertManager.postAlert(
-                    NewSongAlert(
-                        isSuccess = false,
-                        song = null,
-                        message = "Il brano non è stato aggiunto"
-                    )
-                )
-                withContext(Dispatchers.Main) { onComplete?.invoke(false, errorMsg) }
-                return@launch
+    ): Long {
+        val title: String
+        val artist: String
+        val coverUrl: String?
+        when (request) {
+            is DownloadRequest.Track -> {
+                title = request.track.title
+                artist = request.track.artistName
+                coverUrl = request.track.albumCoverUrl
             }
 
-            // FIX STREAMING REALE: rilevamento deterministico dell'anteprima promozionale
-            // e dei link di condivisione. I link "cdns-preview-*" di Deezer sono MP3 promo
-            // di ~30s e NON devono mai essere salvati in libreria come brani completi.
-            // Uno `shareLink` (es. https://www.deezer.com/track/…) è una pagina web HTML,
-            // non un flusso audio: non deve mai essere scritto su disco come .mp3.
-            // Si usa quindi solo il primo URL che punta direttamente a un flusso audio
-            // (preview o CDN full-length); se non ne esiste nessuno, si entra comunque
-            // nella cascata di risoluzione full-length (NetEase -> yt-dlp).
-            val directAudioUrl = listOfNotNull(previewUrl, shareLink)
-                .firstOrNull { isDirectAudioStreamUrl(it) }
+            is DownloadRequest.Query -> {
+                title = request.query.trim()
+                artist = ""
+                coverUrl = null
+            }
+        }
 
-            val isPreview = directAudioUrl != null && isPreviewSource(directAudioUrl, track)
+        val key = dedupeKey(title, artist)
+        // Stesso brano già in coda o già in download: nessun doppione silenzioso.
+        _downloadTasks.value.firstOrNull { it.isActive && it.dedupeKey == key }?.let { inFlight ->
+            Timber.i("SongDownloadManager: download già in corso per '$title', nessun doppione")
+            return inFlight.id
+        }
 
-            // Un URL già risolto da una pipeline a monte (download avviato dalla barra di
-            // ricerca) è un flusso full-length validato: non va riclassificato come anteprima
-            // né risolto di nuovo tramite la cascata NetEase -> KuGou.
-            val resolvedUrl = resolvedAudioUrl?.takeIf { it.isNotBlank() }
-            val effectiveUrl: String = if (resolvedUrl != null) {
-                Timber.i("SongDownloadManager: uso il flusso già risolto per '${track.title}'")
-                resolvedUrl
-            } else if (isPreview || directAudioUrl == null) {
-                // Cascata full-length, interamente in-app: Passo A NetEase, Passo B KuGou.
-                // Solo se entrambe le sorgenti interne falliscono si valuta YTDLnis
-                // (unicamente se già installato: nessuna installazione forzata).
-                val fullStreamUrl = resolveInAppFullStream(track)
-                if (fullStreamUrl != null) {
-                    Timber.i("SongDownloadManager: risolto flusso full-length in-app per '${track.title}'")
-                    fullStreamUrl
-                } else {
-                    val handedOffToYtDlp = launchYtDlpFullTrackBridge(track)
-                    val errorMsg = if (handedOffToYtDlp) {
-                        "Sorgenti interne senza il brano completo: download avviato con YTDLnis per '${track.title}'"
-                    } else {
-                        "Nessuna sorgente interna (NetEase/KuGou) espone il brano completo per '${track.title}'"
-                    }
-                    Timber.w("SongDownloadManager: $errorMsg")
-                    _downloadState.value = DownloadState.Error(track.id, errorMsg)
-                    showNotification(track.title, track.artistName, isSuccess = false)
-                    newSongAlertManager.postAlert(
-                        NewSongAlert(
-                            isSuccess = false,
-                            song = null,
-                            message = if (handedOffToYtDlp) {
-                                "Download completo avviato con YTDLnis"
-                            } else {
-                                "Il brano non è stato aggiunto"
-                            }
-                        )
-                    )
-                    withContext(Dispatchers.Main) { onComplete?.invoke(false, errorMsg) }
-                    return@launch
-                }
+        val task = DownloadTask(
+            id = nextTaskId.incrementAndGet(),
+            title = title,
+            artist = artist,
+            coverUrl = coverUrl,
+            request = request,
+            status = DownloadStatus.QUEUED,
+            dedupeKey = key
+        )
+        if (onProgress != null || onComplete != null) {
+            taskCallbacks[task.id] = TaskCallbacks(onProgress, onComplete)
+        }
+        appendTask(task)
+        pump()
+        return task.id
+    }
+
+    private fun appendTask(task: DownloadTask) {
+        _downloadTasks.update { tasks ->
+            val updated = tasks + task
+            val finished = updated.filter { it.isFinished }
+            if (finished.size <= MAX_FINISHED_TASKS) {
+                updated
             } else {
-                directAudioUrl!!
-            }
-
-            _downloadState.value = DownloadState.Downloading(track.id, 0f, track.title)
-
-            try {
-                val result = performDownload(track, effectiveUrl) { progress ->
-                    _downloadState.value = DownloadState.Downloading(track.id, progress, track.title)
-                    onProgress?.invoke(progress)
-                }
-
-                if (result.isSuccess) {
-                    val (savedPath, songSaved) = result.getOrNull() ?: ("" to null)
-                    _downloadState.value = DownloadState.Success(track.id, track.title, savedPath, songSaved)
-                    showNotification(track.title, track.artistName, isSuccess = true)
-                    newSongAlertManager.postAlert(
-                        NewSongAlert(
-                            isSuccess = true,
-                            song = songSaved,
-                            message = "Il brano è stato aggiunto. Riproduci ora"
-                        )
-                    )
-                    withContext(Dispatchers.Main) {
-                        onComplete?.invoke(true, "Brano '${track.title}' salvato con successo!")
-                    }
-
-                    // Sidecar .lrc con testi sincronizzati (pipeline a 4 livelli, gratis,
-                    // senza API key). Lo stato Success è già stato emesso: nessun blocco UI.
-                    writeSyncedLyricsSidecar(songSaved)
-                } else {
-                    val err = result.exceptionOrNull()?.message ?: "Errore durante il download"
-                    _downloadState.value = DownloadState.Error(track.id, err)
-                    showNotification(track.title, track.artistName, isSuccess = false)
-                    newSongAlertManager.postAlert(
-                        NewSongAlert(
-                            isSuccess = false,
-                            song = null,
-                            message = "Il brano non è stato aggiunto"
-                        )
-                    )
-                    withContext(Dispatchers.Main) { onComplete?.invoke(false, err) }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error downloading song in MusicBabe")
-                val msg = e.message ?: "Download non riuscito"
-                _downloadState.value = DownloadState.Error(track.id, msg)
-                newSongAlertManager.postAlert(
-                    NewSongAlert(
-                        isSuccess = false,
-                        song = null,
-                        message = "Il brano non è stato aggiunto"
-                    )
-                )
-                withContext(Dispatchers.Main) { onComplete?.invoke(false, msg) }
+                val keepIds = finished.takeLast(MAX_FINISHED_TASKS).map { it.id }.toSet()
+                updated.filter { it.isActive || it.id in keepIds }
             }
         }
     }
+
+    /** Avvia il consumer della coda: un download alla volta, in ordine di arrivo. */
+    private fun pump() {
+        synchronized(pumpLock) {
+            if (pumpJob?.isActive == true) return
+            pumpJob = scope.launch {
+                while (true) {
+                    val next = _downloadTasks.value.firstOrNull { it.status == DownloadStatus.QUEUED }
+                        ?: break
+                    runningTaskId = next.id
+                    val taskJob = launch { runTask(next) }
+                    runningTaskJob = taskJob
+                    taskJob.join()
+                    runningTaskId = null
+                    runningTaskJob = null
+                }
+            }
+        }
+    }
+
+    private fun updateTask(taskId: Long, transform: (DownloadTask) -> DownloadTask) {
+        _downloadTasks.update { tasks ->
+            tasks.map { task -> if (task.id == taskId) transform(task) else task }
+        }
+    }
+
+    private suspend fun runTask(task: DownloadTask) {
+        val callbacks = taskCallbacks[task.id]
+        try {
+            if (!isDownloadNetworkAllowed()) {
+                failTask(task, context.getString(R.string.download_error_wifi_only))
+                return
+            }
+
+            updateTask(task.id) {
+                it.copy(status = DownloadStatus.RESOLVING, progress = 0f, message = null)
+            }
+
+            val quality = downloadPreferencesRepository.qualityFlow.first()
+            val resolved = when (val request = task.request) {
+                is DownloadRequest.Query -> resolveQueryForTask(request.query, quality)
+                is DownloadRequest.Track -> resolveTrackForTask(request.track, quality)
+            } ?: throw DownloadFailure(
+                context.getString(R.string.download_error_no_source, task.title)
+            )
+
+            // Dedupe: lo stesso brano già presente in Music/MusicBabe non viene riscaricato.
+            if (isAlreadyDownloaded(resolved.track)) {
+                completeTask(
+                    task = task,
+                    track = resolved.track,
+                    filePath = null,
+                    songId = null,
+                    song = null,
+                    alreadyPresent = true
+                )
+                return
+            }
+
+            updateTask(task.id) {
+                it.copy(
+                    status = DownloadStatus.DOWNLOADING,
+                    progress = 0f,
+                    title = resolved.track.title,
+                    artist = resolved.track.artistName,
+                    coverUrl = resolved.track.albumCoverUrl,
+                    message = null
+                )
+            }
+            lastProgressPercent.remove(task.id)
+            showProgressNotification(task.id, resolved.track.title, resolved.track.artistName, 0f)
+
+            val result = performDownload(resolved.track, resolved.streamUrl) { progress ->
+                // Throttle: UI e notifica si aggiornano solo quando cambia la percentuale.
+                val percent = (progress.coerceIn(0f, 1f) * 100).toInt()
+                if (lastProgressPercent.put(task.id, percent) != percent) {
+                    updateTask(task.id) { it.copy(progress = progress) }
+                    callbacks?.onProgress?.invoke(progress)
+                    showProgressNotification(
+                        taskId = task.id,
+                        title = resolved.track.title,
+                        artist = resolved.track.artistName,
+                        progress = progress
+                    )
+                }
+            }
+
+            if (result.isSuccess) {
+                val (savedPath, savedSong) = result.getOrNull() ?: ("" to null)
+                completeTask(
+                    task = task,
+                    track = resolved.track,
+                    filePath = savedPath,
+                    songId = savedSong?.id,
+                    song = savedSong,
+                    alreadyPresent = false
+                )
+            } else {
+                val error = result.exceptionOrNull()
+                if (error is CancellationException) throw error
+                failTask(
+                    task = task,
+                    message = error?.message ?: context.getString(R.string.download_error_generic),
+                    track = resolved.track
+                )
+            }
+        } catch (e: CancellationException) {
+            val cancelledMessage = context.getString(R.string.download_status_cancelled)
+            updateTask(task.id) {
+                it.copy(status = DownloadStatus.CANCELLED, message = cancelledMessage)
+            }
+            cancelProgressNotification(task.id)
+            taskCallbacks.remove(task.id)?.onComplete?.let { callback ->
+                withContext(Dispatchers.Main) { callback(false, cancelledMessage) }
+            }
+            throw e
+        } catch (e: DownloadFailure) {
+            failTask(task, e.message ?: context.getString(R.string.download_error_generic))
+        } catch (e: Exception) {
+            Timber.e(e, "SongDownloadManager: download non riuscito per '${task.title}'")
+            failTask(task, e.message ?: context.getString(R.string.download_error_generic))
+        }
+    }
+
+    private suspend fun completeTask(
+        task: DownloadTask,
+        track: OnlineTrack,
+        filePath: String?,
+        songId: String?,
+        song: Song?,
+        alreadyPresent: Boolean
+    ) {
+        val message = if (alreadyPresent) {
+            context.getString(R.string.download_info_already_present, track.title)
+        } else {
+            context.getString(R.string.download_info_success, track.title)
+        }
+
+        updateTask(task.id) {
+            it.copy(
+                status = DownloadStatus.COMPLETED,
+                progress = 1f,
+                title = track.title,
+                artist = track.artistName,
+                coverUrl = track.albumCoverUrl,
+                filePath = filePath ?: it.filePath,
+                songId = songId,
+                message = message
+            )
+        }
+        _downloadedKeys.update { keys -> keys + dedupeKey(track.title, track.artistName) }
+        lastProgressPercent.remove(task.id)
+        cancelProgressNotification(task.id)
+        taskCallbacks.remove(task.id)?.onComplete?.let { callback ->
+            withContext(Dispatchers.Main) { callback(true, message) }
+        }
+
+        if (alreadyPresent) {
+            Timber.i("SongDownloadManager: '${track.title}' già presente in Music/MusicBabe")
+            return
+        }
+
+        showNotification(track.title, track.artistName, isSuccess = true)
+        newSongAlertManager.postAlert(NewSongAlert(isSuccess = true, song = song, message = message))
+
+        // Sidecar .lrc con testi sincronizzati: lo stato COMPLETED è già stato emesso,
+        // quindi la UI non resta mai in attesa della pipeline dei testi.
+        writeSyncedLyricsSidecar(song)
+    }
+
+    private suspend fun failTask(task: DownloadTask, message: String, track: OnlineTrack? = null) {
+        updateTask(task.id) {
+            it.copy(status = DownloadStatus.FAILED, progress = 0f, message = message)
+        }
+        lastProgressPercent.remove(task.id)
+        cancelProgressNotification(task.id)
+        taskCallbacks.remove(task.id)?.onComplete?.let { callback ->
+            withContext(Dispatchers.Main) { callback(false, message) }
+        }
+        val title = track?.title ?: task.title
+        val artist = track?.artistName ?: task.artist
+        showNotification(title, artist, isSuccess = false)
+        newSongAlertManager.postAlert(NewSongAlert(isSuccess = false, song = null, message = message))
+        Timber.w("SongDownloadManager: download fallito per '$title': $message")
+    }
+
+    // ─── Risoluzione della sorgente full-length ──────────────────────────────────
+
+    /**
+     * Risolve una query libera sulla prima sorgente full-length disponibile:
+     * 1. NetEase (match per punteggio, stream integrale);
+     * 2. KuGou (API pubbliche);
+     * 3. YTDLnis, esclusivamente se già installato sul dispositivo.
+     */
+    private suspend fun resolveQueryForTask(
+        query: String,
+        quality: DownloadQuality
+    ): ResolvedDownload? {
+        val trimmedQuery = query.trim()
+        if (trimmedQuery.isBlank()) return null
+
+        val match = resolveNeteaseMatchForQuery(trimmedQuery)
+        val neteaseId = match?.neteaseId ?: 0L
+        if (match != null && neteaseId > 0L) {
+            val streamUrl = resolveNeteaseStreamUrl(neteaseId, quality.neteaseQualities)
+            if (streamUrl != null) {
+                val track = OnlineTrack(
+                    id = neteaseId,
+                    title = match.title,
+                    artistName = match.artist.ifBlank { trimmedQuery },
+                    albumTitle = match.album,
+                    albumCoverUrl = match.albumArtUriString,
+                    durationSeconds = (match.duration / 1000L).toInt(),
+                    previewUrl = streamUrl,
+                    shareLink = null
+                )
+                Timber.i(
+                    "SongDownloadManager: query '$trimmedQuery' risolta in full-length " +
+                        "NetEase (songId=$neteaseId)"
+                )
+                return ResolvedDownload(track, streamUrl)
+            }
+        }
+
+        val kugouTrack = kugouResolver.resolve(trimmedQuery, quality.kugouBitrate)
+        if (kugouTrack != null) {
+            val track = OnlineTrack(
+                id = abs(kugouTrack.streamUrl.hashCode().toLong()),
+                title = kugouTrack.title,
+                artistName = kugouTrack.artist.ifBlank { trimmedQuery },
+                albumTitle = kugouTrack.album,
+                albumCoverUrl = kugouTrack.coverUrl,
+                durationSeconds = (kugouTrack.durationMs / 1000L).toInt(),
+                previewUrl = kugouTrack.streamUrl,
+                shareLink = null
+            )
+            Timber.i("SongDownloadManager: query '$trimmedQuery' risolta in full-length KuGou")
+            return ResolvedDownload(track, kugouTrack.streamUrl)
+        }
+
+        if (launchYtDlpQueryBridge(trimmedQuery)) {
+            throw DownloadFailure(
+                context.getString(R.string.download_info_handoff_ytdlnis, trimmedQuery)
+            )
+        }
+        return null
+    }
+
+    /**
+     * Risolve un risultato online: usa il flusso diretto se è già full-length, altrimenti
+     * entra nella cascata interna NetEase -> KuGou -> YTDLnis (mai anteprime da 30s).
+     */
+    private suspend fun resolveTrackForTask(
+        track: OnlineTrack,
+        quality: DownloadQuality
+    ): ResolvedDownload? {
+        val directAudioUrl = listOfNotNull(
+            track.previewUrl?.takeIf { it.isNotBlank() },
+            track.shareLink?.takeIf { it.isNotBlank() }
+        ).firstOrNull { isDirectAudioStreamUrl(it) }
+
+        if (directAudioUrl != null && !isPreviewSource(directAudioUrl, track)) {
+            return ResolvedDownload(track, directAudioUrl)
+        }
+
+        val inAppUrl = resolveInAppFullStream(track, quality)
+        if (inAppUrl != null) return ResolvedDownload(track, inAppUrl)
+
+        if (launchYtDlpFullTrackBridge(track)) {
+            throw DownloadFailure(
+                context.getString(R.string.download_info_handoff_ytdlnis, track.title)
+            )
+        }
+        return null
+    }
+
+    // ─── Dedupe, formato e rete ──────────────────────────────────────────────────
+
+    private fun dedupeKey(title: String, artist: String): String =
+        "${normalizeKey(title)}|${normalizeKey(artist)}"
+
+    private fun normalizeKey(value: String): String =
+        value.lowercase().replace(Regex("""[^\p{L}\p{N}]+"""), " ").trim()
+
+    private fun musicBabeDirectory(): File = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+        "MusicBabe"
+    )
+
+    /** Ricostruisce l'indice dei brani già scaricati leggendo Music/MusicBabe. */
+    private suspend fun refreshDownloadedIndex() {
+        val keys = withContext(Dispatchers.IO) {
+            val files = musicBabeDirectory().listFiles() ?: return@withContext emptySet<String>()
+            files.asSequence()
+                .filter { file ->
+                    AUDIO_FILE_EXTENSIONS.any { extension -> file.name.lowercase().endsWith(extension) }
+                }
+                .mapNotNull { file ->
+                    file.nameWithoutExtension.split(" - ").takeIf { parts -> parts.size >= 2 }
+                }
+                .flatMap { parts ->
+                    val artist = parts.first()
+                    val title = parts.drop(1).joinToString(" - ")
+                    sequenceOf(dedupeKey(title, artist), dedupeKey(artist, title))
+                }
+                .toSet()
+        }
+        _downloadedKeys.value = keys
+    }
+
+    /** True se il brano è già presente in Music/MusicBabe (nessun secondo file). */
+    private fun isAlreadyDownloaded(track: OnlineTrack): Boolean {
+        val key = dedupeKey(track.title, track.artistName)
+        if (key in _downloadedKeys.value) return true
+
+        val target = normalizeKey("${track.artistName} - ${track.title}")
+        val reversed = normalizeKey("${track.title} - ${track.artistName}")
+        val match = musicBabeDirectory().listFiles()?.any { file ->
+            val base = normalizeKey(file.nameWithoutExtension)
+            base == target || base == reversed
+        } == true
+
+        if (match) {
+            _downloadedKeys.update { keys -> keys + key }
+        }
+        return match
+    }
+
+    /** Rispetta l'eventuale limite "solo Wi-Fi" impostato nelle preferenze download. */
+    private suspend fun isDownloadNetworkAllowed(): Boolean {
+        if (!downloadPreferencesRepository.wifiOnlyFlow.first()) return true
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return true
+        val activeNetwork = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
+    /**
+     * Estensione e MIME del flusso: derivati dal Content-Type della risposta e, quando
+     * assente o generico, dal path dell'URL. Mai assumere MP3 per un m4a/flac/ogg.
+     */
+    private fun resolveAudioFormat(contentType: String?, audioUrl: String): AudioFormat {
+        val normalizedType = contentType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
+        when (normalizedType) {
+            "audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac", "audio/aacp" ->
+                return AudioFormat("m4a", "audio/mp4")
+
+            "audio/flac", "audio/x-flac" -> return AudioFormat("flac", "audio/flac")
+            "audio/ogg", "application/ogg", "audio/opus" -> return AudioFormat("ogg", "audio/ogg")
+            "audio/wav", "audio/x-wav", "audio/wave" -> return AudioFormat("wav", "audio/wav")
+            "audio/mpeg", "audio/mp3", "audio/mpeg3", "audio/x-mpeg" ->
+                return AudioFormat("mp3", "audio/mpeg")
+
+            else -> Unit
+        }
+
+        val urlPath = audioUrl.substringBefore('#').substringBefore('?').lowercase()
+        return when {
+            urlPath.endsWith(".m4a") || urlPath.endsWith(".mp4") || urlPath.endsWith(".aac") ->
+                AudioFormat("m4a", "audio/mp4")
+
+            urlPath.endsWith(".flac") -> AudioFormat("flac", "audio/flac")
+            urlPath.endsWith(".ogg") || urlPath.endsWith(".oga") || urlPath.endsWith(".opus") ->
+                AudioFormat("ogg", "audio/ogg")
+
+            urlPath.endsWith(".wav") -> AudioFormat("wav", "audio/wav")
+            else -> AudioFormat("mp3", "audio/mpeg")
+        }
+    }
+
+    /** Durata reale del file appena scritto, usata quando la sorgente non la dichiara. */
+    private fun detectAudioDurationMs(filePath: String, contentUriString: String): Long {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            val contentUri = contentUriString.takeIf { it.isNotBlank() }?.let(Uri::parse)
+            when {
+                contentUri != null -> retriever.setDataSource(context, contentUri)
+                File(filePath).exists() -> retriever.setDataSource(filePath)
+                else -> return 0L
+            }
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: 0L
+        } catch (e: Exception) {
+            Timber.w(e, "SongDownloadManager: durata non rilevata per $filePath")
+            0L
+        } finally {
+            runCatching { retriever.release() }
+        }
+    }
+
+    // ─── Notifiche ───────────────────────────────────────────────────────────────
+
+    private fun openAppPendingIntent(): PendingIntent? {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: return null
+        launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        return PendingIntent.getActivity(
+            context,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    private fun progressNotificationId(taskId: Long): Int =
+        NOTIFICATION_ID + PROGRESS_NOTIFICATION_SLOT + (taskId % 100).toInt()
+
+    /** Notifica di avanzamento persistente: mostra il progresso reale del trasferimento. */
+    private fun showProgressNotification(
+        taskId: Long,
+        title: String,
+        artist: String,
+        progress: Float
+    ) {
+        try {
+            val percent = (progress.coerceIn(0f, 1f) * 100).toInt()
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.musicbabe_icon)
+                .setContentTitle(
+                    context.getString(R.string.download_notification_progress_title, title)
+                )
+                .setContentText(
+                    context.getString(R.string.download_notification_progress_text, artist, percent)
+                )
+                .setProgress(100, percent, progress <= 0f)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            openAppPendingIntent()?.let(builder::setContentIntent)
+            notificationManager.notify(progressNotificationId(taskId), builder.build())
+        } catch (e: Exception) {
+            Timber.w(e, "SongDownloadManager: notifica di avanzamento non mostrata")
+        }
+    }
+
+    private fun cancelProgressNotification(taskId: Long) {
+        runCatching { notificationManager.cancel(progressNotificationId(taskId)) }
+    }
+
+    /** Notifica finale: successo con percorso di salvataggio oppure errore. */
+    private fun showNotification(title: String, artist: String, isSuccess: Boolean) {
+        try {
+            val contentTitle = if (isSuccess) {
+                context.getString(R.string.download_notification_success_title, title)
+            } else {
+                context.getString(R.string.download_notification_error_title, title)
+            }
+            val contentText = if (isSuccess) {
+                context.getString(R.string.download_notification_saved_location)
+            } else {
+                context.getString(R.string.download_notification_failed_text)
+            }
+
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.musicbabe_icon)
+                .setContentTitle(contentTitle)
+                .setContentText("$artist • $contentText")
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+            openAppPendingIntent()?.let(builder::setContentIntent)
+
+            notificationManager.notify(NOTIFICATION_ID + (title.hashCode() % 1000), builder.build())
+        } catch (e: Exception) {
+            Timber.w(e, "Could not post download notification")
+        }
+    }
+
+    /**
+     * Stato sintetico per i consumer storici: task attivo, altrimenti l'ultimo concluso
+     * (successo/errore) in ordine cronologico.
+     */
+    private fun List<DownloadTask>.toDownloadState(): DownloadState {
+        val active = firstOrNull { it.isActive }
+        if (active != null) {
+            return DownloadState.Downloading(active.id, active.progress, active.title)
+        }
+        val last = lastOrNull() ?: return DownloadState.Idle
+        return when (last.status) {
+            DownloadStatus.COMPLETED -> DownloadState.Success(
+                trackId = last.id,
+                title = last.title,
+                filePath = last.filePath.orEmpty()
+            )
+
+            DownloadStatus.FAILED -> DownloadState.Error(
+                trackId = last.id,
+                message = last.message.orEmpty()
+            )
+
+            DownloadStatus.CANCELLED -> DownloadState.Idle
+            else -> DownloadState.Idle
+        }
+    }
+
 
     private suspend fun performDownload(
         track: OnlineTrack,
@@ -282,7 +865,17 @@ class SongDownloadManager @Inject constructor(
         try {
             val sanitizedTitle = track.title.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(60).trim()
             val sanitizedArtist = track.artistName.replace(Regex("[^a-zA-Z0-9._ -]"), "_").take(50).trim()
-            val fileName = "${sanitizedArtist} - ${sanitizedTitle}.mp3"
+
+            // Apertura della connessione con follow dei redirect HTTP e guardia anti-HTML:
+            // una risposta `text/html` è una pagina web, non un flusso audio scaricabile.
+            val openedConnection = openAudioConnection(audioUrl)
+            connection = openedConnection.first
+            inputStream = openedConnection.second
+
+            // Estensione e MIME reali del flusso: un m4a/flac/ogg non è un MP3 e non deve
+            // essere salvato con estensione e MIME_TYPE sbagliati (MediaStore lo scarterebbe).
+            val audioFormat = resolveAudioFormat(connection.contentType, audioUrl)
+            val fileName = "${sanitizedArtist} - ${sanitizedTitle}.${audioFormat.extension}"
 
             val musicBabeDir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
@@ -290,13 +883,9 @@ class SongDownloadManager @Inject constructor(
             )
             if (!musicBabeDir.exists()) musicBabeDir.mkdirs()
             val targetFile = File(musicBabeDir, fileName)
+            // File orfano di un download precedente: va sostituito, non duplicato.
+            if (targetFile.exists()) runCatching { targetFile.delete() }
             val absolutePath = targetFile.absolutePath
-
-            // Apertura della connessione con follow dei redirect HTTP e guardia anti-HTML:
-            // una risposta `text/html` è una pagina web, non un flusso audio scaricabile.
-            val openedConnection = openAudioConnection(audioUrl)
-            connection = openedConnection.first
-            inputStream = openedConnection.second
 
             val totalLength = connection.contentLengthLong
 
@@ -311,7 +900,7 @@ class SongDownloadManager @Inject constructor(
                     put(MediaStore.Audio.Media.TITLE, track.title)
                     put(MediaStore.Audio.Media.ARTIST, track.artistName)
                     put(MediaStore.Audio.Media.ALBUM, track.albumTitle.ifBlank { "MusicBabe" })
-                    put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
+                    put(MediaStore.Audio.Media.MIME_TYPE, audioFormat.mimeType)
                     put(MediaStore.Audio.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MUSIC}/MusicBabe")
                     put(MediaStore.Audio.Media.IS_PENDING, 1)
                 }
@@ -371,7 +960,7 @@ class SongDownloadManager @Inject constructor(
                 }
 
                 // Scan with MediaScanner to populate duration, bitrate and headers
-                musicFolderScanner.scanFileAsync(absolutePath, "audio/mpeg")
+                musicFolderScanner.scanFileAsync(absolutePath, audioFormat.mimeType)
 
                 savedUriString = audioUri.toString()
                 savedFilePath = absolutePath
@@ -409,7 +998,7 @@ class SongDownloadManager @Inject constructor(
                     coverBytes = downloadHighResCoverBytes(track.albumCoverUrl)
                 )
 
-                val scannedUri = musicFolderScanner.scanFileAsync(targetFile.absolutePath, "audio/mpeg")
+                val scannedUri = musicFolderScanner.scanFileAsync(targetFile.absolutePath, audioFormat.mimeType)
                 if (scannedUri != null) {
                     try {
                         mediaStoreNumericId = android.content.ContentUris.parseId(scannedUri)
@@ -423,7 +1012,11 @@ class SongDownloadManager @Inject constructor(
             }
 
             // Save to local library database
-            val localDuration = if (track.durationSeconds > 0) track.durationSeconds * 1000L else 30_000L
+            val localDuration = if (track.durationSeconds > 0) {
+                track.durationSeconds * 1000L
+            } else {
+                detectAudioDurationMs(savedFilePath, savedUriString)
+            }
             val songToSave = Song(
                 id = mediaStoreNumericId.toString(),
                 title = track.title,
@@ -439,7 +1032,7 @@ class SongDownloadManager @Inject constructor(
                 genre = "MusicBabe",
                 dateAdded = System.currentTimeMillis() / 1000L,
                 path = savedFilePath,
-                mimeType = "audio/mpeg",
+                mimeType = audioFormat.mimeType,
                 bitrate = 128000,
                 sampleRate = 44100
             )
@@ -580,8 +1173,11 @@ class SongDownloadManager @Inject constructor(
      * Nessuna delle due sorgenti restituisce mai anteprime: se il brano non è
      * disponibile integralmente si restituisce `null` e la decisione passa al chiamante.
      */
-    private suspend fun resolveInAppFullStream(track: OnlineTrack): String? {
-        val neteaseUrl = resolveNetEaseFullStream(track)
+    private suspend fun resolveInAppFullStream(
+        track: OnlineTrack,
+        quality: DownloadQuality = DownloadQuality.AUTO
+    ): String? {
+        val neteaseUrl = resolveNetEaseFullStream(track, quality)
         if (neteaseUrl != null) return neteaseUrl
 
         val query = listOf(track.artistName.trim(), cleanQueryTitle(track.title))
@@ -589,7 +1185,7 @@ class SongDownloadManager @Inject constructor(
             .joinToString(" ")
         if (query.isBlank()) return null
 
-        val kugouTrack = kugouResolver.resolve(query) ?: return null
+        val kugouTrack = kugouResolver.resolve(query, quality.kugouBitrate) ?: return null
         Timber.i(
             "SongDownloadManager: risolto flusso full-length via KuGou per '${track.title}' " +
                 "('${kugouTrack.artist} - ${kugouTrack.title}', ${kugouTrack.durationMs}ms)"
@@ -602,7 +1198,10 @@ class SongDownloadManager @Inject constructor(
      * l'API di ricerca NetEase già presente nel progetto (nessuna dipendenza esterna),
      * ripulendo il titolo e accettando solo corrispondenze con durata congruente (±6s).
      */
-    private suspend fun resolveNetEaseFullStream(track: OnlineTrack): String? = withContext(Dispatchers.IO) {
+    private suspend fun resolveNetEaseFullStream(
+        track: OnlineTrack,
+        quality: DownloadQuality = DownloadQuality.AUTO
+    ): String? = withContext(Dispatchers.IO) {
         try {
             val cleanTitle = cleanQueryTitle(track.title)
             val query = listOf(track.artistName.trim(), cleanTitle)
@@ -640,10 +1239,7 @@ class SongDownloadManager @Inject constructor(
                 "SongDownloadManager: match NetEase per '${track.title}' -> songId=$songId " +
                     "('${match.title}', ${match.duration}ms)"
             )
-            val streamUrl = neteaseRepository.getSongUrl(songId, quality = "exhigh").getOrNull()
-                ?.takeIf { it.isNotBlank() && it != "null" }
-                ?: neteaseRepository.getSongUrl(songId, quality = "standard").getOrNull()
-                    ?.takeIf { it.isNotBlank() && it != "null" }
+            val streamUrl = resolveNeteaseStreamUrl(songId, quality.neteaseQualities)
             streamUrl
         } catch (e: Exception) {
             Timber.w(e, "SongDownloadManager: risoluzione full-length NetEase fallita per '${track.title}'")
@@ -694,102 +1290,6 @@ class SongDownloadManager @Inject constructor(
      * Tutto avviene dentro MusicBabe: nessuna app esterna viene installata. Le anteprime
      * promozionali da 30 secondi non vengono mai salvate.
      */
-    fun startQueryDownload(
-        query: String,
-        onProgress: ((Float) -> Unit)? = null,
-        onComplete: ((Boolean, String) -> Unit)? = null
-    ) {
-        val trimmedQuery = query.trim()
-        if (trimmedQuery.isBlank()) {
-            onComplete?.invoke(false, "Query di ricerca vuota")
-            return
-        }
-
-        if (_downloadState.value is DownloadState.Downloading) {
-            // Un download è già in corso: il manager ha un solo stato di download, quindi
-            // un secondo tap non deve sovrascrivere la risoluzione in corso.
-            Timber.i("SongDownloadManager: download già in corso, query '$trimmedQuery' ignorata")
-            onComplete?.invoke(false, "Download già in corso")
-            return
-        }
-
-        scope.launch {
-            // Spinner immediato: la risoluzione NetEase/KuGou può richiedere qualche secondo.
-            _downloadState.value = DownloadState.Downloading(trackId = 0L, progress = 0f, title = trimmedQuery)
-            val match = resolveNeteaseMatchForQuery(trimmedQuery)
-            val resolvedStreamUrl = match
-                ?.neteaseId
-                ?.takeIf { it > 0L }
-                ?.let { songId -> resolveNeteaseStreamUrl(songId) }
-
-            if (match != null && resolvedStreamUrl != null) {
-                val track = OnlineTrack(
-                    id = match.neteaseId ?: 0L,
-                    title = match.title,
-                    artistName = match.artist.ifBlank { trimmedQuery },
-                    albumTitle = match.album,
-                    albumCoverUrl = match.albumArtUriString,
-                    durationSeconds = (match.duration / 1000L).toInt(),
-                    previewUrl = resolvedStreamUrl,
-                    shareLink = null
-                )
-                Timber.i(
-                    "SongDownloadManager: query '$trimmedQuery' risolta in full-length " +
-                        "NetEase (songId=${match.neteaseId})"
-                )
-                startSongDownloadInternal(
-                    track = track,
-                    resolvedAudioUrl = resolvedStreamUrl,
-                    onProgress = onProgress,
-                    onComplete = onComplete
-                )
-                return@launch
-            }
-
-            // Passo B, sempre in-app: KuGou (API pubbliche, nessuna chiave).
-            val kugouTrack = kugouResolver.resolve(trimmedQuery)
-            if (kugouTrack != null) {
-                val track = OnlineTrack(
-                    id = abs(kugouTrack.streamUrl.hashCode().toLong()),
-                    title = kugouTrack.title,
-                    artistName = kugouTrack.artist.ifBlank { trimmedQuery },
-                    albumTitle = kugouTrack.album,
-                    albumCoverUrl = kugouTrack.coverUrl,
-                    durationSeconds = (kugouTrack.durationMs / 1000L).toInt(),
-                    previewUrl = kugouTrack.streamUrl,
-                    shareLink = null
-                )
-                Timber.i("SongDownloadManager: query '$trimmedQuery' risolta in full-length KuGou")
-                startSongDownloadInternal(
-                    track = track,
-                    resolvedAudioUrl = kugouTrack.streamUrl,
-                    onProgress = onProgress,
-                    onComplete = onComplete
-                )
-                return@launch
-            }
-
-            // Passo C (solo se già presente sul dispositivo): YTDLnis. Nessuna installazione
-            // forzata di altre app: il download standard resta dentro MusicBabe.
-            val handedOff = launchYtDlpQueryBridge(trimmedQuery)
-            val message = if (handedOff) {
-                "Sorgenti interne senza il brano completo: download avviato con YTDLnis per \"$trimmedQuery\""
-            } else {
-                "Nessuna sorgente interna (NetEase/KuGou) espone il brano completo per \"$trimmedQuery\""
-            }
-            Timber.w("SongDownloadManager: $message")
-            _downloadState.value = DownloadState.Error(0L, message)
-            newSongAlertManager.postAlert(
-                NewSongAlert(
-                    isSuccess = false,
-                    song = null,
-                    message = message
-                )
-            )
-            withContext(Dispatchers.Main) { onComplete?.invoke(false, message) }
-        }
-    }
-
     /**
      * Miglior match NetEase per una query libera: scarta gli ID non validi e i risultati
      * più corti di [MIN_QUERY_DOWNLOAD_DURATION_MS] (clip promozionali), poi sceglie il
@@ -824,8 +1324,11 @@ class SongDownloadManager @Inject constructor(
      * Nessun fallback su anteprime: se nessuna qualità è disponibile si restituisce null
      * e la cascata prosegue verso yt-dlp.
      */
-    private suspend fun resolveNeteaseStreamUrl(songId: Long): String? {
-        for (quality in NETEASE_STREAM_QUALITIES) {
+    private suspend fun resolveNeteaseStreamUrl(
+        songId: Long,
+        qualities: List<String> = NETEASE_STREAM_QUALITIES
+    ): String? {
+        for (quality in qualities) {
             val url = neteaseRepository.getSongUrl(songId, quality = quality)
                 .getOrNull()
                 ?.takeIf { it.isNotBlank() && it != "null" }
@@ -1049,25 +1552,4 @@ class SongDownloadManager @Inject constructor(
         }
     }
 
-    private fun showNotification(title: String, artist: String, isSuccess: Boolean) {
-        try {
-            val contentText = if (isSuccess) {
-                "Salva in Musica/MusicBabe"
-            } else {
-                "Download non riuscito"
-            }
-
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.musicbabe_icon)
-                .setContentTitle(if (isSuccess) "✓ Scaricato: $title" else "Errore download: $title")
-                .setContentText("$artist • $contentText")
-                .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build()
-
-            notificationManager.notify(NOTIFICATION_ID + (title.hashCode() % 1000), notification)
-        } catch (e: Exception) {
-            Timber.w(e, "Could not post download notification")
-        }
-    }
 }

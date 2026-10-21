@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notifications -->
+    <string name="download_notification_channel_name">MusicBabe downloads</string>
+    <string name="download_notification_channel_description">Progress and results of in-app audio downloads</string>
+    <string name="download_notification_progress_title">Downloading %1$s</string>
+    <string name="download_notification_progress_text">%1$s • %2$d%%</string>
+    <string name="download_notification_success_title">Downloaded: %1$s</string>
+    <string name="download_notification_error_title">Download failed: %1$s</string>
+    <string name="download_notification_saved_location">Saved in Music/MusicBabe</string>
+    <string name="download_notification_failed_text">The song was not added</string>
+
+    <!-- Task messages -->
+    <string name="download_status_queued">Queued</string>
+    <string name="download_status_resolving">Finding the full song…</string>
+    <string name="download_status_downloading">Downloading…</string>
+    <string name="download_status_completed">Downloaded</string>
+    <string name="download_status_failed">Failed</string>
+    <string name="download_status_cancelled">Download cancelled</string>
+    <string name="download_error_generic">Download failed</string>
+    <string name="download_error_wifi_only">Downloads are limited to Wi-Fi. Connect to a Wi-Fi network or disable the limit in Settings.</string>
+    <string name="download_error_no_source">No source provides the full song for “%1$s”</string>
+    <string name="download_info_success">“%1$s” saved to your library</string>
+    <string name="download_info_already_present">“%1$s” is already in your library</string>
+    <string name="download_info_handoff_ytdlnis">Internal sources are missing this track: download started with YTDLnis</string>
+
+    <!-- Download hub -->
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_subtitle">Queue, progress and history</string>
+    <string name="downloads_empty_title">No downloads yet</string>
+    <string name="downloads_empty_body">Search for a song and tap the download button to save it into your library.</string>
+    <string name="downloads_action_cancel">Cancel</string>
+    <string name="downloads_action_retry">Retry</string>
+    <string name="downloads_action_remove">Remove</string>
+    <string name="downloads_action_open">Open</string>
+    <string name="downloads_action_play">Play</string>
+    <string name="downloads_action_clear_finished">Clear completed</string>
+    <string name="downloads_section_active">In progress</string>
+    <string name="downloads_section_finished">History</string>
+    <string name="downloads_open_hub">Download hub</string>
+
+    <!-- Search -->
+    <string name="search_download_sheet_title">Download “%1$s”</string>
+    <string name="search_download_best_match">Best match</string>
+    <string name="search_download_choose">Or pick a specific result</string>
+    <string name="search_download_action">Download</string>
+    <string name="search_downloaded_badge">Downloaded</string>
+    <string name="search_download_in_progress">Downloading…</string>
+    <string name="search_result_actions_title">Track actions</string>
+    <string name="search_result_action_play">Play now</string>
+    <string name="search_result_action_save">Save to library</string>
+    <string name="search_result_action_saved">Saved to library</string>
+    <string name="search_result_action_download">Download</string>
+    <string name="search_result_action_downloaded">Downloaded</string>
+    <string name="search_result_action_download_ytdlnis">Download with YTDLnis</string>
+
+    <!-- Settings -->
+    <string name="settings_download_section_title">Downloads</string>
+    <string name="settings_download_section_summary">Quality, Wi-Fi only and download hub</string>
+    <string name="settings_download_wifi_only_title">Wi-Fi only</string>
+    <string name="settings_download_wifi_only_summary">Never start downloads on mobile data</string>
+    <string name="settings_download_quality_title">Audio quality</string>
+    <string name="settings_download_quality_auto">Automatic</string>
+    <string name="settings_download_quality_high">High</string>
+    <string name="settings_download_quality_standard">Standard</string>
+    <string name="settings_download_open_hub">Open download hub</string>
+</resources>
