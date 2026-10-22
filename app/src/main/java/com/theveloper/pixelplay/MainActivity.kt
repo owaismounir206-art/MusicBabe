@@ -1198,6 +1198,7 @@ private class BlurEffectCache {
     private var lastRadiusPx: Float = Float.NaN
     private var cached: androidx.compose.ui.graphics.RenderEffect? = null
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
     fun get(radiusPx: Float): androidx.compose.ui.graphics.RenderEffect? {
         if (radiusPx <= 0f) {
             lastRadiusPx = 0f

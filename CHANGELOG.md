@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-22
+
+### Changed
+- **Redesign "Sleeve"**: new visual identity inspired by record sleeves. Colours stay dynamic (Material You + cover art); type, shapes and density change.
+  - Crisp font (Google Sans Flex with ROND axis at 0) across the whole app, durations and times in tabular figures.
+  - **Library**: rows without a card per track, square covers, duration aligned right; text tabs with an underline instead of pills; flat header.
+  - **Player**: square mini player with 48 dp touch targets; squarer covers and controls in the full-screen player; technical data (format · kHz · kbps) set as a "catalogue line" between the times.
+  - **Home**: more compact "Your Mix" header with a single shuffle button; new default collage **Sleeve Stack** (any collage already chosen is kept).
+  - **Settings**: squarer groups and icons, more compact rows, plain back button.
+- Design documentation in `DESIGN.md` and product context in `PRODUCT.md`.
+
+### Fixed
+- Hardcoded Spanish/Italian labels in the mini player, the player controls (also read aloud by TalkBack) and the Wrapped banner are now localized (EN/IT).
+- Widget controls: the background-start error of the foreground service is handled without referencing an API 31 class on Android 11.
+
 ## [1.3.7] - 2026-10-21
 
 ### Added

@@ -58,8 +58,16 @@ class PlayerControlActionCallback : ActionCallback {
                 context.startService(serviceIntent)
             }
             Timber.tag(TAG).d("Service intent sent for action: $action")
-        } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
-            Timber.tag(TAG).w(e, "Cannot start foreground service from background for action $action")
+        } catch (e: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (API 31+) is an IllegalStateException;
+            // naming it in a catch clause would reference a class missing on API 30.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                e is android.app.ForegroundServiceStartNotAllowedException
+            ) {
+                Timber.tag(TAG).w(e, "Cannot start foreground service from background for action $action")
+            } else {
+                Timber.tag(TAG).e(e, "Error starting service for action $action: ${e.message}")
+            }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error starting service for action $action: ${e.message}")
         }
