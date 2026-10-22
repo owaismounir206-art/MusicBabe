@@ -2,6 +2,10 @@
 
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.stringResource
+import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.ui.theme.Sleeve
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -86,11 +90,77 @@ internal fun MiniPlayerContentInternal(
     val nextInteraction = remember { MutableInteractionSource() }
     val miniPlayerIndication = remember { ripple(bounded = false) }
 
+    val colors = LocalMaterialTheme.current
+    val bounceSpring = remember {
+        spring<Float>(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    }
+    val prevScaleAnim = remember { Animatable(1f) }
+    val playPauseScaleAnim = remember { Animatable(1f) }
+    val nextScaleAnim = remember { Animatable(1f) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // One control of the mini player: a 48 dp touch target with a small press "give".
+    @Composable
+    fun MiniControl(
+        interactionSource: MutableInteractionSource,
+        scale: Animatable<Float, *>,
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        contentDescription: String,
+        filled: Boolean,
+        onClick: () -> Unit
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = miniPlayerIndication,
+                    enabled = controlsEnabled,
+                    role = Role.Button
+                ) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    coroutineScope.launch {
+                        scale.snapTo(0.92f)
+                        scale.animateTo(1f, bounceSpring)
+                    }
+                    onClick()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .graphicsLayer {
+                        scaleX = scale.value
+                        scaleY = scale.value
+                    }
+                    .then(
+                        if (filled) {
+                            Modifier.background(colors.primary, Sleeve.RowShape)
+                        } else {
+                            Modifier
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = if (filled) colors.onPrimary else colors.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(MiniPlayerHeight)
-            .padding(start = 10.dp, end = 12.dp),
+            .padding(start = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val albumArtModel = song.albumArtUriString?.takeIf { it.isNotBlank() }
@@ -98,10 +168,10 @@ internal fun MiniPlayerContentInternal(
             key(song.id) {
                 SmartImage(
                     model = albumArtModel,
-                    contentDescription = "Carátula de ${song.title}",
-                    shape = CircleShape,
+                    contentDescription = stringResource(R.string.common_album_art_for_title, song.title),
+                    shape = Sleeve.ArtShape,
                     targetSize = Size(150, 150),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(48.dp),
                     placeholderModel = if (albumArtModel?.startsWith("telegram_art") == true) {
                         "$albumArtModel?quality=thumb"
                     } else null
@@ -111,7 +181,7 @@ internal fun MiniPlayerContentInternal(
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp,
-                    color = LocalMaterialTheme.current.onPrimaryContainer
+                    color = colors.onPrimaryContainer
                 )
             } else if (isPreparingPlayback) {
                 CircularWavyProgressIndicator(modifier = Modifier.size(24.dp))
@@ -123,144 +193,59 @@ internal fun MiniPlayerContentInternal(
             verticalArrangement = Arrangement.Center
         ) {
             val titleStyle = MaterialTheme.typography.titleSmall.copy(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.2).sp,
-                fontFamily = GoogleSansRounded,
-                color = LocalMaterialTheme.current.onPrimaryContainer
+                fontWeight = FontWeight.Medium,
+                color = colors.onPrimaryContainer
             )
             val artistStyle = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 13.sp,
-                letterSpacing = 0.sp,
-                fontFamily = GoogleSansRounded,
-                color = LocalMaterialTheme.current.onPrimaryContainer.copy(alpha = 0.7f)
+                color = colors.onPrimaryContainer.copy(alpha = 0.72f)
             )
 
             AutoScrollingText(
                 text = when {
-                    isCastConnecting -> "Connecting to device…"
-                    isPreparingPlayback -> "Preparing playback…"
+                    isCastConnecting -> stringResource(R.string.mini_player_connecting_device)
+                    isPreparingPlayback -> stringResource(R.string.mini_player_preparing_playback)
                     else -> song.title
                 },
                 style = titleStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                gradientEdgeColor = colors.primaryContainer,
                 canScroll = canScroll
             )
             AutoScrollingText(
-                text = if (isPreparingPlayback) "Loading audio…" else song.displayArtist,
+                text = if (isPreparingPlayback) {
+                    stringResource(R.string.mini_player_loading_audio)
+                } else {
+                    song.displayArtist
+                },
                 style = artistStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                gradientEdgeColor = colors.primaryContainer,
                 canScroll = canScroll
             )
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
-        val bounceSpring = androidx.compose.runtime.remember {
-            spring<Float>(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        }
-        val prevScaleAnim = androidx.compose.runtime.remember { Animatable(1f) }
-        val playPauseScaleAnim = androidx.compose.runtime.remember { Animatable(1f) }
-        val nextScaleAnim = androidx.compose.runtime.remember { Animatable(1f) }
-        val coroutineScope = rememberCoroutineScope()
-
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .graphicsLayer {
-                    scaleX = prevScaleAnim.value
-                    scaleY = prevScaleAnim.value
-                }
-                .clip(CircleShape)
-                .background(LocalMaterialTheme.current.onPrimary)
-                .clickable(
-                    interactionSource = previousInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    coroutineScope.launch {
-                        prevScaleAnim.snapTo(0.92f)
-                        prevScaleAnim.animateTo(1f, bounceSpring)
-                    }
-                    onPrevious()
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
-                contentDescription = "Anterior",
-                tint = LocalMaterialTheme.current.primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .graphicsLayer {
-                    scaleX = playPauseScaleAnim.value
-                    scaleY = playPauseScaleAnim.value
-                }
-                .clip(CircleShape)
-                .background(LocalMaterialTheme.current.primary)
-                .clickable(
-                    interactionSource = playPauseInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    coroutineScope.launch {
-                        playPauseScaleAnim.snapTo(0.92f)
-                        playPauseScaleAnim.animateTo(1f, bounceSpring)
-                    }
-                    onPlayPause()
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                tint = LocalMaterialTheme.current.onPrimary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .graphicsLayer {
-                    scaleX = nextScaleAnim.value
-                    scaleY = nextScaleAnim.value
-                }
-                .clip(CircleShape)
-                .background(LocalMaterialTheme.current.onPrimary)
-                .clickable(
-                    interactionSource = nextInteraction,
-                    indication = miniPlayerIndication,
-                    enabled = controlsEnabled
-                ) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    coroutineScope.launch {
-                        nextScaleAnim.snapTo(0.92f)
-                        nextScaleAnim.animateTo(1f, bounceSpring)
-                    }
-                    onNext()
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.SkipNext,
-                contentDescription = "Siguiente",
-                tint = LocalMaterialTheme.current.primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        MiniControl(
+            interactionSource = previousInteraction,
+            scale = prevScaleAnim,
+            icon = Icons.Rounded.SkipPrevious,
+            contentDescription = stringResource(R.string.common_previous_track),
+            filled = false,
+            onClick = onPrevious
+        )
+        MiniControl(
+            interactionSource = playPauseInteraction,
+            scale = playPauseScaleAnim,
+            icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            contentDescription = stringResource(if (isPlaying) R.string.common_pause else R.string.common_play),
+            filled = true,
+            onClick = onPlayPause
+        )
+        MiniControl(
+            interactionSource = nextInteraction,
+            scale = nextScaleAnim,
+            icon = Icons.Rounded.SkipNext,
+            contentDescription = stringResource(R.string.common_next),
+            filled = false,
+            onClick = onNext
+        )
     }
 }

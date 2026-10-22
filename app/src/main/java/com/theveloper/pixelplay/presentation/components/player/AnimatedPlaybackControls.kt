@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.components.player
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.res.stringResource
+import com.theveloper.pixelplay.R
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -52,6 +55,9 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 private enum class PlaybackButtonType { NONE, PREVIOUS, PLAY_PAUSE, NEXT }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** Previous/next buttons: a softened rectangle, in the sleeve style. */
+private val SkipButtonShape = RoundedCornerShape(12.dp)
+
 @Composable
 fun AnimatedPlaybackControls(
     isPlayingProvider: () -> Boolean,
@@ -65,8 +71,8 @@ fun AnimatedPlaybackControls(
     compressionWeight: Float = 0.65f,
     pressAnimationSpec: AnimationSpec<Float>,
     releaseDelay: Long = 220L,
-    playPauseCornerPlaying: Dp = 60.dp,
-    playPauseCornerPaused: Dp = 26.dp,
+    playPauseCornerPlaying: Dp = 28.dp,
+    playPauseCornerPaused: Dp = 12.dp,
     colorOtherButtons: Color = LocalMaterialTheme.current.secondaryContainer,
     colorPlayPause: Color = LocalMaterialTheme.current.primary,
     tintPlayPauseIcon: Color = LocalMaterialTheme.current.onPrimary,
@@ -180,7 +186,7 @@ fun AnimatedPlaybackControls(
                         scaleX = prevScale
                         scaleY = prevScale
                     }
-                    .clip(CircleShape)
+                    .clip(SkipButtonShape)
                     .background(colorPreviousButton)
                     .clickable {
                         lastClicked = PlaybackButtonType.PREVIOUS
@@ -195,7 +201,7 @@ fun AnimatedPlaybackControls(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.SkipPrevious,
-                    contentDescription = "Anterior",
+                    contentDescription = stringResource(R.string.common_previous_track),
                     tint = tintPreviousIcon,
                     modifier = Modifier.size(iconSize)
                 )
@@ -260,7 +266,7 @@ fun AnimatedPlaybackControls(
                         scaleX = nextScale
                         scaleY = nextScale
                     }
-                    .clip(CircleShape)
+                    .clip(SkipButtonShape)
                     .background(colorNextButton)
                     .clickable {
                         lastClicked = PlaybackButtonType.NEXT
@@ -275,7 +281,7 @@ fun AnimatedPlaybackControls(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.SkipNext,
-                    contentDescription = "Siguiente",
+                    contentDescription = stringResource(R.string.common_next),
                     tint = tintNextIcon,
                     modifier = Modifier.size(iconSize)
                 )
@@ -298,7 +304,7 @@ private fun MorphingPlayPauseIcon(
     ) { playing ->
         Icon(
             imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            contentDescription = if (playing) "Pausar" else "Reproducir",
+            contentDescription = stringResource(if (playing) R.string.common_pause else R.string.common_play),
             tint = tint,
             modifier = Modifier.size(size)
         )

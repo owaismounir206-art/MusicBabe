@@ -4,4 +4,12 @@
     <string name="ai_api_key_secure_storage_unavailable">Secure storage is unavailable on this device: the API key was not saved.</string>
     <string name="network_cleartext_not_permitted">Unencrypted connection blocked: plain HTTP is only allowed for servers on your local network. Use an https:// address.</string>
     <string name="common_unknown_error">Unknown error</string>
+    <string name="mini_player_connecting_device">Connecting to device…</string>
+    <string name="mini_player_preparing_playback">Preparing playback…</string>
+    <string name="mini_player_loading_audio">Loading audio…</string>
+    <string name="player_online_track_saved">Track saved to your library</string>
+    <string name="player_online_track_already_saved">Already in your library</string>
+    <string name="player_cd_save_online_track">Save to library</string>
+    <string name="player_cd_online_track_saved">Saved to library</string>
+    <string name="player_cd_download_track">Download track</string>
 </resources>

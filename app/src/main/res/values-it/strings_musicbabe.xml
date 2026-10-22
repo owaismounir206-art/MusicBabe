@@ -3,4 +3,12 @@
     <string name="ai_api_key_secure_storage_unavailable">L\'archivio sicuro non è disponibile su questo dispositivo: la chiave API non è stata salvata.</string>
     <string name="network_cleartext_not_permitted">Connessione non cifrata bloccata: HTTP semplice è consentito solo per i server della rete locale. Usa un indirizzo https://.</string>
     <string name="common_unknown_error">Errore sconosciuto</string>
+    <string name="mini_player_connecting_device">Connessione al dispositivo…</string>
+    <string name="mini_player_preparing_playback">Preparazione della riproduzione…</string>
+    <string name="mini_player_loading_audio">Caricamento dell\'audio…</string>
+    <string name="player_online_track_saved">Brano salvato nella libreria</string>
+    <string name="player_online_track_already_saved">Già nella tua libreria</string>
+    <string name="player_cd_save_online_track">Salva nella libreria</string>
+    <string name="player_cd_online_track_saved">Salvato nella libreria</string>
+    <string name="player_cd_download_track">Scarica il brano</string>
 </resources>

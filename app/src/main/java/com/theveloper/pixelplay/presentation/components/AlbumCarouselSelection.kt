@@ -182,7 +182,8 @@ fun AlbumCarouselSection(
             }
     }
 
-    val corner = 18.dp//lerp(36.dp, 15.dp, expansionFraction.coerceIn(0f, 1f))
+    // Sleeve direction: the cover is a record sleeve, barely softened.
+    val corner = 8.dp
 
     BoxWithConstraints(modifier = modifier) {
         val availableWidth = this.maxWidth

@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components.player
 
+import com.theveloper.pixelplay.ui.theme.Sleeve
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
@@ -1566,7 +1567,7 @@ private fun SongMetadataDisplaySection(
             )
         ) {
             Surface(
-                shape = CircleShape,
+                shape = RoundedCornerShape(12.dp),
                 color = chipColor,
                 modifier = Modifier.padding(end = 8.dp)
             ) {
@@ -1592,10 +1593,10 @@ private fun SongMetadataDisplaySection(
                         .size(height = 42.dp, width = 50.dp)
                         .clip(
                             RoundedCornerShape(
-                                topStart = 50.dp,
-                                topEnd = 6.dp,
-                                bottomStart = 50.dp,
-                                bottomEnd = 6.dp
+                                topStart = 12.dp,
+                                topEnd = 2.dp,
+                                bottomStart = 12.dp,
+                                bottomEnd = 2.dp
                             )
                         )
                         .background(chipColor)
@@ -1613,10 +1614,10 @@ private fun SongMetadataDisplaySection(
                         .size(height = 42.dp, width = 50.dp)
                         .clip(
                             RoundedCornerShape(
-                                topStart = 6.dp,
-                                topEnd = 50.dp,
-                                bottomStart = 6.dp,
-                                bottomEnd = 50.dp
+                                topStart = 2.dp,
+                                topEnd = 12.dp,
+                                bottomStart = 2.dp,
+                                bottomEnd = 12.dp
                             )
                         )
                         .background(chipColor)
@@ -1641,6 +1642,7 @@ private fun SongMetadataDisplaySection(
                     val context = LocalContext.current
                     FilledIconButton(
                         modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = if (isSongSaved) MaterialTheme.colorScheme.secondaryContainer else chipColor,
                             contentColor = if (isSongSaved) MaterialTheme.colorScheme.onSecondaryContainer else chipContentColor
@@ -1649,22 +1651,25 @@ private fun SongMetadataDisplaySection(
                             if (!isSongSaved) {
                                 playerViewModel.saveOnlineTrack(song) { success ->
                                     if (success) {
-                                        android.widget.Toast.makeText(context, "Brano salvato nella libreria! 🎵", android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(context, context.getString(R.string.player_online_track_saved), android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             } else {
-                                android.widget.Toast.makeText(context, "Già salvato nella libreria", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, context.getString(R.string.player_online_track_already_saved), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     ) {
                         Icon(
                             imageVector = if (isSongSaved) Icons.Rounded.BookmarkAdded else Icons.Rounded.BookmarkAdd,
-                            contentDescription = if (isSongSaved) "Salvato nella libreria" else "Salva nella libreria"
+                            contentDescription = stringResource(
+                                if (isSongSaved) R.string.player_cd_online_track_saved else R.string.player_cd_save_online_track
+                            )
                         )
                     }
 
                     FilledIconButton(
                         modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = chipColor,
                             contentColor = chipContentColor
@@ -1673,13 +1678,14 @@ private fun SongMetadataDisplaySection(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Download,
-                            contentDescription = "Scarica brano"
+                            contentDescription = stringResource(R.string.player_cd_download_track)
                         )
                     }
                 }
 
                 FilledIconButton(
                     modifier = Modifier.size(width = 48.dp, height = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = chipColor,
                         contentColor = chipContentColor
@@ -2018,38 +2024,34 @@ private fun EfficientTimeLabels(
         ) {
             Text(
                 posStr,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelMedium.merge(Sleeve.TabularFigures),
+                fontWeight = FontWeight.Medium,
                 color = textColor
             )
             Text(
                 durStr,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.SemiBold,
-                color = textColor
+                style = MaterialTheme.typography.labelMedium.merge(Sleeve.TabularFigures),
+                fontWeight = FontWeight.Medium,
+                color = textColor.copy(alpha = 0.72f)
             )
         }
 
         if (!audioMetaLabel.isNullOrBlank()) {
-            Surface(
+            // The "catalogue line": the file's technical data set like a sleeve's catalogue
+            // number, in tabular figures with open tracking, between the two times.
+            Text(
+                text = audioMetaLabel,
+                style = MaterialTheme.typography.labelSmall.merge(Sleeve.TabularFigures).copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.8.sp
+                ),
+                color = textColor.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(horizontal = 58.dp),
-                shape = RoundedCornerShape(999.dp),
-                color = textColor.copy(alpha = 0.14f),
-                contentColor = textColor.copy(alpha = 0.96f)
-            ) {
-                Text(
-                    text = audioMetaLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                )
-            }
+                    .padding(horizontal = 58.dp)
+            )
         }
     }
 }
@@ -2237,8 +2239,9 @@ private fun PlayerSongInfo(
         derivedStateOf { artists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: artistId }
     }
     val titleStyle = MaterialTheme.typography.headlineSmall.copy(
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         fontFamily = GoogleSansRounded,
+        letterSpacing = (-0.2).sp,
         color = textColor
     )
 
