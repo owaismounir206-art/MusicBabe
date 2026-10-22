@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.foundation.layout.heightIn
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 
 import androidx.compose.animation.core.Animatable
@@ -222,10 +223,10 @@ fun SettingsScreen(
                     val totalItems = mainCategories.size + 4 // Device + Accounts + Downloads + About
                     fun shapeFor(index: Int) =
                         when {
-                            totalItems == 1 -> RoundedCornerShape(24.dp)
-                            index == 0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-                            index == totalItems - 1 -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-                            else -> RoundedCornerShape(4.dp)
+                            totalItems == 1 -> RoundedCornerShape(12.dp)
+                            index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+                            index == totalItems - 1 -> RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 12.dp, bottomEnd = 12.dp)
+                            else -> RoundedCornerShape(2.dp)
                         }
 
                     var itemIndex = 0
@@ -336,23 +337,23 @@ fun ExpressiveNavigationItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     colors: Pair<Color, Color>,
     onClick: () -> Unit,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(24.dp)
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp)
 ) {
     Surface(
         onClick = onClick,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().height(88.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp).fillMaxSize()
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth()
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(colors.first)
             ) {
                 Icon(
@@ -369,8 +370,8 @@ fun ExpressiveNavigationItem(
                 Text(
                     text = title,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
@@ -378,7 +379,7 @@ fun ExpressiveNavigationItem(
                     text = subtitle,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2
                 )
             }
@@ -390,25 +391,25 @@ fun ExpressiveNavigationItem(
 fun ExpressiveCategoryItem(
     category: SettingsCategory,
     onClick: () -> Unit,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(24.dp),
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp),
     customColors: Pair<Color, Color>? = null
 ) {
     Surface(
         onClick = onClick,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().height(88.dp) 
+        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp) 
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp).fillMaxSize()
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth()
         ) {
             // Icon Container
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(customColors?.first ?: MaterialTheme.colorScheme.primaryContainer)
             ) {
                 if (category.icon != null) {
@@ -434,8 +435,8 @@ fun ExpressiveCategoryItem(
                 Text(
                     text = stringResource(category.titleRes),
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
@@ -443,7 +444,7 @@ fun ExpressiveCategoryItem(
                     text = stringResource(category.subtitleRes),
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2
                 )
             }
