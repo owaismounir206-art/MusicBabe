@@ -4,6 +4,7 @@ enum class CollagePattern(
     val storageKey: String,
     val label: String
 ) {
+    SLEEVE_STACK("sleeve_stack", "Sleeve Stack"),
     COSMIC_SWIRL("cosmic_swirl", "Cosmic Swirl"),
     HONEYCOMB_GROOVE("honeycomb_groove", "Honeycomb Groove"),
     VINYL_STACK("vinyl_stack", "Vinyl Stack"),
@@ -11,7 +12,7 @@ enum class CollagePattern(
     STARDUST_SCATTER("stardust_scatter", "Stardust Scatter");
 
     companion object {
-        val default: CollagePattern = COSMIC_SWIRL
+        val default: CollagePattern = SLEEVE_STACK
 
         fun fromStorageKey(value: String?): CollagePattern {
             return entries.firstOrNull { it.storageKey == value } ?: default

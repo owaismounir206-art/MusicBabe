@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -126,7 +127,7 @@ fun HomeGradientTopBar(
             ) {
                 FilledTonalButton(
                     modifier = Modifier.padding(start = 4.dp),
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -141,7 +142,7 @@ fun HomeGradientTopBar(
                         Text(
                             text = stringResource(R.string.topbar_beta_letter),
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = stringResource(R.string.topbar_beta_label),
@@ -157,10 +158,9 @@ fun HomeGradientTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(end = 14.dp)
             ) {
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                IconButton(
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     onClick = onTelegramClick
                 ) {
@@ -169,10 +169,9 @@ fun HomeGradientTopBar(
                          contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
                     )
                 }
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                IconButton(
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     onClick = onMoreOptionsClick
                 ) {
@@ -181,10 +180,9 @@ fun HomeGradientTopBar(
                         contentDescription = stringResource(R.string.topbar_cd_changelog)
                     )
                 }
-                FilledIconButton(
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                IconButton(
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     onClick = onNavigationIconClick
                 ) {

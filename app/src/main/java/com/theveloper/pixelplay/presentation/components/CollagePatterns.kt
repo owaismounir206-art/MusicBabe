@@ -15,11 +15,29 @@ fun buildCollageConfigs(
     min: Dp,
     boxMaxHeight: Dp
 ): List<Config> = when (pattern) {
+    CollagePattern.SLEEVE_STACK -> sleeveStackConfigs(min, boxMaxHeight)
     CollagePattern.COSMIC_SWIRL -> cosmicSwirlConfigs(min, boxMaxHeight)
     CollagePattern.HONEYCOMB_GROOVE -> honeycombGrooveConfigs(min, boxMaxHeight)
     CollagePattern.VINYL_STACK -> vinylStackConfigs(min, boxMaxHeight)
     CollagePattern.PIXEL_MOSAIC -> pixelMosaicConfigs(min, boxMaxHeight)
     CollagePattern.STARDUST_SCATTER -> stardustScatterConfigs(min, boxMaxHeight)
+}
+
+/**
+ * MusicBabe default: square record sleeves fanned out on a table, overlapping at the edges,
+ * unrotated. Later configs draw over earlier ones.
+ */
+private fun sleeveStackConfigs(min: Dp, boxMaxHeight: Dp): List<Config> {
+    val sleeve = RoundedCornerShape(6.dp)
+    return listOf(
+        // Top section
+        Config(size = min * 0.72f, width = min * 0.72f, height = min * 0.72f, align = Alignment.TopStart, rot = 0f, shape = sleeve, offsetX = 8.dp, offsetY = 0.dp),
+        Config(size = min * 0.26f, width = min * 0.26f, height = min * 0.26f, align = Alignment.TopEnd, rot = 0f, shape = sleeve, offsetX = -(24.dp), offsetY = 8.dp),
+        Config(size = min * 0.46f, width = min * 0.46f, height = min * 0.46f, align = Alignment.BottomEnd, rot = 0f, shape = sleeve, offsetX = -(8.dp), offsetY = 0.dp),
+        // Bottom section
+        Config(size = min * 0.4f, width = min * 0.4f, height = min * 0.4f, align = Alignment.TopStart, rot = 0f, shape = sleeve, offsetX = 40.dp, offsetY = (boxMaxHeight * 0.03f)),
+        Config(size = min * 0.48f, width = min * 0.48f, height = min * 0.48f, align = Alignment.TopEnd, rot = 0f, shape = sleeve, offsetX = -(56.dp), offsetY = -(boxMaxHeight * 0.06f))
+    )
 }
 
 /** Original pattern — preserved exactly as-is. */

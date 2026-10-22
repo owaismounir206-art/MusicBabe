@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.FloatingActionButton
+import com.theveloper.pixelplay.ui.theme.Sleeve
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 
@@ -493,13 +496,13 @@ fun HomeScreen(
                 ) {
                     Card(
                         onClick = { navController.navigateSafely(Screen.Wrapped.route) },
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .padding(horizontal = Sleeve.Gutter, vertical = 6.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -510,7 +513,7 @@ fun HomeScreen(
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(CircleShape)
+                                    .clip(Sleeve.ArtShape)
                                     .background(MaterialTheme.colorScheme.primary),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -519,19 +522,19 @@ fun HomeScreen(
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(CircleShape)
+                                        .clip(Sleeve.ArtShape)
                                 )
                             }
                             Spacer(Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Turn up the volume babe!",
+                                    text = stringResource(R.string.home_wrapped_banner_title),
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
-                                    text = "Scopri il tuo MusicBabe Wrapped ✨",
+                                    text = stringResource(R.string.home_wrapped_banner_subtitle),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                 )
@@ -754,68 +757,51 @@ private fun YourMixEmptyPlaceholder(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun YourMixHeader(
     song: String,
     isShuffleEnabled: Boolean = false,
     onPlayShuffled: () -> Unit
 ) {
-    val buttonCorners = 68.dp
     val colors = MaterialTheme.colorScheme
 
-    val titleStyle = rememberYourMixTitleStyle()
-
-    Box(
+    // Sleeve direction: the title is set, not shouted; the play action is the one filled element.
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(256.dp)
-            .padding(16.dp)
+            .padding(start = Sleeve.Gutter, end = Sleeve.Gutter, top = 24.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 48.dp, start = 12.dp)
-        ) {
-            // Your Mix Title
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = stringResource(R.string.home_your_mix_title),
-                style = titleStyle,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.5).sp
+                ),
+                color = colors.onSurface
             )
-
-            // Artist/Song subtitle
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = song,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 8.dp)
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        // Play Button - color changes based on shuffle state
-        LargeExtendedFloatingActionButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 12.dp),
+        Spacer(Modifier.width(16.dp))
+        FloatingActionButton(
             onClick = onPlayShuffled,
-            containerColor = if (isShuffleEnabled) colors.primary else colors.tertiaryContainer,
-            contentColor = if (isShuffleEnabled) colors.onPrimary else colors.onTertiaryContainer,
-            shape = AbsoluteSmoothCornerShape(
-                cornerRadiusTL = buttonCorners,
-                smoothnessAsPercentTR = 60,
-                cornerRadiusBR = buttonCorners,
-                smoothnessAsPercentTL = 60,
-                cornerRadiusBL = buttonCorners,
-                smoothnessAsPercentBR = 60,
-                cornerRadiusTR = buttonCorners,
-                smoothnessAsPercentBL = 60,
-            )
+            containerColor = if (isShuffleEnabled) colors.primary else colors.primaryContainer,
+            contentColor = if (isShuffleEnabled) colors.onPrimary else colors.onPrimaryContainer,
+            shape = RoundedCornerShape(16.dp),
+            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.rounded_shuffle_24),
                 contentDescription = stringResource(R.string.common_shuffle_play),
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -924,30 +910,4 @@ fun SongListItemFavsWrapper(
         isCurrentSong = song.id == stablePlayerState.currentSong?.id,
         onClick = onClick
     )
-}
-
-
-@OptIn(ExperimentalTextApi::class)
-@Composable
-private fun rememberYourMixTitleStyle(): TextStyle {
-    return remember {
-        TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(636),
-                        FontVariation.width(152f),
-                        FontVariation.Setting("ROND", 50f),
-                        FontVariation.Setting("XTRA", 520f),
-                        FontVariation.Setting("YOPQ", 90f),
-                        FontVariation.Setting("YTLC", 505f)
-                    )
-                )
-            ),
-            fontWeight = FontWeight(760),
-            fontSize = 64.sp,
-            lineHeight = 62.sp
-        )
-    }
 }

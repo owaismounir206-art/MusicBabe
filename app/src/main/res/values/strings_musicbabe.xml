@@ -12,4 +12,6 @@
     <string name="player_cd_save_online_track">Save to library</string>
     <string name="player_cd_online_track_saved">Saved to library</string>
     <string name="player_cd_download_track">Download track</string>
+    <string name="home_wrapped_banner_title">Turn up the volume, babe!</string>
+    <string name="home_wrapped_banner_subtitle">Discover your MusicBabe Wrapped</string>
 </resources>
