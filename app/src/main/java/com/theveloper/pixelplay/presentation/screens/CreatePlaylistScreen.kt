@@ -571,7 +571,6 @@ private fun CreatePlaylistContent(
                                 title = stringResource(labelRes),
                                 selectedIndex = selectedTabIndex,
                                 onClick = { playerViewModel.setPlaylistPickerStorageFilter(filter) },
-                                transformOrigin = if (index == 0) TransformOrigin(0f, 0.5f) else TransformOrigin(1f, 0.5f)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,

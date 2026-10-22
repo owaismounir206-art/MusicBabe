@@ -139,8 +139,8 @@ fun LibraryActionRow(
                     onNavigateBack = onNavigateBack
                 )
             } else {
-                val outerCorner = 26.dp
-                val innerCorner = 8.dp
+                val outerCorner = 8.dp
+                val innerCorner = 2.dp
 
                 val newButtonEndCorner by animateDpAsState(
                     targetValue = if (shouldShowImport) innerCorner else outerCorner,
@@ -153,20 +153,20 @@ fun LibraryActionRow(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Determine button colors based on shuffle state (not for playlist tab)
-                    val buttonContainerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    val buttonContentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    val buttonContainerColor = MaterialTheme.colorScheme.secondaryContainer
+                    val buttonContentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     
                     FilledTonalButton(
                         onClick = onMainActionClick,
                         shape = RoundedCornerShape(
-                            topStart = 26.dp, bottomStart = 26.dp,
+                            topStart = outerCorner, bottomStart = outerCorner,
                             topEnd =  newButtonEndCorner, bottomEnd = newButtonEndCorner
                         ),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = buttonContainerColor,
                             contentColor = buttonContentColor
                         ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 6.dp),
+                        elevation = null,
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         modifier = Modifier.height(genHeight)
                     ) {
@@ -228,17 +228,14 @@ fun LibraryActionRow(
                                 shape = RoundedCornerShape(
                                     topStart = importButtonStartCorner,
                                     bottomStart = importButtonStartCorner,
-                                    topEnd = 26.dp,
-                                    bottomEnd = 26.dp
+                                    topEnd = 8.dp,
+                                    bottomEnd = 8.dp
                                 ),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 ),
-                                elevation = ButtonDefaults.buttonElevation(
-                                    defaultElevation = 4.dp,
-                                    pressedElevation = 6.dp
-                                ),
+                                elevation = null,
                                 contentPadding = PaddingValues(
                                     horizontal = 14.dp,
                                     vertical = 10.dp
@@ -272,24 +269,24 @@ fun LibraryActionRow(
         Spacer(modifier = Modifier.width(8.dp))
 
         if (showSortButton) {
-            val outerCorner = 26.dp
+            val outerCorner = 8.dp
             
             // Logic for Sort Button (Rightmost)
             val sortStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton || showStorageFilterButton) 8.dp else outerCorner,
+                targetValue = if (showLocateButton || showStorageFilterButton) 2.dp else outerCorner,
                 label = "SortStartCorner"
             )
 
             // Logic for Filter Button (Middle or Left if Locate hidden)
             // Filter is visible if showStorageFilterButton is true
-            val filterEndCorner = 8.dp // Connected to Sort
+            val filterEndCorner = 2.dp // Connected to Sort
             val filterStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton) 8.dp else outerCorner,
+                targetValue = if (showLocateButton) 2.dp else outerCorner,
                 label = "FilterStartCorner"
             )
             
             // Logic for Locate Button (Leftmost)
-            val locateEndCorner = 8.dp // Connected to Filer or Sort
+            val locateEndCorner = 2.dp // Connected to Filer or Sort
 
             // Gaps
             // If Filter is shown, gap is between Filter and Sort? OR if we use connected buttons, gap is 4dp between groups or 0dp between connected?

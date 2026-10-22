@@ -229,14 +229,14 @@ fun LibraryFavoritesTab(
                             .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
                             .clip(
                                 RoundedCornerShape(
-                                    topStart = 26.dp,
-                                    topEnd = 26.dp,
+                                    topStart = 0.dp,
+                                    topEnd = 0.dp,
                                     bottomStart = PlayerSheetCollapsedCornerRadius,
                                     bottomEnd = PlayerSheetCollapsedCornerRadius
                                 )
                             ),
                         state = listState,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                         contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                     ) {
                         items(
@@ -315,14 +315,14 @@ fun LibrarySongsTabPaginated(
                     .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
                     .clip(
                         RoundedCornerShape(
-                            topStart = 26.dp,
-                            topEnd = 26.dp,
+                            topStart = 0.dp,
+                            topEnd = 0.dp,
                             bottomStart = PlayerSheetCollapsedCornerRadius,
                             bottomEnd = PlayerSheetCollapsedCornerRadius
                         )
                     )
                     .fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
             ) {
                 items(12, key = { "skeleton_song_$it" }) {
@@ -412,14 +412,14 @@ fun LibrarySongsTabPaginated(
                                 .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (activeListState.canScrollForward || activeListState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
                                 .clip(
                                     RoundedCornerShape(
-                                        topStart = 26.dp,
-                                        topEnd = 26.dp,
+                                        topStart = 0.dp,
+                                        topEnd = 0.dp,
                                         bottomStart = PlayerSheetCollapsedCornerRadius,
                                         bottomEnd = PlayerSheetCollapsedCornerRadius
                                     )
                                 ),
                             state = activeListState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
                         ) {
                             item(

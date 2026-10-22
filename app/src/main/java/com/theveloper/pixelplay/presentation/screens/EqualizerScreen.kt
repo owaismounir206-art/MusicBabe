@@ -484,7 +484,6 @@ private fun PresetTabsRow(
             TabAnimation(
                 index = index,
                 title = preset.name,
-                unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                 selectedIndex = selectedIndex,
                 onClick = { onPresetSelected(preset) }
             ) {
@@ -515,7 +514,6 @@ private fun PresetTabsRow(
         TabAnimation(
             index = -1,
             title = stringResource(R.string.equalizer_edit_tab_title),
-            unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             selectedIndex = selectedIndex,
             onClick = onEditClick 
         ) {

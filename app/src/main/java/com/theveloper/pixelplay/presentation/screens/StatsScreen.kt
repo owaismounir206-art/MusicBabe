@@ -739,8 +739,6 @@ private fun RangeTabsHeader(
                     selectedIndex = selectedIndex,
                     onClick = { onRangeSelected(range) },
                     selectedColor = MaterialTheme.colorScheme.primary,
-                    onSelectedColor = MaterialTheme.colorScheme.onPrimary,
-                    unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                     onUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     title = stringResource(range.displayNameRes())
                 ) {

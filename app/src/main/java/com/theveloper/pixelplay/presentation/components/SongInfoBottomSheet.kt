@@ -492,7 +492,6 @@ fun SongInfoBottomSheet(
                                                 val progress = kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
                                                 scaleX = 1f + 0.15f * progress * (1f - progress)
                                                 translationX = pageOffset * size.width * 0.15f
-                                                transformOrigin = TransformOrigin(0.5f, 0.5f)
                                             }
                                             .verticalScroll(rememberScrollState())
                                             .padding(horizontal = 16.dp),
@@ -588,7 +587,6 @@ fun SongInfoBottomSheet(
                                                 val progress = kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
                                                 scaleX = 1f + 0.15f * progress * (1f - progress)
                                                 translationX = pageOffset * size.width * 0.15f
-                                                transformOrigin = TransformOrigin(0.5f, 0.5f)
                                             }
                                             .verticalScroll(rememberScrollState())
                                             .padding(horizontal = 16.dp),
@@ -699,7 +697,6 @@ fun SongInfoBottomSheet(
                                 pagerState.animateScrollToPage(0)
                             }
                         },
-                        transformOrigin = TransformOrigin(0f, 0.5f)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -725,7 +722,6 @@ fun SongInfoBottomSheet(
                                 pagerState.animateScrollToPage(1)
                             }
                         },
-                        transformOrigin = TransformOrigin(1f, 0.5f)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(

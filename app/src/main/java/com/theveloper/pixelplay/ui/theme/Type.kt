@@ -62,8 +62,9 @@ val ExpTitleTypography = Typography(
     )
 )
 
-// Google Sans Flex variable font with rounded axis for Google Sans Rounded-like appearance.
-private const val GoogleSansFlexRond = 100f
+// Google Sans Flex variable font. The MusicBabe "sleeve" direction sets the ROND axis to 0 for a
+// crisp, typeset look; the family keeps its historical name to avoid touching every call site.
+private const val GoogleSansFlexRond = 0f
 
 @OptIn(ExperimentalTextApi::class)
 val GoogleSansRounded = FontFamily(

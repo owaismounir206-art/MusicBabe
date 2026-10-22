@@ -2,6 +2,10 @@
 
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
+import com.theveloper.pixelplay.ui.theme.hairlineColor
+import com.theveloper.pixelplay.ui.theme.Sleeve
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 
@@ -803,7 +807,6 @@ fun LibraryScreen(
     val bottomBarHeightDp = resolveNavBarOccupiedHeight(systemNavBarInset, navBarCompactMode)
     val bottomGradientHeight = resolveMainScreenBottomGradientHeight(navBarCompactMode)
 
-    val dm = LocalPixelPlayDarkTheme.current
 
     val iconRotation by transition.animateFloat(
         label = "Action Button Icon Rotation",
@@ -817,29 +820,14 @@ fun LibraryScreen(
         }
     }
 
-    val gradientColorsDark = listOf(
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-        Color.Transparent
-    ).toImmutableList()
-
-    val gradientColorsLight = listOf(
-        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
-        Color.Transparent
-    ).toImmutableList()
-
-    val gradientColors = if (dm) gradientColorsDark else gradientColorsLight
-
-    val gradientBrush = remember(gradientColors) {
-        Brush.verticalGradient(colors = gradientColors)
-    }
-
     val currentTab = tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull() ?: currentTabId
     val currentTabTitle = currentTab.displayTitle()
 
-    val headerContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    // Sleeve direction: one flat surface from top to bottom; structure comes from type and a hairline.
+    val headerContainerColor = MaterialTheme.colorScheme.surface
 
     Scaffold(
-        modifier = Modifier.background(brush = gradientBrush),
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             Column(
                 modifier = Modifier.background(headerContainerColor)
@@ -864,11 +852,8 @@ fun LibraryScreen(
                             Text(
                                 modifier = Modifier.padding(start = 8.dp),
                                 text = stringResource(R.string.library_screen_title),
-                                fontFamily = GoogleSansRounded,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 40.sp,
-                                letterSpacing = 1.sp
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     },
@@ -908,19 +893,16 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        FilledIconButton(
-                            modifier = Modifier.padding(end = 14.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
+                        IconButton(
+                            modifier = Modifier.padding(end = 8.dp),
                             onClick = {
                                 navController.navigateSafely(Screen.Settings.route)
                             }
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.rounded_settings_24),
-                                contentDescription = stringResource(R.string.library_cd_open_settings)
+                                contentDescription = stringResource(R.string.library_cd_open_settings),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
@@ -930,21 +912,13 @@ fun LibraryScreen(
                     )
                 )
                 if (!isCompactNavigation) {
-                    val showTabIndicator = false
+                    // The selected tab draws its own underline (TabAnimation); the row adds a hairline.
                     PrimaryScrollableTabRow(
                         selectedTabIndex = currentTabIndex,
                         containerColor = Color.Transparent,
-                        edgePadding = 12.dp,
-                        indicator = {
-                            if (showTabIndicator) {
-                                TabRowDefaults.PrimaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(selectedTabIndex = currentTabIndex),
-                                    height = 3.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        divider = {}
+                        edgePadding = 8.dp,
+                        indicator = {},
+                        divider = { HorizontalDivider(thickness = Sleeve.Hairline, color = hairlineColor) }
                     ) {
                         tabTitles.forEachIndexed { index, rawId ->
                             val tabId = rawId.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
@@ -966,9 +940,9 @@ fun LibraryScreen(
                                 }
                             ) {
                                 Text(
-                                    text = stringResource(tabId.titleRes).uppercase(),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (currentTabIndex == index) FontWeight.Bold else FontWeight.Medium
+                                    text = stringResource(tabId.titleRes),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = if (currentTabIndex == index) FontWeight.SemiBold else FontWeight.Medium
                                 )
                             }
                         }
@@ -981,7 +955,8 @@ fun LibraryScreen(
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = stringResource(R.string.library_cd_reorder_tabs),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -1024,18 +999,7 @@ fun LibraryScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 0.dp, vertical = 0.dp), // Removed horizontal padding for more space
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = 34.dp,
-                        smoothnessAsPercentBL = 60,
-                        cornerRadiusBL = 0.dp,
-                        smoothnessAsPercentBR = 60,
-                        cornerRadiusBR = 0.dp,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusTR = 34.dp,
-                        smoothnessAsPercentTL = 60
-                    )
-                    // shape = AbsoluteSmoothCornerShape(cornerRadiusTL = 24.dp, smoothnessAsPercentTR = 60, /*...*/) // Your custom shape
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(Modifier.fillMaxSize()) {
                         // OPTIMIZACIÓN: La lógica de ordenamiento ahora es más eficiente.

@@ -703,7 +703,6 @@ private fun CastSheetContent(
                         pagerState.animateScrollToPage(0)
                     }
                 },
-                transformOrigin = TransformOrigin(0f, 0.5f)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -729,7 +728,6 @@ private fun CastSheetContent(
                         pagerState.animateScrollToPage(1)
                     }
                 },
-                transformOrigin = TransformOrigin(1f, 0.5f)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
