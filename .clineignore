@@ -76,3 +76,25 @@ keystore.properties
 hs_err_pid*.log
 *.tmp
 *.temp
+
+# --- Vendored native code & generated schemas (added: whisper.cpp = 6.8 MB of C/C++) ---
+# The JNI bridge app/src/main/cpp/musicbabe_whisper_jni.c stays readable on purpose.
+app/src/main/cpp/third_party/
+app/schemas/
+app/src/release/generated/
+**/baseline-prof.txt
+**/startup-prof.txt
+
+# --- Docs, audits and design notes (read on demand, never indexed) ---
+CHANGELOG.md
+THIRD_PARTY_NOTICES.md
+GLM_5.3_AUDIT_AND_FIXES.md
+.impeccable/
+docs/
+*.svg
+*.pdf
+
+# --- Non-phone modules not touched by player features ---
+wear/
+baselineprofile/
+remote-config/

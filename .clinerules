@@ -23,7 +23,7 @@
 
 2. **No Phantom Dependencies**:
    - Only use libraries already defined in `app/build.gradle.kts`.
-   - Do NOT import C++/ONNX/JNI runtimes or external SDKs that are not present in gradle dependencies.
+   - Do NOT add NEW C++/ONNX/JNI runtimes or external SDKs. The only native runtime is whisper.cpp (vendored in `app/src/main/cpp/third_party/`, never read it; the bridge is `app/src/main/cpp/musicbabe_whisper_jni.c`, used via `data/lyrics/align/`).
    - For network operations, use existing `OkHttpClient` or Retrofit services.
    - For audio tags and metadata, use `TagLib` (`com.kyant.taglib.TagLib`) or `AudioMetadataReader.kt`.
 
@@ -96,3 +96,11 @@
    - If a file or schema was already read in the conversation turn, do not re-read it.
 6. **Follow Roadmap**:
    - Consult `GLM_5.3_AUDIT_AND_FIXES.md` for prioritized architectural and security tasks.
+
+---
+
+## 7. FEATURE POLICY (video, online playback, AI lyrics)
+1. **Online playback**: YouTube audio and music videos are streamed through NewPipeExtractor (`data/youtube/`), resolved from `youtube://` URIs by `YouTubeStreamProxy` in `DualPlayerEngine.resolveCloudUri`. Streaming only: NEVER add a download button or save streams to disk outside the existing download chain.
+2. **Music videos**: shown in the player by `MusicVideoPanel`, a muted video-only player kept in sync with the audio player. Audio must keep working in background, queue and lock screen.
+3. **AI lyrics**: whisper.cpp on-device (`LyricsAudioAlignmentService`) both aligns existing lyrics and transcribes songs without lyrics. Gemini with the user's own key is an opt-in alternative that receives the audio. Word-timed lyrics are saved as `.mblrc` (JSON, `utils/MbLrcFormat.kt`) plus an enhanced LRC copy (`<mm:ss.xx>` per word).
+4. **Do not widen scope**: one task per run, then stop and report.
