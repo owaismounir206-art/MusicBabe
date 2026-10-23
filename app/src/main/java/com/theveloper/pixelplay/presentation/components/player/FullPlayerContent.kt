@@ -1,6 +1,9 @@
 package com.theveloper.pixelplay.presentation.components.player
 
-import com.theveloper.pixelplay.ui.theme.Sleeve
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
@@ -15,6 +18,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -90,8 +94,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
@@ -139,7 +148,6 @@ import com.theveloper.pixelplay.presentation.components.subcomps.FetchLyricsDial
 import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerSheetState
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
-import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.utils.AudioMetaUtils.mimeTypeToFormat
 import com.theveloper.pixelplay.utils.LyricsImportFailureReason
 import com.theveloper.pixelplay.utils.LyricsImportSecurity
@@ -162,6 +170,27 @@ import kotlinx.coroutines.withContext
 
 private const val PREVIOUS_TRACK_RESTART_THRESHOLD_MS = 10_000L
 private const val SKIP_COMMAND_GUARD_MS = 96L
+
+// Scena: the player cover is soft while paused (48 dp, scaled to 0.95) and tightens to 28 dp
+// (Scena.CoverShape) at full size while music plays.
+private val CoverCornerPaused = 48.dp
+private val CoverCornerPlaying = 28.dp
+private const val CoverScalePaused = 0.95f
+
+// Scena: 48 dp action buttons (lyrics, queue, save, download, collapse, cast). Scena.ControlShape's
+// 26 dp radius would clamp to a circle on a 48 dp box, so the radius is scaled to the button
+// (18 dp, the same 36 percent as the paused play button): a soft rounded square, never a circle.
+private val PlayerActionSize = 48.dp
+private val PlayerActionShape = RoundedCornerShape(18.dp)
+
+// Scena: the player title is the display face at about 30 sp, up to two lines. Titles that do not
+// fit in two lines step down towards the minimum size before they are ellipsized.
+private const val PlayerTitleMaxSizeSp = 30
+private const val PlayerTitleLandscapeMaxSizeSp = 26
+private const val PlayerTitleMinSizeSp = 22
+
+/** Tabular figures, so the elapsed and total time do not jitter while counting. */
+private val PlayerTabularFigures = TextStyle(fontFeatureSettings = "tnum")
 
 private enum class SkipDirection { PREVIOUS, NEXT }
 
@@ -302,7 +331,9 @@ fun FullPlayerContent(
 
                         val currentSongId = currentSong?.id?.toLongOrNull()
                         if (currentSongId == null) {
-                            playerViewModel.sendToast("No song selected for lyrics import.")
+                            playerViewModel.sendToast(
+                                context.getString(R.string.scena_player_toast_no_song_for_lyrics)
+                            )
                             return@launch
                         }
 
@@ -311,7 +342,9 @@ fun FullPlayerContent(
                         showLyricsSheet = true
                     } catch (e: Exception) {
                         Timber.e(e, "Error reading imported lyrics file")
-                        playerViewModel.sendToast("Error reading file.")
+                        playerViewModel.sendToast(
+                            context.getString(R.string.scena_player_toast_lyrics_file_error)
+                        )
                     }
                 }
             }
@@ -743,8 +776,7 @@ fun FullPlayerContent(
                                         text = stringResource(R.string.player_now_playing),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelLargeEmphasized,
-                                        fontWeight = FontWeight.SemiBold
+                                        style = scenaWide(14.sp)
                                     )
 
                                     if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
@@ -762,19 +794,19 @@ fun FullPlayerContent(
                     navigationIcon = {
                         Box(
                             modifier = Modifier
-                                // Ancho total = 14dp de padding + 42dp del botón
-                                .width(56.dp)
-                                .height(42.dp),
+                                // Ancho total = 14dp de padding + 48dp del botón
+                                .width(62.dp)
+                                .height(PlayerActionSize),
                             // 2. Alinea el contenido (el botón) al final (derecha) y centrado verticalmente
                             contentAlignment = Alignment.CenterEnd
                         ) {
-                            // 3. Tu botón circular original, sin cambios
+                            // 3. Scena: soft rounded square, 48 dp touch target
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
+                                    .size(PlayerActionSize)
+                                    .clip(PlayerActionShape)
                                     .background(playerOnAccentColor.copy(alpha = 0.7f))
-                                    .clickable(onClick = onCollapse),
+                                    .clickable(role = Role.Button, onClick = onCollapse),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -792,6 +824,7 @@ fun FullPlayerContent(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val castAnimationsEnabled = rememberScenaAnimationsEnabled()
                             val showCastLabel = isCastConnecting || (isRemotePlaybackActive && selectedRouteName != null)
                             val isBluetoothActive =
                                 isBluetoothEnabled && !bluetoothName.isNullOrEmpty() && !isRemotePlaybackActive && !isCastConnecting
@@ -800,43 +833,43 @@ fun FullPlayerContent(
                                 isBluetoothActive -> painterResource(R.drawable.rounded_bluetooth_24)
                                 else -> painterResource(R.drawable.rounded_mobile_speaker_24)
                             }
-                            val castCornersExpanded = 50.dp
-                            val castCornersCompact = 6.dp
-                            val castTopStart = castCornersExpanded
-                            val castTopEnd by animateDpAsState(
+                            // Scena: the cast control is a soft rounded rectangle; with the route
+                            // label it grows into a pill (26 dp, Scena.ControlShape), icon-only it is
+                            // the same rounded square as the other 48 dp buttons.
+                            val castCornersExpanded = 26.dp
+                            val castCornersCompact = 18.dp
+                            val castCorner by animateDpAsState(
                                 targetValue = if (showCastLabel) castCornersExpanded else castCornersCompact,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                            )
-                            val castBottomStart = castCornersExpanded
-                            val castBottomEnd by animateDpAsState(
-                                targetValue = if (showCastLabel) castCornersExpanded else castCornersCompact,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                                animationSpec = if (castAnimationsEnabled) {
+                                    spring<Dp>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                                } else {
+                                    snap<Dp>()
+                                },
+                                label = "castCorner"
                             )
                             val castContainerColor = playerOnAccentColor.copy(alpha = 0.7f)
                             Box(
                                 modifier = Modifier
-                                    .height(42.dp)
+                                    .height(PlayerActionSize)
                                     .align(Alignment.CenterVertically)
                                     .animateContentSize(
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessLow
-                                        )
+                                        animationSpec = if (castAnimationsEnabled) {
+                                            spring<IntSize>(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessLow
+                                            )
+                                        } else {
+                                            snap<IntSize>()
+                                        }
                                     )
                                     .widthIn(
-                                        min = 50.dp,
+                                        // 14 dp + 24 dp icon + 14 dp: the icon-only button is centred
+                                        min = 52.dp,
                                         max = if (showCastLabel) 190.dp else 58.dp
                                     )
-                                    .clip(
-                                        RoundedCornerShape(
-                                            topStart = castTopStart.coerceAtLeast(0.dp),
-                                            topEnd = castTopEnd.coerceAtLeast(0.dp),
-                                            bottomStart = castBottomStart.coerceAtLeast(0.dp),
-                                            bottomEnd = castBottomEnd.coerceAtLeast(0.dp)
-                                        )
-                                    )
+                                    .clip(RoundedCornerShape(castCorner.coerceAtLeast(0.dp)))
                                     .background(castContainerColor)
-                                    .clickable { onShowCastClicked() },
+                                    .clickable(role = Role.Button) { onShowCastClicked() },
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Row(
@@ -907,17 +940,10 @@ fun FullPlayerContent(
                             // Queue Button
                             Box(
                                 modifier = Modifier
-                                    .size(height = 42.dp, width = 50.dp)
-                                    .clip(
-                                        RoundedCornerShape(
-                                            topStart = 6.dp,
-                                            topEnd = 50.dp,
-                                            bottomStart = 6.dp,
-                                            bottomEnd = 50.dp
-                                        )
-                                    )
+                                    .size(PlayerActionSize)
+                                    .clip(PlayerActionShape)
                                     .background(playerOnAccentColor.copy(alpha = 0.7f))
-                                    .clickable {
+                                    .clickable(role = Role.Button) {
                                         showSongInfoBottomSheet = true
                                         onShowQueueClicked()
                                     },
@@ -1061,15 +1087,27 @@ private fun FullPlayerAlbumCoverSection(
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
     val shouldApplyPausedScale = !isPlayingProvider() && !playWhenReadyProvider()
-    // Use a short deterministic tween instead of spring(StiffnessLow). The original
-    // spring took ~1s to settle, producing ~60 frames of graphicsLayer invalidations
-    // that overlapped with any subsequent sheet-collapse gesture. A 260 ms tween
-    // finishes well before the user can start the next gesture, keeping the album
-    // art's "pause squish" visible but removing the long tail of frame work.
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    // Scena: the cover breathes with playback. Paused it is softer (48 dp corners, scale 0.95);
+    // playing it tightens to 28 dp at full size, on the springy Scena spec. The scale is read
+    // inside graphicsLayer, the corner radius is handed to the carousel as a provider, so the
+    // spring never recomposes this section. System animations off: both snap.
     val albumArtScale by animateFloatAsState(
-        targetValue = if (shouldApplyPausedScale) 0.95f else 1f,
-        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+        targetValue = if (shouldApplyPausedScale) CoverScalePaused else 1f,
+        animationSpec = if (animationsEnabled) Scena.Springy else snap<Float>(),
         label = "AlbumArtScale"
+    )
+    val albumArtCornerState = animateDpAsState(
+        targetValue = if (shouldApplyPausedScale) CoverCornerPaused else CoverCornerPlaying,
+        animationSpec = if (animationsEnabled) {
+            spring<Dp>(
+                dampingRatio = Scena.Springy.dampingRatio,
+                stiffness = Scena.Springy.stiffness
+            )
+        } else {
+            snap<Dp>()
+        },
+        label = "AlbumArtCorner"
     )
 
     BoxWithConstraints(
@@ -1139,7 +1177,8 @@ private fun FullPlayerAlbumCoverSection(
                         scaleX = albumArtScale
                         scaleY = albumArtScale
                     },
-                albumArtQuality = albumArtQuality
+                albumArtQuality = albumArtQuality,
+                coverCornerRadiusProvider = { albumArtCornerState.value }
             )
         }
     }
@@ -1531,7 +1570,12 @@ private fun SongMetadataDisplaySection(
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically),
-                isPlayingProvider = isPlayingProvider
+                isPlayingProvider = isPlayingProvider,
+                titleMaxSizeSp = if (showQueueButton) {
+                    PlayerTitleLandscapeMaxSizeSp
+                } else {
+                    PlayerTitleMaxSizeSp
+                }
             )
         }
         
@@ -1567,7 +1611,7 @@ private fun SongMetadataDisplaySection(
             )
         ) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = PlayerActionShape,
                 color = chipColor,
                 modifier = Modifier.padding(end = 8.dp)
             ) {
@@ -1585,22 +1629,15 @@ private fun SongMetadataDisplaySection(
 
         if (showQueueButton) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(height = 42.dp, width = 50.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 12.dp,
-                                topEnd = 2.dp,
-                                bottomStart = 12.dp,
-                                bottomEnd = 2.dp
-                            )
-                        )
+                        .size(PlayerActionSize)
+                        .clip(PlayerActionShape)
                         .background(chipColor)
-                        .clickable { onClickLyrics() },
+                        .clickable(role = Role.Button) { onClickLyrics() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1611,17 +1648,10 @@ private fun SongMetadataDisplaySection(
                 }
                 Box(
                     modifier = Modifier
-                        .size(height = 42.dp, width = 50.dp)
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = 2.dp,
-                                topEnd = 12.dp,
-                                bottomStart = 2.dp,
-                                bottomEnd = 12.dp
-                            )
-                        )
+                        .size(PlayerActionSize)
+                        .clip(PlayerActionShape)
                         .background(chipColor)
-                        .clickable { onClickQueue() },
+                        .clickable(role = Role.Button) { onClickQueue() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1641,8 +1671,8 @@ private fun SongMetadataDisplaySection(
                     val isSongSaved by playerViewModel.isCurrentSongSaved.collectAsStateWithLifecycle()
                     val context = LocalContext.current
                     FilledIconButton(
-                        modifier = Modifier.size(width = 48.dp, height = 48.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(PlayerActionSize),
+                        shape = PlayerActionShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = if (isSongSaved) MaterialTheme.colorScheme.secondaryContainer else chipColor,
                             contentColor = if (isSongSaved) MaterialTheme.colorScheme.onSecondaryContainer else chipContentColor
@@ -1668,8 +1698,8 @@ private fun SongMetadataDisplaySection(
                     }
 
                     FilledIconButton(
-                        modifier = Modifier.size(width = 48.dp, height = 48.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(PlayerActionSize),
+                        shape = PlayerActionShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = chipColor,
                             contentColor = chipContentColor
@@ -1684,8 +1714,8 @@ private fun SongMetadataDisplaySection(
                 }
 
                 FilledIconButton(
-                    modifier = Modifier.size(width = 48.dp, height = 48.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = chipColor,
                         contentColor = chipContentColor
@@ -1981,7 +2011,7 @@ private fun EfficientSlider(
         isPlaying = isPlaying,
         isVisible = isVisible,
         trackEdgePadding = trackEdgePadding,
-        semanticsLabel = "Playback position",
+        semanticsLabel = stringResource(R.string.scena_player_cd_playback_position),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp, horizontal = 0.dp)
@@ -2024,24 +2054,24 @@ private fun EfficientTimeLabels(
         ) {
             Text(
                 posStr,
-                style = MaterialTheme.typography.labelMedium.merge(Sleeve.TabularFigures),
+                style = MaterialTheme.typography.labelMedium.merge(PlayerTabularFigures),
                 fontWeight = FontWeight.Medium,
                 color = textColor
             )
             Text(
                 durStr,
-                style = MaterialTheme.typography.labelMedium.merge(Sleeve.TabularFigures),
+                style = MaterialTheme.typography.labelMedium.merge(PlayerTabularFigures),
                 fontWeight = FontWeight.Medium,
                 color = textColor.copy(alpha = 0.72f)
             )
         }
 
         if (!audioMetaLabel.isNullOrBlank()) {
-            // The "catalogue line": the file's technical data set like a sleeve's catalogue
-            // number, in tabular figures with open tracking, between the two times.
+            // The "catalogue line": the file's technical data (format, kHz, kbps) in tabular
+            // figures with open tracking, between the two times.
             Text(
                 text = audioMetaLabel,
-                style = MaterialTheme.typography.labelSmall.merge(Sleeve.TabularFigures).copy(
+                style = MaterialTheme.typography.labelSmall.merge(PlayerTabularFigures).copy(
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.8.sp
                 ),
@@ -2188,7 +2218,10 @@ private fun DelayedContent(
             if (shouldComposeContent) {
                 Box(
                     modifier = Modifier.graphicsLayer {
-                        alpha = contentBlendAlpha * baseAlphaProvider()
+                        val appearProgress = baseAlphaProvider()
+                        alpha = contentBlendAlpha * appearProgress
+                        // Scena entrance: every section rises 24 dp as it fades in.
+                        translationY = (1f - appearProgress) * 24.dp.toPx()
                     }
                 ) {
                     content()
@@ -2204,7 +2237,12 @@ private fun DelayedContent(
         }
     } else {
         Box(
-            modifier = sharedBoundsModifier.graphicsLayer { alpha = baseAlphaProvider() }
+            modifier = sharedBoundsModifier.graphicsLayer {
+                val appearProgress = baseAlphaProvider()
+                alpha = appearProgress
+                // Scena entrance: every section rises 24 dp as it fades in.
+                translationY = (1f - appearProgress) * 24.dp.toPx()
+            }
         ) {
             content()
         }
@@ -2231,21 +2269,19 @@ private fun PlayerSongInfo(
     playerViewModel: PlayerViewModel,
     onClickArtist: () -> Unit,
     modifier: Modifier = Modifier,
-    isPlayingProvider: () -> Boolean = { true }
+    isPlayingProvider: () -> Boolean = { true },
+    titleMaxSizeSp: Int = PlayerTitleMaxSizeSp
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isNavigatingToArtist by remember { mutableStateOf(false) }
     val resolvedArtistId by remember(artists, artistId) {
         derivedStateOf { artists.firstOrNull { it.id != 0L && it.id != -1L }?.id ?: artistId }
     }
-    val titleStyle = MaterialTheme.typography.headlineSmall.copy(
-        fontWeight = FontWeight.SemiBold,
-        fontFamily = GoogleSansRounded,
-        letterSpacing = (-0.2).sp,
-        color = textColor
-    )
-
+    // Scena: the artist is a 16 sp regular line under the display-face title (the colour is the
+    // existing artist colour, derived from the cover scheme).
     val artistStyle = MaterialTheme.typography.titleMedium.copy(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp,
         color = artistTextColor
     )
@@ -2258,7 +2294,7 @@ private fun PlayerSongInfo(
             .graphicsLayer {
                 val fraction = expansionFractionProvider()
                 alpha = fraction // Or apply specific fade logic if desired
-                translationY = (1f - fraction) * 24f
+                // The 24 dp Scena rise is applied once, by DelayedContent around this section.
             }
     ) {
         // We pass 1f to AutoScrollingTextOnDemand because the alpha/translation is now handled by the parent Column graphicsLayer
@@ -2267,15 +2303,13 @@ private fun PlayerSongInfo(
         // Let's check AutoScrollingTextOnDemand. Assuming it uses it for scrolling trigger.
         // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
         // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
-        AutoScrollingTextOnDemand(
+        PlayerTitle(
             text = title,
-            style = titleStyle,
-            gradientEdgeColor = gradientEdgeColor,
-            expansionFractionProvider = expansionFractionProvider,
-            modifier = Modifier.fillMaxWidth(),
-            canScroll = isPlayingProvider()
+            color = textColor,
+            maxSizeSp = titleMaxSizeSp,
+            modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
 
 
@@ -2318,6 +2352,55 @@ private fun PlayerSongInfo(
     }
 }
 
+/**
+ * Scena title: the expanded heavy display face at about 30 sp (26 sp in landscape), up to two
+ * lines. A title that does not fit in two lines is stepped down (2 sp at a time, down to 22 sp)
+ * before it is ellipsized.
+ * The fit is measured up front with a [androidx.compose.ui.text.TextMeasurer], so there is no
+ * visible re-layout when the song changes.
+ */
+@Composable
+private fun PlayerTitle(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxSizeSp: Int = PlayerTitleMaxSizeSp
+) {
+    val baseStyle = remember(maxSizeSp) { scenaDisplay(maxSizeSp.sp) }
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+
+    BoxWithConstraints(modifier = modifier) {
+        val maxWidthPx = constraints.maxWidth
+        val fittedSizeSp = remember(text, maxWidthPx, density, maxSizeSp) {
+            var sizeSp = maxSizeSp
+            while (sizeSp > PlayerTitleMinSizeSp) {
+                val measured = textMeasurer.measure(
+                    text = text,
+                    style = baseStyle.copy(fontSize = sizeSp.sp, lineHeight = (sizeSp + 2).sp),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    constraints = Constraints(maxWidth = maxWidthPx)
+                )
+                if (!measured.hasVisualOverflow) break
+                sizeSp -= 2
+            }
+            sizeSp
+        }
+
+        Text(
+            text = text,
+            style = baseStyle.copy(
+                fontSize = fittedSizeSp.sp,
+                lineHeight = (fittedSizeSp + 2).sp
+            ),
+            color = color,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 private fun PlaceholderBox(
     modifier: Modifier,
@@ -2343,7 +2426,7 @@ private fun AlbumPlaceholder(
         modifier = modifier
             .fillMaxWidth()
             .height(height),
-        shape = RoundedCornerShape(18.dp),
+        shape = Scena.CoverShape,
         color = color,
         tonalElevation = 0.dp
     ) {
@@ -2374,7 +2457,7 @@ private fun MetadataPlaceholder(
             .graphicsLayer {
                 val expansionFraction = expansionFractionProvider().coerceIn(0f, 1f)
                 alpha = expansionFraction.coerceIn(0f, 1f)
-                translationY = (1f - expansionFraction.coerceIn(0f, 1f)) * 24f
+                translationY = (1f - expansionFraction.coerceIn(0f, 1f)) * 24.dp.toPx()
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -2403,36 +2486,26 @@ private fun MetadataPlaceholder(
 
         if (showQueueButtons) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(height = 42.dp, width = 50.dp),
-                    shape = RoundedCornerShape(
-                        topStart = 50.dp,
-                        topEnd = 6.dp,
-                        bottomStart = 50.dp,
-                        bottomEnd = 6.dp
-                    ),
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
                     color = onColor,
                     tonalElevation = 0.dp
                 ) {}
                 Surface(
-                    modifier = Modifier.size(height = 42.dp, width = 50.dp),
-                    shape = RoundedCornerShape(
-                        topStart = 6.dp,
-                        topEnd = 50.dp,
-                        bottomStart = 6.dp,
-                        bottomEnd = 50.dp
-                    ),
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
                     color = onColor,
                     tonalElevation = 0.dp
                 ) {}
             }
         } else {
             PlaceholderBox(
-                modifier = Modifier.size(width = 48.dp, height = 48.dp),
-                cornerRadius = 24.dp,
+                modifier = Modifier.size(PlayerActionSize),
+                cornerRadius = 18.dp,
                 color = onColor
             )
         }
@@ -2534,46 +2607,43 @@ private fun ControlsPlaceholder(color: Color, onColor: Color) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Same geometry as AnimatedPlaybackControls: two 76 x 64 dp squircles around a square
+        // play button the height of the row (80 dp), 12 dp apart.
         Box(
             modifier = Modifier
                 .padding(horizontal = 12.dp, vertical = 8.dp)
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(80.dp),
+            contentAlignment = Alignment.Center
         ) {
             Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .widthIn(max = 256.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PlaceholderBox(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    cornerRadius = 60.dp,
+                        .weight(76f)
+                        .height(64.dp),
+                    cornerRadius = 26.dp,
                     color = onColor
                 )
                 Surface(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(80f)
                         .fillMaxHeight(),
-                    shape = AbsoluteSmoothCornerShape(
-                        cornerRadiusTL = rowCorners,
-                        smoothnessAsPercentTR = 60,
-                        cornerRadiusBL = rowCorners,
-                        smoothnessAsPercentTL = 60,
-                        cornerRadiusTR = rowCorners,
-                        smoothnessAsPercentBL = 60,
-                        cornerRadiusBR = rowCorners,
-                        smoothnessAsPercentBR = 60
-                    ),
+                    shape = RoundedCornerShape(percent = 36),
                     color = color,
                     tonalElevation = 0.dp
                 ) {}
                 PlaceholderBox(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    cornerRadius = 60.dp,
+                        .weight(76f)
+                        .height(64.dp),
+                    cornerRadius = 26.dp,
                     color = onColor
                 )
             }
@@ -2698,7 +2768,7 @@ private fun BottomToggleRow(
                 inactiveContentColor = inactiveContentColor,
                 onClick = onShuffleToggle,
                 iconId = R.drawable.rounded_shuffle_24,
-                contentDesc = "Aleatorio"
+                contentDesc = stringResource(R.string.common_shuffle)
             )
             val repeatActive = repeatMode != Player.REPEAT_MODE_OFF
             val repeatIcon = when (repeatMode) {
@@ -2716,7 +2786,7 @@ private fun BottomToggleRow(
                 inactiveContentColor = inactiveContentColor,
                 onClick = onRepeatToggle,
                 iconId = repeatIcon,
-                contentDesc = "Repetir"
+                contentDesc = stringResource(R.string.common_repeat)
             )
             ToggleSegmentButton(
                 modifier = commonModifier,
@@ -2728,7 +2798,7 @@ private fun BottomToggleRow(
                 inactiveContentColor = inactiveContentColor,
                 onClick = onFavoriteToggle,
                 iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
-                contentDesc = "Favorito"
+                contentDesc = stringResource(R.string.common_favorite)
             )
         }
     }

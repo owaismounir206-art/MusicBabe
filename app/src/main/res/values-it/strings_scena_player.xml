@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stringhe del player a schermo intero in stile Scena. -->
+<resources>
+    <string name="scena_player_cd_playback_position">Posizione di riproduzione</string>
+    <string name="scena_player_toast_no_song_for_lyrics">Nessun brano selezionato per l\'importazione del testo.</string>
+    <string name="scena_player_toast_lyrics_file_error">Errore nella lettura del file.</string>
+</resources>

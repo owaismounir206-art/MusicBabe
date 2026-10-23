@@ -24,6 +24,10 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 
 import com.theveloper.pixelplay.data.preferences.AlbumArtQuality
+import kotlin.math.roundToInt
+
+/** Corner radius of the player cover while music plays (Scena.CoverShape). */
+private val ScenaCoverCornerPlaying = 28.dp
 
 // ====== TIPOS/STATE DEL CARRUSEL (wrapper para mantener compatibilidad) ======
 
@@ -49,7 +53,10 @@ fun AlbumCarouselSection(
     modifier: Modifier = Modifier,
     carouselStyle: String = CarouselStyle.NO_PEEK,
     itemSpacing: Dp = 8.dp,
-    albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM
+    albumArtQuality: AlbumArtQuality = AlbumArtQuality.MEDIUM,
+    // Scena: corner radius of the cover tiles. The player animates it (48 dp paused, 28 dp
+    // playing); it is a provider so the animation is read here and not in the caller.
+    coverCornerRadiusProvider: () -> Dp = { ScenaCoverCornerPlaying }
 ) {
     if (queue.isEmpty()) return
 
@@ -182,8 +189,12 @@ fun AlbumCarouselSection(
             }
     }
 
-    // Sleeve direction: the cover is a record sleeve, barely softened.
-    val corner = 8.dp
+    // Scena: soft covers. The radius is quantised to whole dp so the pager only recomposes when
+    // the visible radius really changes while the caller's spring runs.
+    val cornerDp by remember(coverCornerRadiusProvider) {
+        derivedStateOf { coverCornerRadiusProvider().value.roundToInt() }
+    }
+    val corner = cornerDp.dp
 
     BoxWithConstraints(modifier = modifier) {
         val availableWidth = this.maxWidth

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API key field -->
+    <string name="scena_ai_key_placeholder">Incolla la tua chiave API</string>
+    <string name="scena_ai_key_show">Mostra la chiave</string>
+    <string name="scena_ai_key_hide">Nascondi la chiave</string>
+
+    <!-- Key status line -->
+    <string name="scena_ai_status_no_key">Nessuna chiave salvata</string>
+    <string name="scena_ai_status_not_verified">Non ancora verificata</string>
+    <string name="scena_ai_status_verifying">Verifica in corso…</string>
+    <string name="scena_ai_status_verified">Chiave verificata</string>
+    <string name="scena_ai_status_failed">Impossibile verificare questa chiave</string>
+    <string name="scena_ai_status_unsaved">Modifiche non salvate</string>
+
+    <!-- Actions -->
+    <string name="scena_ai_verify">Verifica la chiave</string>
+    <string name="scena_ai_save_and_verify">Salva e verifica</string>
+    <string name="scena_ai_remove">Rimuovi la chiave</string>
+    <string name="scena_ai_remove_title">Rimuovere questa chiave?</string>
+    <string name="scena_ai_remove_message">La chiave salvata verrà cancellata da questo dispositivo. Potrai aggiungerla di nuovo in qualsiasi momento.</string>
+
+    <!-- Security note -->
+    <string name="scena_ai_security_title">Come viene custodita la chiave</string>
+    <string name="scena_ai_security_body">Cifrata con l\'Android Keystore, esclusa dai backup e inviata solo al provider che hai scelto.</string>
+
+    <!-- Providers that do not need a key -->
+    <string name="scena_ai_no_key_needed">Questo provider non richiede una chiave API.</string>
+
+    <!-- Base URL (custom provider) -->
+    <string name="scena_ai_base_url_section">URL base dell\'API</string>
+    <string name="scena_ai_base_url_title">URL base</string>
+    <string name="scena_ai_base_url_subtitle">Per esempio https://api.example.com/v1</string>
+    <string name="scena_ai_base_url_placeholder">https://</string>
+
+    <!-- Model picker -->
+    <string name="scena_ai_models_search_placeholder">Cerca modelli…</string>
+    <string name="scena_ai_models_search_cd">Cerca</string>
+    <string name="scena_ai_models_clear_cd">Cancella ricerca</string>
+    <plurals name="scena_ai_models_available">
+        <item quantity="one">%d modello disponibile</item>
+        <item quantity="other">%d modelli disponibili</item>
+    </plurals>
+</resources>

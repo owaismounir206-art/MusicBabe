@@ -1,8 +1,31 @@
 package com.theveloper.pixelplay.presentation.screens
 
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.FloatingActionButton
-import com.theveloper.pixelplay.ui.theme.Sleeve
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import com.theveloper.pixelplay.ui.theme.CookieDisc
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
+import com.theveloper.pixelplay.ui.theme.scenaRise
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 
@@ -131,6 +154,17 @@ import androidx.compose.ui.res.stringResource
 
 private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
 
+// The entrance ("rise") of the first blocks plays once per Home visit; after it, rows that scroll back
+// into composition appear without animating again.
+private const val HomeIntroSettleMillis = 1000L
+
+private fun Modifier.homeRise(introPlayed: Boolean, index: Int): Modifier =
+    if (introPlayed) this else this.scenaRise(index)
+
+private val YourMixDiscSize = 290.dp
+private val YourMixDiscOverhang = 96.dp
+private val YourMixPlaySize = 88.dp
+
 // Modern HomeScreen with collapsible top bar and staggered grid layout
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,6 +181,7 @@ fun HomeScreen(
     onOpenSidebar: () -> Unit
 ) {
     val context = LocalContext.current
+    val scena = MaterialTheme.scena
     // DETECTAR MODO BENCHMARK
     val isBenchmarkMode = remember {
         (context as? android.app.Activity)?.intent?.getBooleanExtra("is_benchmark", false) ?: false
@@ -185,6 +220,15 @@ fun HomeScreen(
     }
 
     val shouldShowYourMixLoadingPlaceholder = yourMixSongs.isEmpty() && !hasHomeLoadingMinimumElapsed
+
+    // Scena entrance: starts when the hero first shows, ends once the staggered rise has finished.
+    var homeIntroPlayed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(yourMixSongs.isNotEmpty()) {
+        if (yourMixSongs.isNotEmpty() && !homeIntroPlayed) {
+            delay(HomeIntroSettleMillis)
+            homeIntroPlayed = true
+        }
+    }
     val recentSongIds = remember(playbackHistory) {
         collectRecentlyPlayedSongIds(
             playbackHistory = playbackHistory,
@@ -237,7 +281,7 @@ fun HomeScreen(
         yourMixSongs.isNotEmpty() || hasHomeLoadingMinimumElapsed || isBenchmarkMode
     }
 
-    val yourMixSong: String = "Today's Mix for you"
+    val yourMixSong: String = stringResource(R.string.scena_home_mix_subtitle)
 
     // 2) Observar sólo el currentSong (o null) para saber si mostrar padding
     val currentSong by remember(playerViewModel.stablePlayerState) {
@@ -248,6 +292,13 @@ fun HomeScreen(
     val isShuffleEnabled by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState
             .map { it.isShuffleEnabled }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+
+    // 4) Observe playback so the hero record only spins while music plays
+    val isPlaying by remember(playerViewModel.stablePlayerState) {
+        playerViewModel.stablePlayerState
+            .map { it.isPlaying }
             .distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = false)
 
@@ -320,6 +371,7 @@ fun HomeScreen(
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            containerColor = scena.bg,
             topBar = {
                 HomeGradientTopBar(
                     onNavigationIconClick = {
@@ -345,13 +397,14 @@ fun HomeScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
+                    .background(scena.bg),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
                     bottom = paddingValuesParent.calculateBottomPadding()
                             + 38.dp + bottomPadding
                 ),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                // Scena: 28 dp of air above every section title.
+                verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
                 if (yourMixSongs.isEmpty()) {
                     item(
@@ -378,6 +431,8 @@ fun HomeScreen(
                         YourMixHeader(
                             song = yourMixSong,
                             isShuffleEnabled = isShuffleEnabled,
+                            isPlaying = isPlaying,
+                            modifier = Modifier.homeRise(homeIntroPlayed, 0),
                             onPlayShuffled = {
                                 if (usesFallbackHomeMix) {
                                     playerViewModel.shuffleAllSongs(queueName = "Your Mix")
@@ -414,7 +469,9 @@ fun HomeScreen(
                         }
 
                         AlbumArtCollage(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .homeRise(homeIntroPlayed, 1),
                             songs = yourMixSongs,
                             padding = 14.dp,
                             height = 400.dp,
@@ -436,30 +493,32 @@ fun HomeScreen(
                         key = "daily_mix_section",
                         contentType = "daily_mix_section"
                     ) {
-                        DailyMixSection(
-                            songs = dailyMixSongs,
-                            onClickOpen = {
-                                navController.navigateSafely(Screen.DailyMixScreen.route)
-                            },
-                            onNavigateToAlbum = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.AlbumDetail.createRoute(song.albumId),
-                                    patternToPop = Screen.AlbumDetail.route
-                                )
-                            },
-                            onNavigateToArtist = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId),
-                                    patternToPop = Screen.ArtistDetail.route
-                                )
-                            },
-                            onNavigateToGenre = { song ->
-                                song.genre?.let {
-                                    navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
-                                }
-                            },
-                            playerViewModel = playerViewModel
-                        )
+                        Box(modifier = Modifier.homeRise(homeIntroPlayed, 2)) {
+                            DailyMixSection(
+                                songs = dailyMixSongs,
+                                onClickOpen = {
+                                    navController.navigateSafely(Screen.DailyMixScreen.route)
+                                },
+                                onNavigateToAlbum = { song ->
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.AlbumDetail.createRoute(song.albumId),
+                                        patternToPop = Screen.AlbumDetail.route
+                                    )
+                                },
+                                onNavigateToArtist = { song ->
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.ArtistDetail.createRoute(song.artistId),
+                                        patternToPop = Screen.ArtistDetail.route
+                                    )
+                                },
+                                onNavigateToGenre = { song ->
+                                    song.genre?.let {
+                                        navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
+                                    }
+                                },
+                                playerViewModel = playerViewModel
+                            )
+                        }
                     }
                 }
 
@@ -494,56 +553,64 @@ fun HomeScreen(
                     key = "wrapped_banner",
                     contentType = "wrapped_banner"
                 ) {
+                    // Scena: the accent block of the page, a large tile with an inverted arrow.
                     Card(
                         onClick = { navController.navigateSafely(Screen.Wrapped.route) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        ),
+                        shape = Scena.TileShape,
+                        colors = CardDefaults.cardColors(containerColor = scena.acc),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = Sleeve.Gutter, vertical = 6.dp)
+                            .padding(horizontal = Scena.Gutter)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(20.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(Sleeve.ArtShape)
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .size(56.dp)
+                                    .clip(Scena.ArtShape)
+                                    .background(scena.bg2),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
                                     painter = painterResource(R.drawable.musicbabe_icon),
                                     contentDescription = null,
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(Sleeve.ArtShape)
+                                        .size(42.dp)
+                                        .clip(Scena.ArtShape)
                                 )
                             }
-                            Spacer(Modifier.width(14.dp))
+                            Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = stringResource(R.string.home_wrapped_banner_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    style = scenaWide(18.sp),
+                                    color = scena.onAcc
                                 )
+                                Spacer(Modifier.height(2.dp))
                                 Text(
                                     text = stringResource(R.string.home_wrapped_banner_subtitle),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = scena.onAcc.copy(alpha = 0.82f)
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                            Spacer(Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(scena.onAcc),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                    contentDescription = null,
+                                    tint = scena.acc
+                                )
+                            }
                         }
                     }
                 }
@@ -570,10 +637,10 @@ fun HomeScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.2f to Color.Transparent,
-                            0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
-                            1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
+                            0.0f to scena.bg.copy(alpha = 0f),
+                            0.2f to scena.bg.copy(alpha = 0f),
+                            0.8f to scena.bg,
+                            1.0f to scena.bg
                         )
                     )
                 )
@@ -666,7 +733,7 @@ private fun YourMixLoadingPlaceholder() {
     ) {
         LoadingIndicator(
             modifier = Modifier.size(128.dp),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.scena.acc
         )
     }
 }
@@ -675,7 +742,7 @@ private fun YourMixLoadingPlaceholder() {
 private fun YourMixEmptyPlaceholder(
     onRefresh: () -> Unit
 ) {
-    val colors = MaterialTheme.colorScheme
+    val scena = MaterialTheme.scena
 
     Box(
         modifier = Modifier
@@ -691,18 +758,9 @@ private fun YourMixEmptyPlaceholder(
         ) {
             Surface(
                 modifier = Modifier.size(76.dp),
-                shape = AbsoluteSmoothCornerShape(
-                    cornerRadiusTL = 28.dp,
-                    smoothnessAsPercentTR = 60,
-                    cornerRadiusBR = 28.dp,
-                    smoothnessAsPercentTL = 60,
-                    cornerRadiusBL = 28.dp,
-                    smoothnessAsPercentBR = 60,
-                    cornerRadiusTR = 28.dp,
-                    smoothnessAsPercentBL = 60,
-                ),
-                color = colors.secondaryContainer,
-                contentColor = colors.onSecondaryContainer
+                shape = Scena.ArtShape,
+                color = scena.bg2,
+                contentColor = scena.acc
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -719,14 +777,14 @@ private fun YourMixEmptyPlaceholder(
             ) {
                 Text(
                     text = stringResource(R.string.home_empty_placeholder_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.onSurface,
+                    style = scenaWide(22.sp),
+                    color = scena.ink,
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = stringResource(R.string.home_empty_placeholder_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
+                    color = scena.ink2,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -734,15 +792,10 @@ private fun YourMixEmptyPlaceholder(
 
             FilledTonalButton(
                 onClick = onRefresh,
-                shape = AbsoluteSmoothCornerShape(
-                    cornerRadiusTL = 22.dp,
-                    smoothnessAsPercentTR = 60,
-                    cornerRadiusBR = 22.dp,
-                    smoothnessAsPercentTL = 60,
-                    cornerRadiusBL = 22.dp,
-                    smoothnessAsPercentBR = 60,
-                    cornerRadiusTR = 22.dp,
-                    smoothnessAsPercentBL = 60,
+                shape = Scena.ControlShape,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = scena.acc,
+                    contentColor = scena.onAcc
                 )
             ) {
                 Icon(
@@ -757,53 +810,156 @@ private fun YourMixEmptyPlaceholder(
     }
 }
 
+/**
+ * Scena hero: a big, wide "Your Mix" title, a record (the 12-lobed cookie) at the end of the row,
+ * partly off-screen, that turns only while music plays, and a play button that morphs from a rounded
+ * square (paused) to a circle (playing).
+ *
+ * [isPlaying] and [modifier] are optional, so existing callers keep compiling.
+ */
 @Composable
 fun YourMixHeader(
     song: String,
     isShuffleEnabled: Boolean = false,
-    onPlayShuffled: () -> Unit
+    onPlayShuffled: () -> Unit,
+    isPlaying: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.colorScheme
+    val scena = MaterialTheme.scena
 
-    // Sleeve direction: the title is set, not shouted; the play action is the one filled element.
-    Row(
-        modifier = Modifier
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(start = Sleeve.Gutter, end = Sleeve.Gutter, top = 24.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.Bottom
+            .padding(top = 8.dp, bottom = 4.dp)
+            .clipToBounds()
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        // Drawn first so the title sits on top. Modifier.offset flips in RTL, so the record always
+        // overhangs the end edge of the screen.
+        CookieDisc(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(YourMixDiscSize)
+                .offset(x = YourMixDiscOverhang),
+            color = scena.bg3,
+            spinning = isPlaying
+        ) {
+            // Record label with a spindle hole: concentric, so it never betrays the (static) layer.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(0.34f)
+                    .clip(CircleShape)
+                    .background(scena.acc),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(scena.bg)
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(horizontal = Scena.Gutter)
+        ) {
             Text(
                 text = stringResource(R.string.home_your_mix_title),
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp
-                ),
-                color = colors.onSurface
+                style = scenaDisplay(70.sp),
+                color = scena.ink
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = song,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge,
+                color = scena.ink2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-        Spacer(Modifier.width(16.dp))
-        FloatingActionButton(
-            onClick = onPlayShuffled,
-            containerColor = if (isShuffleEnabled) colors.primary else colors.primaryContainer,
-            contentColor = if (isShuffleEnabled) colors.onPrimary else colors.onPrimaryContainer,
-            shape = RoundedCornerShape(16.dp),
-            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.rounded_shuffle_24),
-                contentDescription = stringResource(R.string.common_shuffle_play),
-                modifier = Modifier.size(24.dp)
+            Spacer(Modifier.height(20.dp))
+            YourMixPlayButton(
+                isPlaying = isPlaying,
+                isShuffleEnabled = isShuffleEnabled,
+                onClick = onPlayShuffled
             )
         }
+    }
+}
+
+/**
+ * The play button. The tap still means "shuffle play the mix" (and the glyph still follows
+ * [isShuffleEnabled]); the shape follows [isPlaying]: rounded square when paused, circle when playing,
+ * with a springy overshoot. With system animations off the shape snaps.
+ */
+@Composable
+private fun YourMixPlayButton(
+    isPlaying: Boolean,
+    isShuffleEnabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val corner by animateFloatAsState(
+        targetValue = if (isPlaying) 0.5f else 0.36f,
+        animationSpec = if (animationsEnabled) Scena.Springy else snap<Float>(),
+        label = "home_play_morph"
+    )
+    val label = stringResource(R.string.common_shuffle_play)
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(YourMixPlaySize)
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+            },
+        shape = FractionalRoundedShape(corner),
+        color = scena.acc,
+        contentColor = scena.onAcc
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Crossfade(
+                targetState = isShuffleEnabled,
+                animationSpec = if (animationsEnabled) tween<Float>(220) else snap<Float>(),
+                label = "home_play_glyph"
+            ) { shuffleOn ->
+                Icon(
+                    painter = painterResource(
+                        if (shuffleOn) R.drawable.rounded_shuffle_24 else R.drawable.rounded_play_arrow_filled_24
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A rounded rectangle whose corner radius is [fraction] of its shortest side (0.5 is a circle).
+ * Unlike RoundedCornerShape(percent) it takes a float, so a spring can animate it smoothly; values
+ * past 0.5 (a spring overshoot) simply stay a circle.
+ */
+private data class FractionalRoundedShape(private val fraction: Float) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val radius = size.minDimension * fraction.coerceIn(0f, 0.5f)
+        return Outline.Rounded(
+            RoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = size.height,
+                cornerRadius = CornerRadius(radius, radius)
+            )
+        )
     }
 }
 
@@ -820,9 +976,10 @@ fun SongListItemFavs(
     isCurrentSong: Boolean,
     onClick: () -> Unit
 ) {
-    val colors = MaterialTheme.colorScheme
-    val containerColor = if (isCurrentSong) colors.primaryContainer.copy(alpha = 0.46f) else colors.surfaceContainer
-    val contentColor = if (isCurrentSong) colors.primary else colors.onSurface
+    val scena = MaterialTheme.scena
+    // Scena: the current row is the one tinted tile on the ground; the others sit on the ground itself.
+    val containerColor = if (isCurrentSong) scena.bg2 else Color.Transparent
+    val contentColor = if (isCurrentSong) scena.acc else scena.ink
 
     Card(
         modifier = modifier
@@ -848,7 +1005,7 @@ fun SongListItemFavs(
                     model = albumArtUrl,
                     contentDescription = stringResource(R.string.common_album_art_for_title, title),
                     contentScale = ContentScale.Crop,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = Scena.ArtShape,
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(Modifier.width(16.dp))
@@ -874,7 +1031,7 @@ fun SongListItemFavs(
                         .weight(0.1f)
                         .padding(start = 8.dp)
                         .size(width = 18.dp, height = 16.dp), // similar al tamaño del ícono
-                    color = colors.primary,
+                    color = scena.acc,
                     isPlaying = isPlaying  // o conectalo a tu estado real de reproducción
                 )
             }

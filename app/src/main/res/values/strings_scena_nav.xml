@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: bottom navigation and mini player. English is the default. -->
+<resources>
+    <!-- Spoken state of the active bottom navigation tab (like aria-current="page"). -->
+    <string name="scena_nav_current_page">Current page</string>
+</resources>

@@ -193,7 +193,7 @@ fun LyricsMoreBottomSheet(
                     )
 
                     ListItem(
-                        headlineContent = { Text("Crea testo sincronizzato con AI") },
+                        headlineContent = { Text(stringResource(R.string.scena_lyrics_formats_generate_synced_via_ai)) },
                         leadingContent = {
                             Icon(
                                 imageVector = Icons.Rounded.AutoAwesome,

@@ -740,6 +740,16 @@ object LyricsUtils {
             return parseLyrics(converted)
         }
 
+        // SubRip (.srt) and WebVTT (.vtt) subtitle documents. The format is detected from the
+        // content only (a WEBVTT signature, or a "hh:mm:ss,mmm --> hh:mm:ss,mmm" timing line),
+        // so LRC, enhanced LRC, Kugou, TTML and plain text never reach this branch.
+        val subtitleFormat = SubtitleLyricsParser.detect(normalizedInput)
+        if (subtitleFormat != null) {
+            val cues = SubtitleLyricsParser.parse(normalizedInput, subtitleFormat)
+            if (cues.isEmpty()) return Lyrics(plain = emptyList(), synced = emptyList())
+            return buildSyncedLyrics(cues, entireLyricsHasKana)
+        }
+
         // Kugou / Paxsenix word-by-word detection:
         // If any non-metadata line matches [number,number] where the first
         // number is > 999 (i.e. milliseconds, not minutes), treat the whole
@@ -875,29 +885,7 @@ object LyricsUtils {
         }
 
         return if (isSynced && syncedLines.isNotEmpty()) {
-            val sortedSyncedLines = syncedLines.sortedBy { it.time }
-            val pairedLines = pairTranslationLines(sortedSyncedLines).map { line ->
-
-                val romanized = when {
-                    MultiLangRomanizer.isJapanese(line.line, entireLyricsHasKana) -> MultiLangRomanizer.romanizeJapanese(line.line)
-                    MultiLangRomanizer.isChinese(line.line) -> MultiLangRomanizer.romanizeChinese(line.line)
-                    MultiLangRomanizer.isKorean(line.line) -> MultiLangRomanizer.romanizeKorean(line.line)
-                    MultiLangRomanizer.isHindi(line.line) -> MultiLangRomanizer.romanizeHindi(line.line)
-                    MultiLangRomanizer.isPunjabi(line.line) -> MultiLangRomanizer.romanizePunjabi(line.line)
-                    MultiLangRomanizer.isCyrillic(line.line) -> MultiLangRomanizer.romanizeCyrillic(line.line)
-                    else -> null
-                }?.capitalizeFirstLetter()?.trim()
-
-                line.copy(romanization = romanized)
-            }
-            val plainVersion = pairedLines.map { line ->
-                buildString {
-                    append(line.line)
-                    if (!line.romanization.isNullOrEmpty()) append("\n").append(line.romanization)
-                    if (!line.translation.isNullOrEmpty()) append("\n").append(line.translation)
-                }
-            }
-            Lyrics(synced = pairedLines, plain = plainVersion)
+            buildSyncedLyrics(syncedLines, entireLyricsHasKana)
         } else {
             val processedPlain = plainLines.map { line ->
                 val romanized = when {
@@ -914,6 +902,55 @@ object LyricsUtils {
             }
             Lyrics(plain = processedPlain)
         }
+    }
+
+    /**
+     * Shared tail of the synced parsers (LRC, SubRip, WebVTT): sorts the lines by time, pairs
+     * same-timestamp lines as translations, adds romanization and builds the plain-text version.
+     */
+    private fun buildSyncedLyrics(syncedLines: List<SyncedLine>, entireLyricsHasKana: Boolean): Lyrics {
+        val sortedSyncedLines = syncedLines.sortedBy { it.time }
+        val pairedLines = pairTranslationLines(sortedSyncedLines).map { line ->
+
+            val romanized = when {
+                MultiLangRomanizer.isJapanese(line.line, entireLyricsHasKana) -> MultiLangRomanizer.romanizeJapanese(line.line)
+                MultiLangRomanizer.isChinese(line.line) -> MultiLangRomanizer.romanizeChinese(line.line)
+                MultiLangRomanizer.isKorean(line.line) -> MultiLangRomanizer.romanizeKorean(line.line)
+                MultiLangRomanizer.isHindi(line.line) -> MultiLangRomanizer.romanizeHindi(line.line)
+                MultiLangRomanizer.isPunjabi(line.line) -> MultiLangRomanizer.romanizePunjabi(line.line)
+                MultiLangRomanizer.isCyrillic(line.line) -> MultiLangRomanizer.romanizeCyrillic(line.line)
+                else -> null
+            }?.capitalizeFirstLetter()?.trim()
+
+            line.copy(romanization = romanized)
+        }
+        val plainVersion = pairedLines.map { line ->
+            buildString {
+                append(line.line)
+                if (!line.romanization.isNullOrEmpty()) append("\n").append(line.romanization)
+                if (!line.translation.isNullOrEmpty()) append("\n").append(line.translation)
+            }
+        }
+        return Lyrics(synced = pairedLines, plain = plainVersion)
+    }
+
+    /**
+     * If [rawText] is a SubRip (.srt) or WebVTT (.vtt) document, returns the equivalent LRC text
+     * (enhanced LRC when the WebVTT cues carry word timestamps), so imported subtitles are stored
+     * and embedded in the portable LRC form just like imported TTML files.
+     *
+     * [parsed] must be the result of `parseLyrics(rawText)`. The conversion is only returned when
+     * parsing the produced LRC gives back exactly [parsed]; otherwise (not a subtitle document, no
+     * cue, or any lossy corner case) this returns null and the caller keeps the original text.
+     */
+    internal fun convertSubtitleDocumentToLrc(rawText: String, parsed: Lyrics): String? {
+        if (parsed.synced.isNullOrEmpty()) return null
+        val normalized = stripLeadingLyricsDocumentNoise(rawText)
+        val format = SubtitleLyricsParser.detect(normalized) ?: return null
+        val cues = SubtitleLyricsParser.parse(normalized, format)
+        if (cues.isEmpty()) return null
+        val lrc = SubtitleLyricsParser.toEnhancedLrc(cues)
+        return lrc.takeIf { it.isNotBlank() && parseLyrics(it) == parsed }
     }
 
     // ── Kugou / Paxsenix word-by-word helpers ─────────────────────────────
@@ -1221,6 +1258,444 @@ private fun looksLikeTtmlDocument(value: String): Boolean {
         .substringAfter("?>", missingDelimiterValue = "")
         .trimStart()
         .startsWithTtmlRoot()
+}
+
+/**
+ * SubRip (.srt) and WebVTT (.vtt) parser for [LyricsUtils.parseLyrics].
+ *
+ * Deliberately regex free: the documents are scanned line by line and the cue text character by
+ * character, every scan that looks for a closing delimiter is bounded, and the number of cues and
+ * the amount of text kept per cue are capped, so hostile or huge input cannot cause catastrophic
+ * backtracking or unbounded work.
+ *
+ * Output semantics match the LRC parser: times are absolute milliseconds from the start of the
+ * song, one [SyncedLine] per cue, [SyncedWord] entries only when the cue itself carries word
+ * timestamps (WebVTT `<00:12.400>` tags). SubRip never carries word timing, so its lines have
+ * `words = null`; no timing is ever invented.
+ */
+private object SubtitleLyricsParser {
+
+    enum class Format { SUBRIP, WEBVTT }
+
+    private enum class TagKind { NONE, STRIP, BREAK, ANNOTATION_OPEN, ANNOTATION_CLOSE }
+
+    private const val WEBVTT_SIGNATURE = "WEBVTT"
+    private const val MAX_CUES = 10_000
+    private const val MAX_CUE_CHARS = 2_000
+    private const val MAX_TAG_CHARS = 256
+    private const val MAX_OVERRIDE_CHARS = 128
+    private const val MAX_ENTITY_CHARS = 10
+    private const val MAX_TIMESTAMP_CHARS = 20
+    private const val MAX_INDEX_DIGITS = 9
+
+    /** Markup tags that are stripped from the cue text (their content is kept). */
+    private val MARKUP_TAG_NAMES = setOf(
+        "i", "b", "u", "s", "c", "v", "lang", "ruby", "rt", "rp", "font", "em", "strong",
+        "span", "br", "p", "big", "small", "sub", "sup", "strike", "center", "div"
+    )
+
+    // ── Detection ──────────────────────────────────────────────────────────
+
+    /**
+     * Detects the format from the content. [value] must already be stripped of leading
+     * whitespace / BOM. WebVTT needs the `WEBVTT` signature on the first line; SubRip needs at
+     * least one `hh:mm:ss,mmm --> hh:mm:ss,mmm` timing line (hours are always present, the
+     * millisecond separator may be a comma or a dot). Anything else returns null.
+     */
+    fun detect(value: String): Format? {
+        if (hasWebVttSignature(value)) return Format.WEBVTT
+        if (!value.contains("-->")) return null
+        for (line in value.lineSequence()) {
+            if (line.indexOf("-->") > 0 && parseTimingLine(line, requireHours = true) != null) {
+                return Format.SUBRIP
+            }
+        }
+        return null
+    }
+
+    private fun hasWebVttSignature(value: String): Boolean {
+        if (!value.startsWith(WEBVTT_SIGNATURE)) return false
+        if (value.length == WEBVTT_SIGNATURE.length) return true
+        val next = value[WEBVTT_SIGNATURE.length]
+        return next == ' ' || next == '\t' || next == '\n' || next == '\r'
+    }
+
+    // ── Cue extraction ─────────────────────────────────────────────────────
+
+    /**
+     * Returns one [SyncedLine] per non-empty cue, sorted by start time (stable, so overlapping or
+     * out-of-order cues end up in playback order). Header, cue identifiers and NOTE / STYLE /
+     * REGION blocks lie outside any cue and are skipped automatically: only text that follows a
+     * timing line, up to the next blank line, is cue text.
+     */
+    fun parse(value: String, format: Format): List<SyncedLine> {
+        val requireHours = format == Format.SUBRIP
+        val allowWordTimestamps = format == Format.WEBVTT
+        val cues = ArrayList<SyncedLine>()
+        val cueLines = ArrayList<String>()
+        var cueStartMs = -1L
+        var cueChars = 0
+
+        fun finishCue(endedByTimingLine: Boolean) {
+            if (cueStartMs < 0L) return
+            // A subtitle block without the blank separator line: the numeric index of the next
+            // block was collected as the last text line of this one. Drop it.
+            if (endedByTimingLine && cueLines.isNotEmpty() && isIndexLine(cueLines[cueLines.lastIndex])) {
+                cueLines.removeAt(cueLines.lastIndex)
+            }
+            if (cues.size < MAX_CUES) {
+                buildCue(cueStartMs, cueLines, allowWordTimestamps)?.let { cues.add(it) }
+            }
+            cueLines.clear()
+            cueChars = 0
+            cueStartMs = -1L
+        }
+
+        for (rawLine in value.lineSequence()) {
+            val timingStartMs = if (rawLine.indexOf("-->") > 0) parseTimingLine(rawLine, requireHours) else null
+            if (timingStartMs != null) {
+                finishCue(endedByTimingLine = true)
+                cueStartMs = timingStartMs
+            } else if (isBlankLine(rawLine)) {
+                finishCue(endedByTimingLine = false)
+            } else if (cueStartMs >= 0L) {
+                val remaining = MAX_CUE_CHARS - cueChars
+                if (remaining > 0) {
+                    val kept = if (rawLine.length > remaining) rawLine.substring(0, remaining) else rawLine
+                    cueLines.add(kept)
+                    cueChars += kept.length
+                }
+            }
+        }
+        finishCue(endedByTimingLine = false)
+
+        return cues.sortedBy { it.time }
+    }
+
+    private fun isBlankLine(line: String): Boolean {
+        for (ch in line) {
+            if (!ch.isWhitespace() && Character.getType(ch).toByte() != Character.FORMAT) return false
+        }
+        return true
+    }
+
+    private fun isIndexLine(line: String): Boolean {
+        val trimmed = line.trim()
+        return trimmed.isNotEmpty() && trimmed.length <= MAX_INDEX_DIGITS && trimmed.all { it in '0'..'9' }
+    }
+
+    // ── Timing ─────────────────────────────────────────────────────────────
+
+    /**
+     * Parses `start --> end [cue settings]` and returns the start time in milliseconds, or null
+     * when the line is not a timing line. Both timestamps must be valid, which keeps ordinary
+     * text containing an arrow from being mistaken for a cue.
+     */
+    private fun parseTimingLine(line: String, requireHours: Boolean): Long? {
+        val arrow = line.indexOf("-->")
+        if (arrow <= 0) return null
+        val startMs = parseTimestamp(
+            line.substring(0, arrow).trim(),
+            requireHours = requireHours,
+            requireFraction = false
+        ) ?: return null
+
+        var endBegin = arrow + 3
+        while (endBegin < line.length && line[endBegin].isWhitespace()) endBegin++
+        var endEnd = endBegin
+        while (endEnd < line.length && !line[endEnd].isWhitespace()) endEnd++
+        if (endEnd == endBegin) return null
+        val endMs = parseTimestamp(
+            line.substring(endBegin, endEnd),
+            requireHours = requireHours,
+            requireFraction = false
+        )
+        if (endMs == null) return null
+
+        return startMs
+    }
+
+    /**
+     * Parses `[h+:]mm:ss[.,]fff` into milliseconds. The fraction is read like LRC does (1 digit =
+     * tenths, 2 = hundredths, 3 = milliseconds, extra digits are ignored). Returns null for
+     * anything malformed or beyond the range of an Int number of milliseconds.
+     */
+    private fun parseTimestamp(value: String, requireHours: Boolean, requireFraction: Boolean): Long? {
+        val length = value.length
+        if (length < 4 || length > MAX_TIMESTAMP_CHARS) return null
+
+        val firstColon = value.indexOf(':')
+        if (firstColon <= 0) return null
+        val secondColon = value.indexOf(':', firstColon + 1)
+        val hasHours = secondColon != -1
+        if (hasHours && value.indexOf(':', secondColon + 1) != -1) return null
+        if (requireHours && !hasHours) return null
+
+        val hoursText = if (hasHours) value.substring(0, firstColon) else ""
+        val minutesText = if (hasHours) value.substring(firstColon + 1, secondColon) else value.substring(0, firstColon)
+        val secondsStart = (if (hasHours) secondColon else firstColon) + 1
+        var secondsEnd = secondsStart
+        while (secondsEnd < length && value[secondsEnd] in '0'..'9') secondsEnd++
+        val secondsText = value.substring(secondsStart, secondsEnd)
+
+        var fractionText = ""
+        if (secondsEnd < length) {
+            val separator = value[secondsEnd]
+            if (separator != '.' && separator != ',') return null
+            fractionText = value.substring(secondsEnd + 1)
+            if (fractionText.isEmpty() || !fractionText.all { it in '0'..'9' }) return null
+        } else if (requireFraction) {
+            return null
+        }
+
+        if (hasHours && !isDigits(hoursText, 1, 4)) return null
+        if (!isDigits(minutesText, 1, if (hasHours) 2 else 3)) return null
+        if (!isDigits(secondsText, 1, 2)) return null
+
+        val hours = if (hasHours) hoursText.toLong() else 0L
+        val millis = if (fractionText.isEmpty()) 0L else fractionText.take(3).padEnd(3, '0').toLong()
+        val totalMs = hours * 3_600_000L +
+            minutesText.toLong() * 60_000L +
+            secondsText.toLong() * 1_000L +
+            millis
+        return totalMs.takeIf { it <= Int.MAX_VALUE.toLong() }
+    }
+
+    private fun isDigits(value: String, minLength: Int, maxLength: Int): Boolean =
+        value.length in minLength..maxLength && value.all { it in '0'..'9' }
+
+    /** Parses the body of a `<mm:ss.fff>` / `<hh:mm:ss.fff>` WebVTT cue timestamp tag. */
+    private fun parseInlineTimestamp(tagBody: String): Long? {
+        if (tagBody.isEmpty() || tagBody[0] !in '0'..'9') return null
+        return parseTimestamp(tagBody, requireHours = false, requireFraction = true)
+    }
+
+    // ── Cue text ───────────────────────────────────────────────────────────
+
+    /**
+     * Turns the raw text lines of a cue into a [SyncedLine], or null when nothing visible is left
+     * (empty cue, or only markup). Lines are joined with one space; markup tags, `{\an8}` style
+     * override tags and ruby annotations are removed; HTML entities are decoded. With
+     * [allowWordTimestamps], WebVTT `<00:12.400>` tags split the text into timed [SyncedWord]s;
+     * text before the first tag starts at the cue start.
+     */
+    private fun buildCue(startMs: Long, rawLines: List<String>, allowWordTimestamps: Boolean): SyncedLine? {
+        if (rawLines.isEmpty()) return null
+        val joined = stripFormatCharacters(rawLines.joinToString(" ") { it.trim() })
+        if (joined.isBlank()) return null
+
+        val segmentStarts = ArrayList<Long>()
+        val segmentTexts = ArrayList<String>()
+        val current = StringBuilder()
+        var currentStartMs = startMs
+        var hasWordTimestamps = false
+        var insideAnnotation = false
+
+        fun closeSegment() {
+            segmentStarts.add(currentStartMs)
+            segmentTexts.add(collapseWhitespace(decodeEntities(current.toString())))
+            current.setLength(0)
+        }
+
+        var i = 0
+        while (i < joined.length) {
+            val ch = joined[i]
+            if (ch == '<') {
+                val close = indexOfBounded(joined, '>', i + 1, MAX_TAG_CHARS)
+                if (close != -1) {
+                    val tagBody = joined.substring(i + 1, close)
+                    val timestampMs = parseInlineTimestamp(tagBody)
+                    if (timestampMs != null) {
+                        // SubRip has no word timing: such a tag is just dropped.
+                        if (allowWordTimestamps) {
+                            closeSegment()
+                            currentStartMs = timestampMs
+                            hasWordTimestamps = true
+                        }
+                        i = close + 1
+                        continue
+                    }
+                    val tagKind = classifyTag(tagBody)
+                    if (tagKind != TagKind.NONE) {
+                        when (tagKind) {
+                            TagKind.BREAK -> if (!insideAnnotation) current.append(' ')
+                            TagKind.ANNOTATION_OPEN -> insideAnnotation = true
+                            TagKind.ANNOTATION_CLOSE -> insideAnnotation = false
+                            else -> Unit
+                        }
+                        i = close + 1
+                        continue
+                    }
+                }
+            } else if (ch == '{' && i + 1 < joined.length && joined[i + 1] == '\\') {
+                val close = indexOfBounded(joined, '}', i + 2, MAX_OVERRIDE_CHARS)
+                if (close != -1) {
+                    i = close + 1
+                    continue
+                }
+            }
+            if (!insideAnnotation) current.append(ch)
+            i++
+        }
+        closeSegment()
+
+        val lineText = collapseWhitespace(segmentTexts.joinToString("")).trim()
+        if (lineText.isEmpty()) return null
+
+        var words: List<SyncedWord>? = null
+        if (hasWordTimestamps) {
+            val built = ArrayList<SyncedWord>()
+            var pendingWordBoundary = false
+            var lastTimeMs = startMs
+            for (index in segmentTexts.indices) {
+                val raw = segmentTexts[index]
+                if (raw.isEmpty()) continue
+                val startsNewWord = built.isEmpty() ||
+                    pendingWordBoundary ||
+                    raw.first().isWhitespace()
+                pendingWordBoundary = raw.last().isWhitespace()
+                val word = raw.trim()
+                if (word.isEmpty()) continue
+                val timeMs = maxOf(segmentStarts[index], lastTimeMs)
+                lastTimeMs = timeMs
+                built.add(SyncedWord(time = timeMs.toInt(), word = word, startsNewWord = startsNewWord))
+            }
+            words = built.takeIf { it.isNotEmpty() }
+        }
+
+        return SyncedLine(time = startMs.toInt(), line = lineText, words = words)
+    }
+
+    /** Index of [target] in [value] looking at no more than [maxSpan] characters from [from]. */
+    private fun indexOfBounded(value: String, target: Char, from: Int, maxSpan: Int): Int {
+        val limit = minOf(value.length, from + maxSpan)
+        var index = from
+        while (index < limit) {
+            if (value[index] == target) return index
+            index++
+        }
+        return -1
+    }
+
+    private fun classifyTag(tagBody: String): TagKind {
+        val closing = tagBody.startsWith('/')
+        val nameStart = if (closing) 1 else 0
+        var nameEnd = nameStart
+        while (nameEnd < tagBody.length && tagBody[nameEnd].isLetter()) nameEnd++
+        if (nameEnd == nameStart) return TagKind.NONE
+        if (nameEnd < tagBody.length) {
+            val next = tagBody[nameEnd]
+            if (next != ' ' && next != '\t' && next != '.' && next != '/') return TagKind.NONE
+        }
+        val name = tagBody.substring(nameStart, nameEnd).lowercase(Locale.ROOT)
+        if (name !in MARKUP_TAG_NAMES) return TagKind.NONE
+        return when (name) {
+            "br" -> TagKind.BREAK
+            "rt", "rp" -> if (closing) TagKind.ANNOTATION_CLOSE else TagKind.ANNOTATION_OPEN
+            else -> TagKind.STRIP
+        }
+    }
+
+    private fun collapseWhitespace(value: String): String {
+        val out = StringBuilder(value.length)
+        var lastWasSpace = false
+        for (ch in value) {
+            if (ch.isWhitespace()) {
+                if (!lastWasSpace) out.append(' ')
+                lastWasSpace = true
+            } else {
+                out.append(ch)
+                lastWasSpace = false
+            }
+        }
+        return out.toString()
+    }
+
+    /** Decodes `&amp; &lt; &gt; &quot; &apos; &nbsp; &lrm; &rlm;` and numeric entities, single pass. */
+    private fun decodeEntities(value: String): String {
+        if (value.indexOf('&') == -1) return value
+        val out = StringBuilder(value.length)
+        var i = 0
+        while (i < value.length) {
+            val ch = value[i]
+            if (ch == '&') {
+                val semicolon = indexOfBounded(value, ';', i + 1, MAX_ENTITY_CHARS)
+                if (semicolon != -1) {
+                    val decoded = decodeEntity(value.substring(i + 1, semicolon))
+                    if (decoded != null) {
+                        out.append(decoded)
+                        i = semicolon + 1
+                        continue
+                    }
+                }
+            }
+            out.append(ch)
+            i++
+        }
+        return out.toString()
+    }
+
+    private fun decodeEntity(name: String): String? {
+        return when (name) {
+            "amp" -> "&"
+            "lt" -> "<"
+            "gt" -> ">"
+            "quot" -> "\""
+            "apos" -> "'"
+            "nbsp" -> " "
+            "lrm", "rlm" -> ""
+            else -> decodeNumericEntity(name)
+        }
+    }
+
+    private fun decodeNumericEntity(name: String): String? {
+        if (name.length < 2 || name[0] != '#') return null
+        val isHex = name[1] == 'x' || name[1] == 'X'
+        val digits = if (isHex) name.substring(2) else name.substring(1)
+        if (digits.isEmpty() || !digits.all { it in '0'..'9' || (isHex && (it in 'a'..'f' || it in 'A'..'F')) }) {
+            return null
+        }
+        val codePoint = digits.toIntOrNull(if (isHex) 16 else 10) ?: return null
+        if (!Character.isValidCodePoint(codePoint)) return null
+        val type = Character.getType(codePoint).toByte()
+        if (codePoint < 0x20 || codePoint in 0xD800..0xDFFF ||
+            type == Character.FORMAT || type == Character.CONTROL
+        ) {
+            return ""
+        }
+        return StringBuilder().appendCodePoint(codePoint).toString()
+    }
+
+    // ── LRC conversion ─────────────────────────────────────────────────────
+
+    /**
+     * Writes [cues] as LRC text: `[mm:ss.fff]line`, or enhanced LRC `[mm:ss.fff]<mm:ss.fff>word`
+     * when a cue has word timings (same layout as the app's own word-by-word LRC).
+     */
+    fun toEnhancedLrc(cues: List<SyncedLine>): String {
+        val out = StringBuilder()
+        for (cue in cues) {
+            if (out.isNotEmpty()) out.append('\n')
+            out.append('[').append(formatClock(cue.time)).append(']')
+            val words = cue.words
+            if (words.isNullOrEmpty()) {
+                out.append(cue.line)
+            } else {
+                words.forEachIndexed { index, word ->
+                    if (index > 0 && word.startsNewWord) out.append(' ')
+                    out.append('<').append(formatClock(word.time)).append('>').append(word.word)
+                }
+            }
+        }
+        return out.toString()
+    }
+
+    private fun formatClock(timeMs: Int): String {
+        val minutes = timeMs / 60_000
+        val seconds = (timeMs % 60_000) / 1_000
+        val millis = timeMs % 1_000
+        return String.format(Locale.ROOT, "%02d:%02d.%03d", minutes, seconds, millis)
+    }
 }
 
 private fun sanitizeLrcLine(rawLine: String): String {

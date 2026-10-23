@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lyrics import errors, shown when a picked or local lyrics file is rejected -->
+    <string name="scena_lyrics_formats_error_unsupported_extension">Sono supportati solo i file di testi .lrc, .ttml, .srt e .vtt.</string>
+    <string name="scena_lyrics_formats_error_unsupported_mime">Il tipo di file selezionato non è un file di testi supportato.</string>
+    <string name="scena_lyrics_formats_error_too_large">Il file dei testi è troppo grande.</string>
+    <string name="scena_lyrics_formats_error_empty">Il file dei testi è vuoto.</string>
+    <string name="scena_lyrics_formats_error_encoding">Impossibile decodificare in modo sicuro il file dei testi.</string>
+    <string name="scena_lyrics_formats_error_invalid">Il file non contiene testi validi.</string>
+
+    <!-- Lyrics options sheet -->
+    <string name="scena_lyrics_formats_generate_synced_via_ai">Crea testo sincronizzato con AI</string>
+</resources>

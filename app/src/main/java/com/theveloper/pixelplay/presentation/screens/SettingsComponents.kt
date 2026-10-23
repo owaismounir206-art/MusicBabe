@@ -75,6 +75,59 @@ import com.theveloper.pixelplay.data.ai.GeminiModel
 import com.theveloper.pixelplay.data.worker.SyncProgress
 import com.theveloper.pixelplay.presentation.viewmodel.LyricsRefreshProgress
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+// Scena AI settings (keys, provider chips, model picker)
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.State
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.em
+import com.theveloper.pixelplay.data.ai.provider.AiProvider
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.sp
 import androidx.core.view.HapticFeedbackConstantsCompat
@@ -387,55 +440,58 @@ fun SearchableModelSelector(
     onModelSelected: (String) -> Unit,
     leadingIcon: @Composable () -> Unit
 ) {
+    val scena = MaterialTheme.scena
     var showSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val selectedDisplayName = models.find { it.name == selectedModelName }?.displayName ?: selectedModelName
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(2.dp))
-            .clickable { showSheet = true }
+        onClick = { showSheet = true },
+        color = scena.bg2,
+        shape = Scena.TileShape,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .size(24.dp),
-                    contentAlignment = Alignment.Center
-                ) { leadingIcon() }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 16.dp)
+                    .size(24.dp),
+                contentAlignment = Alignment.Center
+            ) { leadingIcon() }
 
-                Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = scenaWide(17.sp),
+                    color = scena.ink
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scena.ink2
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    color = scena.acc,
+                    contentColor = scena.onAcc,
+                    shape = CircleShape,
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = selectedDisplayName,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = scena.onAcc,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        shape = CircleShape,
-                        modifier = Modifier.align(Alignment.Start)
-                    ) {
-                        Text(
-                            text = selectedDisplayName,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
                 }
             }
         }
@@ -447,26 +503,34 @@ fun SearchableModelSelector(
                 showSheet = false
                 searchQuery = ""
             },
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = scena.bg,
+            contentColor = scena.ink
         ) {
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    fontWeight = FontWeight.Bold
+                    style = scenaWide(24.sp),
+                    color = scena.ink,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
 
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search models...") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = "Search") },
+                    placeholder = { Text(stringResource(R.string.scena_ai_models_search_placeholder)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = stringResource(R.string.scena_ai_models_search_cd)
+                        )
+                    },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Rounded.Clear, contentDescription = "Clear")
+                                Icon(
+                                    Icons.Rounded.Clear,
+                                    contentDescription = stringResource(R.string.scena_ai_models_clear_cd)
+                                )
                             }
                         }
                     },
@@ -474,10 +538,13 @@ fun SearchableModelSelector(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = Scena.ControlShape,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        focusedBorderColor = scena.acc,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = scena.bg2,
+                        unfocusedContainerColor = scena.bg2,
+                        cursorColor = scena.acc
                     )
                 )
 
@@ -492,9 +559,13 @@ fun SearchableModelSelector(
                 }
 
                 Text(
-                    text = "${filteredModels.size} model${if (filteredModels.size != 1) "s" else ""} available",
+                    text = pluralStringResource(
+                        R.plurals.scena_ai_models_available,
+                        filteredModels.size,
+                        filteredModels.size
+                    ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = scena.ink2,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
                 )
 
@@ -505,41 +576,43 @@ fun SearchableModelSelector(
                 ) {
                     items(filteredModels, key = { it.name }) { model ->
                         val isSelected = model.name == selectedModelName
+                        val rowContent = if (isSelected) scena.bg else scena.ink
                         Surface(
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = RoundedCornerShape(2.dp),
+                            onClick = {
+                                onModelSelected(model.name)
+                                showSheet = false
+                                searchQuery = ""
+                            },
+                            color = if (isSelected) scena.ink else scena.bg2,
+                            contentColor = rowContent,
+                            shape = Scena.ControlShape,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .clickable {
-                                    onModelSelected(model.name)
-                                    showSheet = false
-                                    searchQuery = ""
-                                }
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier
+                                    .heightIn(min = 56.dp)
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = model.displayName,
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                else MaterialTheme.colorScheme.onSurface
+                                        color = rowContent
                                     )
                                     Text(
                                         text = model.name,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected) scena.bg.copy(alpha = 0.8f) else scena.ink2
                                     )
                                 }
                                 if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
-                                        contentDescription = "Selected",
-                                        tint = MaterialTheme.colorScheme.primary
+                                        contentDescription = stringResource(R.string.common_selected),
+                                        tint = scena.bg
                                     )
                                 }
                             }
@@ -829,16 +902,295 @@ fun ActionSettingsItem(
     }
 }
 
+// ─── AI keys (Scena) ─────────────────────────────────────────────────────────────────────────
+
+/** What the key panel says about the key saved for the selected provider. */
+enum class AiKeyStatus { NoKey, NotVerified, Verifying, Verified, Failed }
+
+/** Colour changes ease out; with system animations off they snap. */
+@Composable
+private fun rememberAiColorSpec(): AnimationSpec<Color> =
+    if (rememberScenaAnimationsEnabled()) {
+        tween<Color>(durationMillis = 320, easing = Scena.EaseEmphasised)
+    } else {
+        snap<Color>()
+    }
+
+/** Springy press feedback shared by the AI buttons. Stays at 1 when system animations are off. */
+@Composable
+private fun rememberAiPressScale(interactionSource: MutableInteractionSource): State<Float> {
+    val animate = rememberScenaAnimationsEnabled()
+    val pressed by interactionSource.collectIsPressedAsState()
+    return animateFloatAsState(
+        targetValue = if (pressed && animate) 0.96f else 1f,
+        animationSpec = Scena.Springy,
+        label = "aiPressScale"
+    )
+}
+
+/** A pill-shaped choice: the selected one is inverted (ink background, ground-coloured text). */
+@Composable
+private fun AiChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val scena = MaterialTheme.scena
+    val colorSpec = rememberAiColorSpec()
+    val container by animateColorAsState(
+        targetValue = if (selected) scena.ink else scena.bg2,
+        animationSpec = colorSpec,
+        label = "aiChipContainer"
+    )
+    val content by animateColorAsState(
+        targetValue = if (selected) scena.bg else scena.ink,
+        animationSpec = colorSpec,
+        label = "aiChipContent"
+    )
+    Box(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .clip(Scena.ControlShape)
+            .background(container)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = label, style = scenaWide(14.sp), color = content, maxLines = 1)
+    }
+}
+
+/**
+ * Provider picker: every [AiProvider] as a chip in a horizontally scrollable row. The row opens
+ * scrolled so the selected chip is in view.
+ */
+@Composable
+fun AiProviderChips(
+    providers: List<AiProvider>,
+    selectedKey: String,
+    onProviderSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selectedIndex = providers.indexOfFirst { it.name == selectedKey }.coerceAtLeast(0)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (selectedIndex - 1).coerceAtLeast(0)
+    )
+    LazyRow(
+        state = listState,
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(providers, key = { it.name }) { provider ->
+            AiChip(
+                label = provider.displayName,
+                selected = provider.name == selectedKey,
+                onClick = { onProviderSelected(provider.name) }
+            )
+        }
+    }
+}
+
+/**
+ * Primary action. Rounded square at rest; while [busy] it collapses into a circle holding a
+ * progress indicator, with a springy overshoot.
+ */
+@Composable
+private fun AiMorphButton(
+    label: String,
+    busy: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    val animate = rememberScenaAnimationsEnabled()
+    val colorSpec = rememberAiColorSpec()
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressScale = rememberAiPressScale(interactionSource)
+    val active = enabled || busy
+    val corner by animateDpAsState(
+        targetValue = if (busy) 28.dp else 20.dp,
+        animationSpec = if (animate) {
+            spring<Dp>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
+        } else {
+            snap<Dp>()
+        },
+        label = "aiMorphCorner"
+    )
+    val container by animateColorAsState(
+        targetValue = if (active) scena.acc else scena.ink.copy(alpha = 0.12f),
+        animationSpec = colorSpec,
+        label = "aiMorphContainer"
+    )
+    val content by animateColorAsState(
+        targetValue = if (active) scena.onAcc else scena.ink.copy(alpha = 0.38f),
+        animationSpec = colorSpec,
+        label = "aiMorphContent"
+    )
+
+    Surface(
+        onClick = onClick,
+        enabled = enabled && !busy,
+        modifier = modifier.graphicsLayer {
+            scaleX = pressScale.value
+            scaleY = pressScale.value
+        },
+        shape = RoundedCornerShape(corner),
+        color = container,
+        contentColor = content,
+        interactionSource = interactionSource
+    ) {
+        AnimatedContent(
+            targetState = busy,
+            transitionSpec = {
+                if (animate) {
+                    (fadeIn(tween(180, delayMillis = 60)) togetherWith fadeOut(tween(90)))
+                        .using(
+                            SizeTransform(clip = true) { _, _ ->
+                                spring<IntSize>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
+                            }
+                        )
+                } else {
+                    (EnterTransition.None togetherWith ExitTransition.None)
+                        .using(SizeTransform(clip = false) { _, _ -> snap<IntSize>() })
+                }
+            },
+            label = "aiMorphLabel"
+        ) { isBusy ->
+            Box(
+                modifier = Modifier
+                    .heightIn(min = 56.dp)
+                    .widthIn(min = 56.dp)
+                    .padding(horizontal = if (isBusy) 0.dp else 28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .semantics { contentDescription = label },
+                        color = content,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = label,
+                        style = scenaWide(15.sp),
+                        color = content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Secondary action on a raised tonal surface. */
+@Composable
+private fun AiSecondaryButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressScale = rememberAiPressScale(interactionSource)
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.graphicsLayer {
+            scaleX = pressScale.value
+            scaleY = pressScale.value
+        },
+        shape = Scena.ControlShape,
+        color = scena.bg3,
+        contentColor = if (enabled) scena.ink else scena.ink.copy(alpha = 0.38f),
+        interactionSource = interactionSource
+    ) {
+        Box(
+            modifier = Modifier
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = scenaWide(15.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** A dot and a sentence. The dot takes the accent only when something is positively confirmed. */
+@Composable
+private fun AiKeyStatusLine(text: String, verified: Boolean, failed: Boolean) {
+    val scena = MaterialTheme.scena
+    val colorSpec = rememberAiColorSpec()
+    val dot by animateColorAsState(
+        targetValue = if (verified) scena.acc else scena.ink2,
+        animationSpec = colorSpec,
+        label = "aiStatusDot"
+    )
+    Row(
+        modifier = Modifier
+            .heightIn(min = 24.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(dot)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = when {
+                failed -> MaterialTheme.colorScheme.error
+                verified -> scena.ink
+                else -> scena.ink2
+            }
+        )
+    }
+}
+
+/**
+ * The editor for a secret (an API key) or, with [masked] false, for a plain value such as a URL.
+ *
+ * With [keyStatus] set it becomes the full key panel: masked field with a reveal toggle, a status
+ * line, a primary button that saves any edit and verifies the key through [onVerify], and a
+ * secondary button that removes the key by saving an empty one. Without it, it is a plain field
+ * with a Save button.
+ *
+ * [stateKey] must change when the thing being edited changes (for example the provider) so that an
+ * unsaved draft never leaks into another provider.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AiApiKeyItem(
     apiKey: String,
     onApiKeySave: (String) -> Unit,
     title: String,
-    subtitle: String
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    stateKey: Any? = null,
+    masked: Boolean = true,
+    placeholder: String? = null,
+    keyStatus: AiKeyStatus? = null,
+    onVerify: () -> Unit = {}
 ) {
-    var localApiKey by remember(apiKey) { mutableStateOf(apiKey) }
-    val hasChanges = localApiKey != apiKey
-    var showSaved by remember { mutableStateOf(false) }
+    val scena = MaterialTheme.scena
+    val focusManager = LocalFocusManager.current
+    var localApiKey by remember(apiKey, stateKey) { mutableStateOf(apiKey) }
+    var revealed by remember(stateKey) { mutableStateOf(false) }
+    var confirmRemove by remember(stateKey) { mutableStateOf(false) }
+    var showSaved by remember(stateKey) { mutableStateOf(false) }
+    val hasChanges = localApiKey.trim() != apiKey.trim()
+    val verifying = keyStatus == AiKeyStatus.Verifying
 
     LaunchedEffect(showSaved) {
         if (showSaved) {
@@ -847,58 +1199,293 @@ fun AiApiKeyItem(
         }
     }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(Scena.TileShape)
+            .background(scena.bg2)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(text = title, style = scenaWide(18.sp), color = scena.ink)
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = scena.ink2
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
+        }
+
+        // The field: 64 dp, rounded, on the screen ground. Masked unless revealed.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .clip(Scena.ControlShape)
+                .background(scena.bg)
+                .padding(start = 20.dp, end = if (masked) 8.dp else 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
                 value = localApiKey,
                 onValueChange = { localApiKey = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.settings_enter_api_key_placeholder)) },
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { contentDescription = title },
+                textStyle = TextStyle(
+                    color = scena.ink,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    letterSpacing = if (masked) 0.08.em else 0.em
+                ),
+                cursorBrush = SolidColor(scena.acc),
                 singleLine = true,
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        onApiKeySave(localApiKey)
-                        showSaved = true
-                    },
-                    enabled = hasChanges
-                ) {
-                    Text(stringResource(R.string.common_save), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                visualTransformation = if (masked && !revealed) {
+                    PasswordVisualTransformation()
+                } else {
+                    VisualTransformation.None
+                },
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    keyboardType = if (masked) KeyboardType.Password else KeyboardType.Uri,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (localApiKey.isEmpty()) {
+                            Text(
+                                text = placeholder ?: stringResource(R.string.scena_ai_key_placeholder),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = scena.ink2,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        innerTextField()
+                    }
                 }
-                if (showSaved) {
-                    Text(
-                        text = stringResource(R.string.common_saved),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+            )
+            if (masked) {
+                IconButton(onClick = { revealed = !revealed }) {
+                    Icon(
+                        imageVector = if (revealed) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = stringResource(
+                            if (revealed) R.string.scena_ai_key_hide else R.string.scena_ai_key_show
+                        ),
+                        tint = scena.ink2
                     )
                 }
             }
         }
+
+        if (keyStatus != null) {
+            // An edit that is not saved yet says so; otherwise the line reports the saved key.
+            val unsaved = hasChanges && apiKey.isNotBlank()
+            val statusRes = when {
+                unsaved -> R.string.scena_ai_status_unsaved
+                keyStatus == AiKeyStatus.NoKey -> R.string.scena_ai_status_no_key
+                keyStatus == AiKeyStatus.Verifying -> R.string.scena_ai_status_verifying
+                keyStatus == AiKeyStatus.Verified -> R.string.scena_ai_status_verified
+                keyStatus == AiKeyStatus.Failed -> R.string.scena_ai_status_failed
+                else -> R.string.scena_ai_status_not_verified
+            }
+            AiKeyStatusLine(
+                text = stringResource(statusRes),
+                verified = !unsaved && keyStatus == AiKeyStatus.Verified,
+                failed = !unsaved && keyStatus == AiKeyStatus.Failed
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                AiMorphButton(
+                    label = stringResource(
+                        if (hasChanges) R.string.scena_ai_save_and_verify else R.string.scena_ai_verify
+                    ),
+                    busy = verifying,
+                    enabled = localApiKey.isNotBlank() && !verifying,
+                    onClick = {
+                        focusManager.clearFocus()
+                        // Saving a changed key also runs the model fetch, which is the verification.
+                        if (hasChanges) onApiKeySave(localApiKey) else onVerify()
+                    }
+                )
+                if (apiKey.isNotBlank()) {
+                    AiSecondaryButton(
+                        label = stringResource(R.string.scena_ai_remove),
+                        enabled = !verifying,
+                        onClick = { confirmRemove = true }
+                    )
+                }
+            }
+        } else {
+            if (showSaved) {
+                AiKeyStatusLine(
+                    text = stringResource(R.string.common_saved),
+                    verified = true,
+                    failed = false
+                )
+            }
+            AiMorphButton(
+                label = stringResource(R.string.common_save),
+                busy = false,
+                enabled = hasChanges,
+                onClick = {
+                    focusManager.clearFocus()
+                    onApiKeySave(localApiKey)
+                    showSaved = true
+                }
+            )
+        }
+    }
+
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            shape = Scena.TileShape,
+            containerColor = scena.bg,
+            title = {
+                Text(
+                    text = stringResource(R.string.scena_ai_remove_title),
+                    style = scenaWide(20.sp),
+                    color = scena.ink
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.scena_ai_remove_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scena.ink2
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmRemove = false
+                        // An empty key goes through the normal save path, which wipes secure storage.
+                        onApiKeySave("")
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.scena_ai_remove),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) {
+                    Text(text = stringResource(R.string.common_cancel), color = scena.ink2)
+                }
+            }
+        )
     }
 }
 
+/** States how the key is stored. Only claims what the storage layer actually does. */
+@Composable
+fun AiKeySecurityNote(modifier: Modifier = Modifier) {
+    val scena = MaterialTheme.scena
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(Scena.CoverShape)
+            .background(scena.bg3)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(scena.bg2),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Lock,
+                contentDescription = null,
+                tint = scena.ink,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.scena_ai_security_title),
+                style = scenaWide(15.sp),
+                color = scena.ink
+            )
+            Text(
+                text = stringResource(R.string.scena_ai_security_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = scena.ink
+            )
+        }
+    }
+}
+
+/** Shown instead of the key panel for a provider whose [AiProvider.requiresApiKey] is false. */
+@Composable
+fun AiKeyNotRequiredNote(modifier: Modifier = Modifier) {
+    val scena = MaterialTheme.scena
+    Text(
+        text = stringResource(R.string.scena_ai_no_key_needed),
+        style = MaterialTheme.typography.bodyMedium,
+        color = scena.ink2,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(Scena.TileShape)
+            .background(scena.bg2)
+            .padding(20.dp)
+    )
+}
+
+/** The model list is being fetched. */
+@Composable
+fun AiModelsLoadingCard(modifier: Modifier = Modifier) {
+    val scena = MaterialTheme.scena
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(Scena.TileShape)
+            .background(scena.bg2)
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(24.dp),
+            color = scena.acc,
+            strokeWidth = 2.5.dp
+        )
+        Text(
+            text = stringResource(R.string.settings_loading_models),
+            style = MaterialTheme.typography.bodyMedium,
+            color = scena.ink2
+        )
+    }
+}
+
+/** The model list could not be fetched. [message] is the existing error from the view model. */
+@Composable
+fun AiModelsErrorCard(message: String?, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        text = message ?: stringResource(R.string.settings_models_fetch_failed),
+        style = MaterialTheme.typography.bodyMedium,
+        color = scheme.onErrorContainer,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(Scena.TileShape)
+            .background(scheme.errorContainer)
+            .padding(20.dp)
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AiSystemPromptItem(
     systemPrompt: String,
@@ -908,6 +1495,7 @@ fun AiSystemPromptItem(
     title: String,
     subtitle: String
 ) {
+    val scena = MaterialTheme.scena
     var localPrompt by remember(systemPrompt) { mutableStateOf(systemPrompt) }
     val hasChanges = localPrompt != systemPrompt
     val isDefault = systemPrompt == defaultPrompt
@@ -934,82 +1522,84 @@ fun AiSystemPromptItem(
         }
     }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(Scena.TileShape)
+            .background(scena.bg2)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(text = title, style = scenaWide(18.sp), color = scena.ink)
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = scena.ink2
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.settings_preset_prompts),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                presets.forEach { preset ->
-                    OutlinedButton(
-                        onClick = { 
-                            localPrompt = preset.second
-                        },
-                        modifier = Modifier.wrapContentWidth()
-                    ) {
-                        Text(text = preset.first, maxLines = 1)
-                    }
-                }
+        }
+        Text(
+            text = stringResource(R.string.settings_preset_prompts),
+            style = MaterialTheme.typography.labelLarge,
+            color = scena.ink
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            presets.forEach { preset ->
+                AiChip(
+                    label = preset.first,
+                    selected = localPrompt == preset.second,
+                    onClick = { localPrompt = preset.second }
+                )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = localPrompt,
-                onValueChange = { localPrompt = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 200.dp),
-                placeholder = { Text(stringResource(R.string.settings_system_prompt_placeholder)) },
-                minLines = 3,
-                maxLines = 6
+        }
+        OutlinedTextField(
+            value = localPrompt,
+            onValueChange = { localPrompt = it },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 200.dp),
+            placeholder = { Text(stringResource(R.string.settings_system_prompt_placeholder)) },
+            minLines = 3,
+            maxLines = 6,
+            shape = Scena.CoverShape,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = scena.acc,
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = scena.bg,
+                unfocusedContainerColor = scena.bg,
+                cursorColor = scena.acc
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        onSystemPromptSave(localPrompt)
-                        showSaved = true
-                    },
-                    enabled = hasChanges
-                ) {
-                    Text(stringResource(R.string.common_save), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        )
+        if (showSaved) {
+            AiKeyStatusLine(
+                text = stringResource(R.string.common_saved),
+                verified = true,
+                failed = false
+            )
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AiMorphButton(
+                label = stringResource(R.string.common_save),
+                busy = false,
+                enabled = hasChanges,
+                onClick = {
+                    onSystemPromptSave(localPrompt)
+                    showSaved = true
                 }
-                if (!isDefault) {
-                    OutlinedButton(onClick = {
-                        onReset()
-                    }) {
-                        Text(stringResource(R.string.common_reset), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                if (showSaved) {
-                    Text(
-                        text = stringResource(R.string.common_saved),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            )
+            if (!isDefault) {
+                AiSecondaryButton(
+                    label = stringResource(R.string.common_reset),
+                    enabled = true,
+                    onClick = { onReset() }
+                )
             }
         }
     }

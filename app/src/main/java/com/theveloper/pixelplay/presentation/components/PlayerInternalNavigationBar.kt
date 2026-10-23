@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -119,7 +121,7 @@ private fun PlayerInternalNavigationItemsRow(
             .fillMaxWidth()
     }
     Row(
-        modifier = rowModifier,
+        modifier = rowModifier.selectableGroup(),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -127,9 +129,10 @@ private fun PlayerInternalNavigationItemsRow(
         var lastSearchTapTimestamp by remember { mutableStateOf(0L) }
         navItems.forEach { item ->
             val isSelected = currentRoute != null && currentRoute == item.screen.route
-            val selectedColor = MaterialTheme.colorScheme.primary
+            // Scena: the active item is a pill filled with the accent (primary), ink on it is onPrimary.
+            val selectedColor = MaterialTheme.colorScheme.onPrimary
             val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-            val indicatorColorFromTheme = MaterialTheme.colorScheme.secondaryContainer
+            val indicatorColorFromTheme = MaterialTheme.colorScheme.primary
 
             val iconPainterResId = if (isSelected && item.selectedIconResId != null && item.selectedIconResId != 0) {
                 item.selectedIconResId
@@ -137,19 +140,21 @@ private fun PlayerInternalNavigationItemsRow(
                 item.iconResId
             }
             val localizedLabel = stringResource(id = item.labelResId)
-            val iconLambda: @Composable () -> Unit = remember(iconPainterResId, localizedLabel) {
+            // The icon is decorative: CustomNavigationBarItem exposes the label as the tab's
+            // contentDescription, so the name is announced once, not once per merged child.
+            val iconLambda: @Composable () -> Unit = remember(iconPainterResId) {
                 {
                     Icon(
                         painter = painterResource(id = iconPainterResId),
-                        contentDescription = localizedLabel
+                        contentDescription = null
                     )
                 }
             }
-            val selectedIconLambda: @Composable () -> Unit = remember(iconPainterResId, localizedLabel) {
+            val selectedIconLambda: @Composable () -> Unit = remember(iconPainterResId) {
                 {
                     Icon(
                         painter = painterResource(id = iconPainterResId),
-                        contentDescription = localizedLabel
+                        contentDescription = null
                     )
                 }
             }
@@ -157,7 +162,13 @@ private fun PlayerInternalNavigationItemsRow(
                 null
             } else {
                 remember(localizedLabel) {
-                    { Text(localizedLabel) }
+                    {
+                        Text(
+                            text = localizedLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
             val onClickLambda: () -> Unit = remember(item.screen.route, navController, scope) {
@@ -203,7 +214,6 @@ private fun PlayerInternalNavigationItemsRow(
                 }
             }
             CustomNavigationBarItem(
-                modifier = Modifier.weight(1f),
                 selected = isSelected,
                 onClick = onClickLambda,
                 enabled = currentRoute != null,
@@ -212,7 +222,7 @@ private fun PlayerInternalNavigationItemsRow(
                 selectedIcon = selectedIconLambda,
                 label = labelLambda,
                 contentDescription = localizedLabel,
-                alwaysShowLabel = true,
+                alwaysShowLabel = false,
                 selectedIconColor = selectedColor,
                 unselectedIconColor = unselectedColor,
                 selectedTextColor = selectedColor,

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -33,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,6 +55,12 @@ import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
 import com.theveloper.pixelplay.presentation.components.songFastScrollLabel
 import androidx.compose.ui.text.style.TextOverflow
 
+
+/**
+ * Scena list edge: rows sit this far from the screen edge and pad the same amount inside, so covers
+ * line up on the 16 dp gutter while the current-track tile reaches a little further out.
+ */
+internal val LibraryScenaListEdge = 8.dp
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -246,16 +250,10 @@ fun LibrarySongsTab(
         shouldShowInitialLoading -> {
             // Initial loading - show skeleton placeholders
             LazyColumn(
+                // Scena: rows carry their own large corners, so the list itself is not clipped. Rows sit
+                // 8 dp from the edge and pad 8 dp inside, which puts covers on the 16 dp gutter.
                 modifier = Modifier
-                    .padding(start = 12.dp, end = 24.dp, bottom = 6.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 0.dp,
-                            topEnd = 0.dp,
-                            bottomStart = PlayerSheetCollapsedCornerRadius,
-                            bottomEnd = PlayerSheetCollapsedCornerRadius
-                        )
-                    )
+                    .padding(start = LibraryScenaListEdge, end = LibraryScenaListEdge, bottom = 6.dp)
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
@@ -299,15 +297,7 @@ fun LibrarySongsTab(
                         val activeListState = if (songs.itemCount > 0) listState else dummyListState
                         LazyColumn(
                             modifier = Modifier
-                                .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (activeListState.canScrollForward || activeListState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 0.dp,
-                                        bottomStart = PlayerSheetCollapsedCornerRadius,
-                                        bottomEnd = PlayerSheetCollapsedCornerRadius
-                                    )
-                                ),
+                                .padding(start = LibraryScenaListEdge, end = if (LocalShowScrollbar.current && (activeListState.canScrollForward || activeListState.canScrollBackward)) 22.dp else LibraryScenaListEdge, bottom = 6.dp),
                             state = activeListState,
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)

@@ -921,14 +921,12 @@ fun SettingsCategoryScreen(
 
                             // AI Provider Selection
                             SettingsSubsection(title = stringResource(R.string.settings_ai_provider_section)) {
-                                ThemeSelectorItem(
-                                    label = stringResource(R.string.settings_ai_provider_title),
-                                    description = stringResource(R.string.settings_ai_provider_subtitle),
-                                    options = com.theveloper.pixelplay.data.ai.provider.AiProvider.entries.associate { it.name to it.displayName },
+                                AiProviderChips(
+                                    providers = com.theveloper.pixelplay.data.ai.provider.AiProvider.entries,
                                     selectedKey = aiProvider,
-                                    onSelectionChanged = { settingsViewModel.onAiProviderChange(it) },
-                                    leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    onProviderSelected = { settingsViewModel.onAiProviderChange(it) }
                                 )
+                                Spacer(modifier = Modifier.height(10.dp))
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_safe_token_title),
                                     subtitle = if (uiState.isSafeTokenLimitEnabled) {
@@ -969,6 +967,22 @@ fun SettingsCategoryScreen(
                                 )
                             }
                             
+                            // Base URL Section (only for configurable URL providers). It comes before the key
+                            // because verifying the key needs the address.
+                            if (provider.hasConfigurableUrl) {
+                                SettingsSubsection(title = stringResource(R.string.scena_ai_base_url_section)) {
+                                    AiApiKeyItem(
+                                        apiKey = currentCustomBaseUrl,
+                                        onApiKeySave = { settingsViewModel.onCustomBaseUrlChange(it) },
+                                        title = stringResource(R.string.scena_ai_base_url_title),
+                                        subtitle = stringResource(R.string.scena_ai_base_url_subtitle),
+                                        stateKey = provider,
+                                        masked = false,
+                                        placeholder = stringResource(R.string.scena_ai_base_url_placeholder)
+                                    )
+                                }
+                            }
+
                             // Consolidated API Key Section
                             SettingsSubsection(title = stringResource(R.string.settings_credentials_section)) {
                                 val sourceLabel = when(provider) {
@@ -985,52 +999,39 @@ fun SettingsCategoryScreen(
                                     com.theveloper.pixelplay.data.ai.provider.AiProvider.CUSTOM -> "Custom Provider"
                                 }
                                 
-                                AiApiKeyItem(
-                                    apiKey = currentAiApiKey,
-                                    onApiKeySave = { settingsViewModel.onAiApiKeyChange(it) },
-                                    title = stringResource(R.string.settings_ai_api_key_title, provider.displayName),
-                                    subtitle = stringResource(R.string.settings_ai_api_key_subtitle, sourceLabel)
-                                )
+                                if (provider.requiresApiKey) {
+                                    // Verified = the model fetch for this provider's saved key succeeded.
+                                    val verifiedAiProviders by settingsViewModel.verifiedAiProviders.collectAsStateWithLifecycle()
+                                    val keyStatus = when {
+                                        currentAiApiKey.isBlank() -> AiKeyStatus.NoKey
+                                        uiState.isLoadingModels -> AiKeyStatus.Verifying
+                                        provider.name in verifiedAiProviders -> AiKeyStatus.Verified
+                                        uiState.modelsFetchError != null -> AiKeyStatus.Failed
+                                        else -> AiKeyStatus.NotVerified
+                                    }
+                                    AiApiKeyItem(
+                                        apiKey = currentAiApiKey,
+                                        onApiKeySave = { settingsViewModel.onAiApiKeyChange(it) },
+                                        title = stringResource(R.string.settings_ai_api_key_title, provider.displayName),
+                                        subtitle = stringResource(R.string.settings_ai_api_key_subtitle, sourceLabel),
+                                        stateKey = provider,
+                                        keyStatus = keyStatus,
+                                        onVerify = { settingsViewModel.verifyCurrentAiKey() }
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    AiKeySecurityNote()
+                                } else {
+                                    AiKeyNotRequiredNote()
+                                }
                             }
 
                             // Model Selection Section
                             if (currentAiApiKey.isNotBlank()) {
                                 SettingsSubsection(title = stringResource(R.string.settings_model_selection_section)) {
                                     if (uiState.isLoadingModels) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.surfaceContainer,
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                                Text(
-                                                    text = stringResource(R.string.settings_loading_models),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
+                                        AiModelsLoadingCard()
                                     } else if (uiState.modelsFetchError != null) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.errorContainer,
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(
-                                                text = uiState.modelsFetchError ?: stringResource(R.string.settings_models_fetch_failed),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                modifier = Modifier.padding(16.dp)
-                                            )
-                                        }
+                                        AiModelsErrorCard(message = uiState.modelsFetchError)
                                     } else if (uiState.availableModels.isNotEmpty()) {
                                         SearchableModelSelector(
                                             label = stringResource(R.string.settings_ai_model_title),
@@ -1041,18 +1042,6 @@ fun SettingsCategoryScreen(
                                             leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary) }
                                         )
                                     }
-                                }
-                            }
-
-                            // Base URL Section (only for configurable URL providers)
-                            if (provider.hasConfigurableUrl) {
-                                SettingsSubsection(title = "API Base URL") {
-                                    AiApiKeyItem(
-                                        apiKey = currentCustomBaseUrl,
-                                        onApiKeySave = { settingsViewModel.onCustomBaseUrlChange(it) },
-                                        title = "Base URL",
-                                        subtitle = "e.g. https://api.example.com/v1"
-                                    )
                                 }
                             }
 

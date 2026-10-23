@@ -5,7 +5,9 @@ package com.theveloper.pixelplay.presentation.components
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
-import com.theveloper.pixelplay.ui.theme.Sleeve
+import com.theveloper.pixelplay.ui.theme.CookieShape
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -35,13 +38,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -63,6 +74,15 @@ internal val LocalMaterialTheme = compositionLocalOf<ColorScheme> { error("No Co
 val MiniPlayerHeight = 64.dp
 const val ANIMATION_DURATION_MS = 255
 val MiniPlayerBottomSpacer = 8.dp
+
+/** Scena mini player: the cover is a cookie that turns once every [MiniCoverSpinMillis] while music plays. */
+private const val MiniCoverSpinMillis = 16_000
+private val MiniCoverSize = 52.dp
+
+/** Scena mini player: play is a rounded square (36 %) while paused and a circle (50 %) while playing. */
+private val MiniPlayButtonSize = 44.dp
+private const val MiniPlayPausedCornerPercent = 36f
+private const val MiniPlayPlayingCornerPercent = 50f
 
 @Composable
 fun getNavigationBarHeight(): Dp {
@@ -102,6 +122,27 @@ internal fun MiniPlayerContentInternal(
     val nextScaleAnim = remember { Animatable(1f) }
     val coroutineScope = rememberCoroutineScope()
 
+    // Scena: with system animations off nothing moves.
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val morphSpec: AnimationSpec<Float> = if (animationsEnabled) Scena.Springy else snap<Float>()
+
+    // The cover turns slowly, only while the track plays and the mini player is on screen
+    // (the caller passes canScroll = visible && playing). The rotation lives in the graphics
+    // layer, so a full turn never recomposes anything. Same driver as CookieDisc.
+    val coverSpinning = isPlaying && canScroll
+    val coverAngle = remember { Animatable(0f) }
+    LaunchedEffect(coverSpinning, animationsEnabled) {
+        if (coverSpinning && animationsEnabled) {
+            while (isActive) {
+                coverAngle.animateTo(
+                    targetValue = coverAngle.value + 360f,
+                    animationSpec = tween(MiniCoverSpinMillis, easing = LinearEasing)
+                )
+                coverAngle.snapTo(coverAngle.value % 360f)
+            }
+        }
+    }
+
     // One control of the mini player: a 48 dp touch target with a small press "give".
     @Composable
     fun MiniControl(
@@ -110,8 +151,15 @@ internal fun MiniPlayerContentInternal(
         icon: androidx.compose.ui.graphics.vector.ImageVector,
         contentDescription: String,
         filled: Boolean,
-        onClick: () -> Unit
+        onClick: () -> Unit,
+        cornerPercentTarget: Float = MiniPlayPausedCornerPercent
     ) {
+        // Only the filled (play) control has a body; its corners spring between square and circle.
+        val cornerPercent by animateFloatAsState(
+            targetValue = cornerPercentTarget,
+            animationSpec = morphSpec,
+            label = "miniPlayCorner"
+        )
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -122,9 +170,11 @@ internal fun MiniPlayerContentInternal(
                     role = Role.Button
                 ) {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    coroutineScope.launch {
-                        scale.snapTo(0.92f)
-                        scale.animateTo(1f, bounceSpring)
+                    if (animationsEnabled) {
+                        coroutineScope.launch {
+                            scale.snapTo(0.92f)
+                            scale.animateTo(1f, bounceSpring)
+                        }
                     }
                     onClick()
                 },
@@ -132,14 +182,19 @@ internal fun MiniPlayerContentInternal(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(if (filled) MiniPlayButtonSize else 40.dp)
                     .graphicsLayer {
                         scaleX = scale.value
                         scaleY = scale.value
                     }
                     .then(
                         if (filled) {
-                            Modifier.background(colors.primary, Sleeve.RowShape)
+                            Modifier.background(
+                                color = colors.primary,
+                                shape = RoundedCornerShape(
+                                    size = MiniPlayButtonSize * (cornerPercent.coerceIn(0f, 50f) / 100f)
+                                )
+                            )
                         } else {
                             Modifier
                         }
@@ -169,9 +224,11 @@ internal fun MiniPlayerContentInternal(
                 SmartImage(
                     model = albumArtModel,
                     contentDescription = stringResource(R.string.common_album_art_for_title, song.title),
-                    shape = Sleeve.ArtShape,
+                    shape = CookieShape,
                     targetSize = Size(150, 150),
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier
+                        .size(MiniCoverSize)
+                        .graphicsLayer { rotationZ = coverAngle.value },
                     placeholderModel = if (albumArtModel?.startsWith("telegram_art") == true) {
                         "$albumArtModel?quality=thumb"
                     } else null
@@ -237,7 +294,8 @@ internal fun MiniPlayerContentInternal(
             icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
             contentDescription = stringResource(if (isPlaying) R.string.common_pause else R.string.common_play),
             filled = true,
-            onClick = onPlayPause
+            onClick = onPlayPause,
+            cornerPercentTarget = if (isPlaying) MiniPlayPlayingCornerPercent else MiniPlayPausedCornerPercent
         )
         MiniControl(
             interactionSource = nextInteraction,

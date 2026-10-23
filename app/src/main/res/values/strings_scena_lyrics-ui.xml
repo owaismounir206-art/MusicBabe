@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: lyrics screen. English is the default; other locales fall back to it until translated. -->
+<resources>
+    <!-- Chip near the top of the lyrics: how the current lyrics are timed -->
+    <string name="lyrics_scena_timing_word">Word by word</string>
+    <string name="lyrics_scena_timing_line">By line</string>
+
+    <!-- Accessibility -->
+    <string name="lyrics_scena_cd_cover">Cover art</string>
+    <string name="lyrics_scena_cd_show_controls">Show controls</string>
+    <string name="lyrics_scena_cd_seek_line">Jump to this line</string>
+</resources>

@@ -325,6 +325,25 @@ class SettingsViewModel @Inject constructor(
     val aiIncludeExtendedFields: StateFlow<Boolean> = aiPreferencesRepository.aiIncludeExtendedFields
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // Key verification (read-only view over the existing model fetch, used by the AI key panel).
+    private val _verifiedAiProviders = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Names of the providers whose currently saved key fetched the model list successfully in this
+     * process. A provider is dropped as soon as a new fetch starts for it, its key is removed, or the
+     * fetch fails, so membership always reflects the latest result.
+     */
+    val verifiedAiProviders: StateFlow<Set<String>> = _verifiedAiProviders.asStateFlow()
+
+    /** Re-runs the existing model fetch with the key already saved for the selected provider. */
+    fun verifyCurrentAiKey() {
+        viewModelScope.launch {
+            val providerStr = aiProvider.value
+            val apiKey = aiPreferencesRepository.getApiKey(AiProvider.fromString(providerStr)).first()
+            if (apiKey.isNotBlank()) fetchAvailableModels(apiKey, providerStr)
+        }
+    }
+
     /** Saves the key in secure storage; tells the user and returns false if that is impossible. */
     private suspend fun saveApiKey(provider: AiProvider, apiKey: String): Boolean {
         val saved = aiPreferencesRepository.setApiKey(provider, apiKey)
@@ -1270,6 +1289,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun clearModelsState(provider: String) {
+        _verifiedAiProviders.update { it - provider }
         _uiState.update {
             it.copy(
                 availableModels = emptyList(),
@@ -1283,6 +1303,7 @@ class SettingsViewModel @Inject constructor(
 
     private fun fetchAvailableModels(apiKey: String, providerName: String) {
         viewModelScope.launch {
+            _verifiedAiProviders.update { it - providerName }
             _uiState.update { it.copy(isLoadingModels = true, modelsFetchError = null) }
             try {
                 val provider = AiProvider.fromString(providerName)
@@ -1303,13 +1324,14 @@ class SettingsViewModel @Inject constructor(
                         .map { com.theveloper.pixelplay.data.ai.GeminiModel(it, formatModelDisplayName(it)) }
                 }
                 
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
-                        availableModels = models, 
+                        availableModels = models,
                         isLoadingModels = false,
                         modelsFetchError = null
-                    ) 
+                    )
                 }
+                _verifiedAiProviders.update { it + providerName }
 
                 // Auto-select first model if nothing is selected yet
                 val currentModel = aiPreferencesRepository.getModel(provider).first()

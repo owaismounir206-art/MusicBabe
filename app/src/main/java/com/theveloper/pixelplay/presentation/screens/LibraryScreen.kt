@@ -3,9 +3,11 @@
 package com.theveloper.pixelplay.presentation.screens
 
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.HorizontalDivider
-import com.theveloper.pixelplay.ui.theme.hairlineColor
-import com.theveloper.pixelplay.ui.theme.Sleeve
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
+import com.theveloper.pixelplay.ui.theme.scenaRise
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.navigation.navigateSafelyReplacing
 
@@ -27,6 +29,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -110,6 +113,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -823,16 +828,21 @@ fun LibraryScreen(
     val currentTab = tabTitles.getOrNull(currentTabIndex)?.toLibraryTabIdOrNull() ?: currentTabId
     val currentTabTitle = currentTab.displayTitle()
 
-    // Sleeve direction: one flat surface from top to bottom; structure comes from type and a hairline.
-    val headerContainerColor = MaterialTheme.colorScheme.surface
+    // Scena: the whole screen is one drenched ground, header and content alike. Structure comes from
+    // type size and the accent dot under the selected tab, not from panels or rules.
+    val scenaColors = MaterialTheme.scena
+    val headerContainerColor = scenaColors.bg
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = headerContainerColor,
+        contentColor = scenaColors.ink,
         topBar = {
             Column(
                 modifier = Modifier.background(headerContainerColor)
             ) {
                 TopAppBar(
+                    // Room for the 52 sp Scena title; the compact pill keeps the standard height.
+                    expandedHeight = if (isCompactNavigation) 64.dp else 80.dp,
                     title = {
                         if (isCompactNavigation) {
                             LibraryNavigationPill(
@@ -849,11 +859,9 @@ fun LibraryScreen(
                                 onArrowClick = { showTabSwitcherSheet = true }
                             )
                         } else {
-                            Text(
-                                modifier = Modifier.padding(start = 8.dp),
+                            LibraryScenaTitle(
                                 text = stringResource(R.string.library_screen_title),
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                modifier = Modifier.scenaRise(0)
                             )
                         }
                     },
@@ -893,16 +901,24 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        IconButton(
-                            modifier = Modifier.padding(end = 8.dp),
+                        // Plain round 48 dp button on bg2; the bar already adds 4 dp, so 12 dp more
+                        // lands it on the 16 dp gutter.
+                        FilledIconButton(
+                            modifier = Modifier
+                                .padding(end = Scena.Gutter - 4.dp)
+                                .size(48.dp),
+                            shape = CircleShape,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = scenaColors.bg2,
+                                contentColor = scenaColors.ink
+                            ),
                             onClick = {
                                 navController.navigateSafely(Screen.Settings.route)
                             }
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.rounded_settings_24),
-                                contentDescription = stringResource(R.string.library_cd_open_settings),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                contentDescription = stringResource(R.string.library_cd_open_settings)
                             )
                         }
                     },
@@ -912,13 +928,16 @@ fun LibraryScreen(
                     )
                 )
                 if (!isCompactNavigation) {
-                    // The selected tab draws its own underline (TabAnimation); the row adds a hairline.
+                    // Typographic tabs: wide Scena type, full ink when selected, 40 percent otherwise.
+                    // TabAnimation springs the accent dot in under the selected tab.
                     PrimaryScrollableTabRow(
                         selectedTabIndex = currentTabIndex,
+                        modifier = Modifier.scenaRise(1),
                         containerColor = Color.Transparent,
-                        edgePadding = 8.dp,
+                        contentColor = scenaColors.ink,
+                        edgePadding = 0.dp,
                         indicator = {},
-                        divider = { HorizontalDivider(thickness = Sleeve.Hairline, color = hairlineColor) }
+                        divider = {}
                     ) {
                         tabTitles.forEachIndexed { index, rawId ->
                             val tabId = rawId.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
@@ -941,8 +960,8 @@ fun LibraryScreen(
                             ) {
                                 Text(
                                     text = stringResource(tabId.titleRes),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = if (currentTabIndex == index) FontWeight.SemiBold else FontWeight.Medium
+                                    style = scenaWide(24.sp),
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -952,10 +971,10 @@ fun LibraryScreen(
                             selectedIndex = currentTabIndex,
                             onClick = { showReorderTabsSheet = true }
                         ) {
+                            // No explicit tint: the tab sets the content colour (ink at 40 percent).
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = stringResource(R.string.library_cd_reorder_tabs),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -999,7 +1018,9 @@ fun LibraryScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 0.dp, vertical = 0.dp), // Removed horizontal padding for more space
-                    color = MaterialTheme.colorScheme.surface
+                    // Same ground as the header: no panel, no rounded top corners.
+                    color = headerContainerColor,
+                    contentColor = scenaColors.ink
                 ) {
                     Column(Modifier.fillMaxSize()) {
                         // OPTIMIZACIÓN: La lógica de ordenamiento ahora es más eficiente.
@@ -1141,8 +1162,8 @@ fun LibraryScreen(
                             modifier = Modifier
                                 .padding(
                                     top = 6.dp,
-                                    start = 10.dp,
-                                    end = 10.dp
+                                    start = Scena.Gutter - 4.dp,
+                                    end = Scena.Gutter - 4.dp
                                 )
                                 .heightIn(min = 56.dp)
                         ) { inSelectionMode ->
@@ -1692,8 +1713,8 @@ fun LibraryScreen(
                             colorStops = arrayOf(
                                 0.0f to Color.Transparent,
                                 0.2f to Color.Transparent,
-                                0.8f to MaterialTheme.colorScheme.surfaceContainerLowest,
-                                1.0f to MaterialTheme.colorScheme.surfaceContainerLowest
+                                0.8f to headerContainerColor,
+                                1.0f to headerContainerColor
                             )
                         )
                     )
@@ -2134,6 +2155,49 @@ fun LibraryScreen(
                     coverArtUpdate = coverArtUpdate
                 )
             }
+        )
+    }
+}
+
+private val LibraryScenaTitleSize = 52.sp
+private val LibraryScenaTitleMinSize = 30.sp
+
+/**
+ * Scena screen title: the heavy, expanded display face at about 52 sp. It only shrinks when the word
+ * would not fit the available width (a long translation, a large system font) and is never wrapped.
+ */
+@Composable
+private fun LibraryScenaTitle(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier) {
+        val availablePx = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        val fontSize = remember(text, availablePx, density) {
+            val naturalPx = measurer.measure(
+                text = AnnotatedString(text),
+                style = scenaDisplay(LibraryScenaTitleSize),
+                maxLines = 1,
+                softWrap = false
+            ).size.width
+            if (naturalPx > availablePx && naturalPx > 0) {
+                (LibraryScenaTitleSize.value * availablePx / naturalPx * 0.98f)
+                    .coerceAtLeast(LibraryScenaTitleMinSize.value)
+                    .sp
+            } else {
+                LibraryScenaTitleSize
+            }
+        }
+        Text(
+            text = text,
+            style = scenaDisplay(fontSize),
+            color = MaterialTheme.scena.ink,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { heading() }
         )
     }
 }
@@ -2597,11 +2661,13 @@ private fun LibraryTabSwitcherSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scenaColors = MaterialTheme.scena
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = scenaColors.bg,
+        contentColor = scenaColors.ink,
     ) {
         Column(
             modifier = Modifier
@@ -2611,13 +2677,13 @@ private fun LibraryTabSwitcherSheet(
         ) {
             Text(
                 text = stringResource(R.string.library_tabs_sheet_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontFamily = GoogleSansRounded
+                style = scenaWide(26.sp),
+                color = scenaColors.ink
             )
             Text(
                 text = stringResource(R.string.library_tabs_sheet_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = scenaColors.ink2
             )
 
             LazyVerticalGrid(
@@ -2652,8 +2718,8 @@ private fun LibraryTabSwitcherSheet(
                             onClick = onEditClick,
                             shape = CircleShape,
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                containerColor = scenaColors.bg2,
+                                contentColor = scenaColors.ink
                             ),
                             modifier = Modifier
                                 .fillMaxHeight()
@@ -2679,10 +2745,13 @@ private fun LibraryTabGridItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(20.dp)
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
-    val iconContainer = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
-    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val scenaColors = MaterialTheme.scena
+    val shape = Scena.TileShape
+    // Selected uses the single accent; the others are soft tiles on the ground.
+    val containerColor = if (isSelected) scenaColors.acc else scenaColors.bg2
+    val iconContainer = if (isSelected) scenaColors.onAcc.copy(alpha = 0.16f) else scenaColors.bg3
+    val textColor = if (isSelected) scenaColors.onAcc else scenaColors.ink
+    val iconColor = if (isSelected) scenaColors.onAcc else scenaColors.ink
 
     Surface(
         modifier = Modifier
@@ -2690,8 +2759,7 @@ private fun LibraryTabGridItem(
             .clip(shape)
             .clickable(onClick = onClick),
         shape = shape,
-        color = containerColor,
-        tonalElevation = if (isSelected) 6.dp else 2.dp
+        color = containerColor
     ) {
         Column(
             modifier = Modifier
@@ -2704,21 +2772,22 @@ private fun LibraryTabGridItem(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(iconContainer.copy(alpha = 0.92f)),
+                    .background(iconContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(id = tabId.iconRes()),
                     contentDescription = stringResource(tabId.titleRes),
-                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                    tint = iconColor
                 )
             }
 
             Text(
                 text = tabId.displayTitle(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = textColor
+                style = scenaWide(16.sp),
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

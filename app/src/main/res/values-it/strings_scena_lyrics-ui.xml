@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chip near the top of the lyrics: how the current lyrics are timed -->
+    <string name="lyrics_scena_timing_word">Parola per parola</string>
+    <string name="lyrics_scena_timing_line">Per riga</string>
+
+    <!-- Accessibility -->
+    <string name="lyrics_scena_cd_cover">Copertina</string>
+    <string name="lyrics_scena_cd_show_controls">Mostra i controlli</string>
+    <string name="lyrics_scena_cd_seek_line">Vai a questa riga</string>
+</resources>

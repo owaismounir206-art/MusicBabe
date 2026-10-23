@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Redesign Scena: schermata Libreria, schede e righe dei brani. -->
+<resources>
+    <!-- Descrizione vocale della copertina del brano in riproduzione. -->
+    <string name="scena_library_cover_now_playing">In riproduzione: %1$s</string>
+    <!-- Descrizione vocale della copertina del brano corrente in pausa. -->
+    <string name="scena_library_cover_current">Brano corrente: %1$s</string>
+</resources>

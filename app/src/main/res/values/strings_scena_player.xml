@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the Scena full-screen player. English is the default; other locales fall back to it until translated. -->
+<resources>
+    <string name="scena_player_cd_playback_position">Playback position</string>
+    <string name="scena_player_toast_no_song_for_lyrics">No song selected for lyrics import.</string>
+    <string name="scena_player_toast_lyrics_file_error">Error reading file.</string>
+</resources>

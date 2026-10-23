@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,11 +37,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.ui.theme.PixelPlayStatusBarStyle
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +103,29 @@ fun GenreGradientTopBar(
 }
 
 
+/**
+ * Scena top bar buttons: round, 48 dp, resting on [com.theveloper.pixelplay.ui.theme.ScenaColors.bg2]
+ * (never a filled tonal pill). The 48 dp square is also the touch target.
+ */
+@Composable
+private fun ScenaTopBarButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val scena = MaterialTheme.scena
+    FilledIconButton(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = scena.bg2,
+            contentColor = scena.ink
+        ),
+        content = content
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeGradientTopBar(
@@ -106,86 +136,60 @@ fun HomeGradientTopBar(
     onMenuClick: () -> Unit = {},
     isScrolled: Boolean = false,
 ) {
-    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHighest
+    val scena = MaterialTheme.scena
+    // The bar is transparent on top of the page and fades into the page ground once the list scrolls under it.
+    val ground = scena.bg
 
-    PixelPlayStatusBarStyle(color = surfaceContainerHigh)
+    PixelPlayStatusBarStyle(color = ground)
 
+    val animationsEnabled = rememberScenaAnimationsEnabled()
     val animatedAlpha by animateFloatAsState(
         targetValue = if (isScrolled) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = if (animationsEnabled) tween<Float>(durationMillis = 300) else snap<Float>(),
         label = "topbar_alpha_transition"
     )
+    val betaDescription = stringResource(R.string.topbar_beta_label)
 
     TopAppBar(
-        modifier = Modifier.background(surfaceContainerHigh.copy(alpha = animatedAlpha)),
+        modifier = Modifier.background(ground.copy(alpha = animatedAlpha)),
         title = { /* nada, usamos solo acciones */ },
         navigationIcon = {
+            // TopAppBar already adds 4 dp: 12 dp + 4 dp = the 16 dp Scena gutter.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(start = 12.dp)
             ) {
-                FilledTonalButton(
-                    modifier = Modifier.padding(start = 4.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    onClick = onBetaClick
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.topbar_beta_letter),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.topbar_beta_label),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                ScenaTopBarButton(onClick = onBetaClick) {
+                    // The letter is decorative; the button is announced as "Beta".
+                    Text(
+                        text = stringResource(R.string.topbar_beta_letter),
+                        style = scenaWide(20.sp),
+                        modifier = Modifier.clearAndSetSemantics {
+                            contentDescription = betaDescription
+                        }
+                    )
                 }
             }
         },
         actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 14.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(end = 12.dp)
             ) {
-                IconButton(
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    onClick = onTelegramClick
-                ) {
+                ScenaTopBarButton(onClick = onTelegramClick) {
                     Icon(
-                         imageVector = Icons.Rounded.Cloud,
-                         contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
+                        imageVector = Icons.Rounded.Cloud,
+                        contentDescription = stringResource(R.string.topbar_cd_cloud_streaming)
                     )
                 }
-                IconButton(
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    onClick = onMoreOptionsClick
-                ) {
+                ScenaTopBarButton(onClick = onMoreOptionsClick) {
                     Icon(
                         painter = painterResource(R.drawable.round_newspaper_24),
                         contentDescription = stringResource(R.string.topbar_cd_changelog)
                     )
                 }
-                IconButton(
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    onClick = onNavigationIconClick
-                ) {
+                ScenaTopBarButton(onClick = onNavigationIconClick) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
                         contentDescription = stringResource(R.string.common_settings)

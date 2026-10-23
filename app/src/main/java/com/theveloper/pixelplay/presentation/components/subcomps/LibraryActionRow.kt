@@ -17,6 +17,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,18 +71,29 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.MusicFolder
-import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaWide
 import java.io.File
 import androidx.compose.ui.res.stringResource
 
-val defaultShape = RoundedCornerShape(26.dp) // Fallback shape
-val genHeight = 42.dp
+val defaultShape = Scena.ControlShape // Fallback shape
+// Scena: every action is at least 48 dp tall (touch target) and softly rounded.
+val genHeight = 48.dp
+
+// Grouped actions (New + Import, Locate + Filter + Sort) keep a tight 2 dp inner corner so they read
+// as one piece; the outer corners use the Scena control radius.
+private val LibraryActionOuterCorner = 26.dp
+private val LibraryActionInnerCorner = 2.dp
 
 @Composable
 fun LibraryActionRow(
@@ -108,12 +121,18 @@ fun LibraryActionRow(
     onStorageFilterClick: () -> Unit = {}
 ) {
     val shouldShowImport = isPlaylistTab && showImportButton
+    val scena = MaterialTheme.scena
+    // Secondary actions sit on the ground as soft tiles (bg2); the primary action is the accent.
+    val tileIconColors = IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = scena.bg2,
+        contentColor = scena.ink
+    )
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(start = 4.dp),
-        horizontalArrangement = Arrangement.Absolute.SpaceBetween,
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         AnimatedContent(
@@ -139,8 +158,8 @@ fun LibraryActionRow(
                     onNavigateBack = onNavigateBack
                 )
             } else {
-                val outerCorner = 8.dp
-                val innerCorner = 2.dp
+                val outerCorner = LibraryActionOuterCorner
+                val innerCorner = LibraryActionInnerCorner
 
                 val newButtonEndCorner by animateDpAsState(
                     targetValue = if (shouldShowImport) innerCorner else outerCorner,
@@ -152,10 +171,10 @@ fun LibraryActionRow(
                     label = "ImportButtonStartCorner"
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Determine button colors based on shuffle state (not for playlist tab)
-                    val buttonContainerColor = MaterialTheme.colorScheme.secondaryContainer
-                    val buttonContentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    
+                    // The main action (shuffle / new playlist) is the one accent on the row.
+                    val buttonContainerColor = scena.acc
+                    val buttonContentColor = scena.onAcc
+
                     FilledTonalButton(
                         onClick = onMainActionClick,
                         shape = RoundedCornerShape(
@@ -196,7 +215,7 @@ fun LibraryActionRow(
                                 text = text,
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -228,12 +247,12 @@ fun LibraryActionRow(
                                 shape = RoundedCornerShape(
                                     topStart = importButtonStartCorner,
                                     bottomStart = importButtonStartCorner,
-                                    topEnd = 8.dp,
-                                    bottomEnd = 8.dp
+                                    topEnd = outerCorner,
+                                    bottomEnd = outerCorner
                                 ),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    containerColor = scena.bg2,
+                                    contentColor = scena.ink
                                 ),
                                 elevation = null,
                                 contentPadding = PaddingValues(
@@ -255,7 +274,7 @@ fun LibraryActionRow(
                                         text = stringResource(R.string.common_import),
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -269,38 +288,32 @@ fun LibraryActionRow(
         Spacer(modifier = Modifier.width(8.dp))
 
         if (showSortButton) {
-            val outerCorner = 8.dp
-            
+            val outerCorner = LibraryActionOuterCorner
+
             // Logic for Sort Button (Rightmost)
             val sortStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton || showStorageFilterButton) 2.dp else outerCorner,
+                targetValue = if (showLocateButton || showStorageFilterButton) LibraryActionInnerCorner else outerCorner,
                 label = "SortStartCorner"
             )
 
             // Logic for Filter Button (Middle or Left if Locate hidden)
             // Filter is visible if showStorageFilterButton is true
-            val filterEndCorner = 2.dp // Connected to Sort
+            val filterEndCorner = LibraryActionInnerCorner // Connected to Sort
             val filterStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton) 2.dp else outerCorner,
+                targetValue = if (showLocateButton) LibraryActionInnerCorner else outerCorner,
                 label = "FilterStartCorner"
             )
             
             // Logic for Locate Button (Leftmost)
-            val locateEndCorner = 2.dp // Connected to Filer or Sort
+            val locateEndCorner = LibraryActionInnerCorner // Connected to Filter or Sort
 
-            // Gaps
-            // If Filter is shown, gap is between Filter and Sort? OR if we use connected buttons, gap is 4dp between groups or 0dp between connected?
-            // Existing code used 4dp gap and 8dp corner. 
-            // "SortButtonsGap" was 4dp if showLocateButton else 0dp.
-            // If we want "connected" look (segmented), gap should be small (1dp or 2dp) or 0.
-            // But existing code uses `4.dp`.
-            
+            // Gaps: a hairline of ground between the connected tiles, none when a tile is hidden.
             val gapBetweenLocateAndNext by animateDpAsState(
-                targetValue = if (showLocateButton) 4.dp else 0.dp,
+                targetValue = if (showLocateButton) 2.dp else 0.dp,
                 label = "GapLocate"
             )
             val gapBetweenFilterAndSort by animateDpAsState(
-                targetValue = if (showStorageFilterButton) 4.dp else 0.dp,
+                targetValue = if (showStorageFilterButton) 2.dp else 0.dp,
                 label = "GapFilter"
             )
 
@@ -320,6 +333,7 @@ fun LibraryActionRow(
                             topEnd = locateEndCorner,
                             bottomEnd = locateEndCorner
                         ),
+                        colors = tileIconColors,
                         modifier = Modifier.size(genHeight)
                     ) {
                         Icon(
@@ -367,6 +381,7 @@ fun LibraryActionRow(
                                 topEnd = filterEndCorner,
                                 bottomEnd = filterEndCorner
                             ),
+                            colors = tileIconColors,
                             modifier = Modifier.size(genHeight)
                         ) {
                              Icon(
@@ -388,6 +403,7 @@ fun LibraryActionRow(
                         topEnd = outerCorner,
                         bottomEnd = outerCorner
                     ),
+                    colors = tileIconColors,
                     modifier = Modifier.size(genHeight)
                 ) {
                     Icon(
@@ -431,6 +447,8 @@ fun Breadcrumbs(
 
     val showStartFade by remember { derivedStateOf { rowState.canScrollBackward } }
     val showEndFade by remember { derivedStateOf { rowState.canScrollForward } }
+    val scena = MaterialTheme.scena
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     LaunchedEffect(pathSegments.size) {
         if (pathSegments.isNotEmpty()) {
@@ -446,8 +464,13 @@ fun Breadcrumbs(
     ) {
         FilledTonalIconButton(
             onClick = onNavigateBack,
-            modifier = Modifier.size(36.dp),
-            enabled = currentFolder != null
+            modifier = Modifier.size(genHeight),
+            enabled = currentFolder != null,
+            shape = Scena.ControlShape,
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = scena.bg2,
+                contentColor = scena.ink
+            )
         ) {
             val icon = if (currentFolder == null) Icons.Rounded.Home else Icons.AutoMirrored.Rounded.ArrowBack
             Icon(
@@ -471,8 +494,8 @@ fun Breadcrumbs(
                     // 3. Dibujamos los gradientes que actúan como "máscaras de borrado".
                     val gradientWidth = 24.dp.toPx()
 
-                    // Máscara para el borde IZQUIERDO
-                    if (showStartFade) {
+                    // Máscara para el borde IZQUIERDO (en RTL el inicio de la lista está a la derecha)
+                    if (if (isRtl) showEndFade else showStartFade) {
                         drawRect(
                             brush = Brush.horizontalGradient(
                                 // Gradiente de transparente a opaco (negro)
@@ -485,7 +508,7 @@ fun Breadcrumbs(
                     }
 
                     // Máscara para el borde DERECHO
-                    if (showEndFade) {
+                    if (if (isRtl) showStartFade else showEndFade) {
                         drawRect(
                             brush = Brush.horizontalGradient(
                                 // Gradiente de opaco (negro) a transparente
@@ -502,23 +525,31 @@ fun Breadcrumbs(
             items(pathSegments.size, key = { pathSegments[it].second }) { index ->
                 val (name, path) = pathSegments[index]
                 val isLast = index == pathSegments.lastIndex
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                    fontFamily = GoogleSansRounded,
-                    color = if (isLast) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                // 48 dp touch target around the wide Scena label.
+                Box(
                     modifier = Modifier
+                        .heightIn(min = genHeight)
                         .clip(CircleShape)
                         .clickable(enabled = !isLast) { onFolderClick(path) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = name,
+                        style = scenaWide(16.sp),
+                        color = if (isLast) scena.ink else scena.ink2,
+                        maxLines = 1
+                    )
+                }
                 if (!isLast) {
                     Icon(
                         imageVector = Icons.Rounded.ChevronRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(20.dp)
+                        tint = scena.ink2.copy(alpha = 0.6f),
+                        // The chevron points along the reading direction.
+                        modifier = Modifier
+                            .size(20.dp)
+                            .graphicsLayer { scaleX = if (isRtl) -1f else 1f }
                     )
                 }
             }

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: strings for the Home screen. English is the default. -->
+<resources>
+    <string name="scena_home_mix_subtitle">Today\'s Mix for you</string>
+</resources>

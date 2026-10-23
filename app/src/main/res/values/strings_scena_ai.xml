@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: AI settings (API keys, model picker). English is the default. -->
+<resources>
+    <!-- API key field -->
+    <string name="scena_ai_key_placeholder">Paste your API key</string>
+    <string name="scena_ai_key_show">Show key</string>
+    <string name="scena_ai_key_hide">Hide key</string>
+
+    <!-- Key status line -->
+    <string name="scena_ai_status_no_key">No key saved</string>
+    <string name="scena_ai_status_not_verified">Not verified yet</string>
+    <string name="scena_ai_status_verifying">Verifying…</string>
+    <string name="scena_ai_status_verified">Key verified</string>
+    <string name="scena_ai_status_failed">Couldn\'t verify this key</string>
+    <string name="scena_ai_status_unsaved">Unsaved changes</string>
+
+    <!-- Actions -->
+    <string name="scena_ai_verify">Verify key</string>
+    <string name="scena_ai_save_and_verify">Save and verify</string>
+    <string name="scena_ai_remove">Remove key</string>
+    <string name="scena_ai_remove_title">Remove this key?</string>
+    <string name="scena_ai_remove_message">The saved key will be erased from this device. You can add it again at any time.</string>
+
+    <!-- Security note -->
+    <string name="scena_ai_security_title">How your key is kept</string>
+    <string name="scena_ai_security_body">Encrypted with the Android Keystore, left out of backups, and sent only to the provider you chose.</string>
+
+    <!-- Providers that do not need a key -->
+    <string name="scena_ai_no_key_needed">This provider doesn\'t need an API key.</string>
+
+    <!-- Base URL (custom provider) -->
+    <string name="scena_ai_base_url_section">API base URL</string>
+    <string name="scena_ai_base_url_title">Base URL</string>
+    <string name="scena_ai_base_url_subtitle">For example https://api.example.com/v1</string>
+    <string name="scena_ai_base_url_placeholder">https://</string>
+
+    <!-- Model picker -->
+    <string name="scena_ai_models_search_placeholder">Search models…</string>
+    <string name="scena_ai_models_search_cd">Search</string>
+    <string name="scena_ai_models_clear_cd">Clear search</string>
+    <plurals name="scena_ai_models_available">
+        <item quantity="one">%d model available</item>
+        <item quantity="other">%d models available</item>
+    </plurals>
+</resources>

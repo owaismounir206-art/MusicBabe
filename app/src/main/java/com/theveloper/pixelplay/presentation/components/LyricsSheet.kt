@@ -139,6 +139,22 @@ import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayingEqIcon
 import com.theveloper.pixelplay.utils.MultiLangRomanizer
+import androidx.compose.animation.core.snap
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.isSpecified
+import com.theveloper.pixelplay.ui.theme.CookieDisc
+import com.theveloper.pixelplay.ui.theme.CookieShape
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
+import com.theveloper.pixelplay.ui.theme.scenaRise
+import com.theveloper.pixelplay.ui.theme.scenaWide
 
 internal data class LyricsSheetColors(
     val container: Color,
@@ -291,16 +307,8 @@ fun LyricsSheet(
     )
 
     val stablePlayerState by stablePlayerStateFlow.collectAsStateWithLifecycle()
-    val sheetColors = remember(colorScheme) { lyricsSheetColors(colorScheme) }
-    val backgroundColor = sheetColors.controlContainer
-    val onBackgroundColor = sheetColors.controlContent
-    val containerColor = sheetColors.container
-    val contentColor = sheetColors.content
-    val accentColor = sheetColors.accent
-    val onAccentColor = sheetColors.accentContent
-    val lyricHighlightColor = sheetColors.lyricHighlight
-    val playPauseColor = sheetColors.playPauseContainer
-    val onPlayPauseColor = sheetColors.playPauseContent
+    // Scena: the sheet colours are derived from the album scheme *inside* the MaterialTheme wrapper that
+    // surrounds the Scaffold below (see `scena`), so they follow the cover art, light or dark.
 
     val isLoadingLyrics by remember(stablePlayerState) { derivedStateOf { stablePlayerState.isLoadingLyrics } }
     val lyrics by remember(stablePlayerState) { derivedStateOf { stablePlayerState.lyrics } }
@@ -608,7 +616,36 @@ fun LyricsSheet(
         )
     }
 
-    
+
+
+    // Scena: re-theme the sheet with the album scheme so that `MaterialTheme.scena` (the drenched ground,
+    // ink, ink2 and the single accent) is derived from the cover of the current track, not from the
+    // wallpaper scheme of the app. The dialogs above and the "more" sheet below keep their own wrapper.
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes
+    ) {
+    val scena = MaterialTheme.scena
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val containerColor = scena.bg              // ground of the whole sheet
+    val contentColor = scena.ink
+    val backgroundColor = scena.bg2            // raised surfaces: header pill, controls, seek bar
+    val onBackgroundColor = scena.ink
+    val accentColor = scena.acc                // the single accent
+    val onAccentColor = scena.onAcc
+    val playPauseColor = scena.acc
+    val onPlayPauseColor = scena.onAcc
+    // Words that light up use the accent when it reads well on the ground (large text: 3:1), ink otherwise.
+    val lyricHighlightColor = remember(scena) {
+        preferredContrastColor(
+            background = scena.bg,
+            preferred = scena.acc,
+            fallback = scena.ink,
+            minContrastRatio = 3.0
+        )
+    }
+    val hasWordTimings = remember(lyrics) { lyrics?.synced?.any { it.words != null } == true }
 
     Scaffold(
         modifier = modifier
@@ -627,7 +664,7 @@ fun LyricsSheet(
                 scaleY = scale
                 translationY = lerp(0f, size.height * 0.08f, p)
             }
-            .clip(RoundedCornerShape(32.dp))
+            .clip(Scena.TileShape)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
@@ -709,17 +746,28 @@ fun LyricsSheet(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
+                // Scena: a big accent cookie drifts behind the lyrics at low alpha. It turns only while the
+                // music plays and is not drawn at all when system animations are off.
+                if (animationsEnabled) {
+                    ScenaLyricsBlob(
+                        color = accentColor,
+                        spinning = isPlaying,
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    )
+                }
+
                 // Track Info Header (Fixed at top)
                 AnimatedContent(
                     targetState = currentSong,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(300)) + 
+                        (fadeIn(animationSpec = tween(300)) +
                          scaleIn(initialScale = 0.9f, animationSpec = tween(300)))
                         .togetherWith(fadeOut(animationSpec = tween(300)))
                     },
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .zIndex(2f)
+                        .scenaRise(0)
                         .wrapContentWidth(),
                     label = "headerAnimation"
                 ) { song ->
@@ -732,13 +780,25 @@ fun LyricsSheet(
                             )
                             .background(
                                 color = backgroundColor,
-                                shape = CircleShape
+                                shape = Scena.ControlShape
                             )
                             .wrapContentWidth()
                             .animateContentSize(), // Animate width changes
                         backgroundColor = backgroundColor, // Distinct solid background
                         contentColor = onBackgroundColor,
                         isPlaying = isPlaying
+                    )
+                }
+
+                // Scena: says whether the lyrics are timed per word or per line. Derived from the data.
+                if (showSyncedLyrics == true && !lyrics?.synced.isNullOrEmpty()) {
+                    LyricsTimingChip(
+                        perWord = hasWordTimings,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .zIndex(2f)
+                            .padding(top = 76.dp, start = 18.dp)
+                            .scenaRise(1)
                     )
                 }
 
@@ -758,7 +818,7 @@ fun LyricsSheet(
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(
                                                 text = stringResource(R.string.lyrics_loading),
-                                                style = MaterialTheme.typography.titleMedium
+                                                style = scenaWide(20.sp)
                                             )
                                             Spacer(modifier = Modifier.height(8.dp))
                                             LinearWavyProgressIndicator(
@@ -778,7 +838,9 @@ fun LyricsSheet(
                             SyncedLyricsList(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(horizontal = 24.dp),
+                                    // The rows keep 8 dp of their own padding (room for the word pop), so the
+                                    // text edge lands at Scena.Gutter + 8 dp.
+                                    .padding(horizontal = Scena.Gutter - 4.dp),
                                 contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
                                 lines = synced,
                                 listState = syncedListState,
@@ -831,8 +893,8 @@ fun LyricsSheet(
                                 modifier = Modifier.fillMaxSize(),
                                 state = staticListState,
                                 contentPadding = PaddingValues(
-                                    start = 24.dp,
-                                    end = 24.dp,
+                                    start = Scena.Gutter + 8.dp,
+                                    end = Scena.Gutter + 8.dp,
                                     top = 130.dp,
                                     bottom = 24.dp
                                 )
@@ -918,8 +980,8 @@ fun LyricsSheet(
                         offsetMillis = lyricsSyncOffset,
                         onOffsetChange = onLyricsSyncOffsetChange,
                         backgroundColor = backgroundColor,
-                        accentColor = sheetColors.syncButtonContainer,
-                        onAccentColor = sheetColors.syncButtonContent,
+                        accentColor = accentColor,
+                        onAccentColor = onAccentColor,
                         onBackgroundColor = onBackgroundColor
                     )
                 }
@@ -932,19 +994,27 @@ fun LyricsSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Play/Pause Button (Smaller)
+                    // Scena: the play button is a rounded square while paused and morphs, springily, into
+                    // a circle while playing.
                     val playPauseCornerRadius by animateDpAsState(
-                        targetValue = if (isPlaying) 18.dp else 50.dp,
-                        animationSpec = spring(stiffness = Spring.StiffnessLow),
+                        targetValue = if (isPlaying) 36.dp else 22.dp,
+                        animationSpec = if (animationsEnabled) {
+                            spring(
+                                dampingRatio = Scena.Springy.dampingRatio,
+                                stiffness = Scena.Springy.stiffness
+                            )
+                        } else {
+                            snap()
+                        },
                         label = "playPauseShape"
                     )
 
                     Box(
                         modifier = Modifier
-                            .size(78.dp)
-                            .clip(RoundedCornerShape(playPauseCornerRadius))
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(playPauseCornerRadius.coerceAtLeast(0.dp)))
                             .background(playPauseColor)
-                            .clickable {
+                            .clickable(role = Role.Button) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onPlayPause()
                             },
@@ -958,7 +1028,7 @@ fun LyricsSheet(
                                 Icon(
                                     modifier = Modifier.size(32.dp),
                                     imageVector = Icons.Rounded.Pause,
-                                    contentDescription = "Pause",
+                                    contentDescription = stringResource(R.string.common_pause),
                                     tint = onPlayPauseColor
                                 )
                             } else {
@@ -1002,8 +1072,10 @@ fun LyricsSheet(
                     onMoreClick = { showMoreSheet = true },
                     backgroundColor = backgroundColor,
                     onBackgroundColor = onBackgroundColor,
-                    accentColor = accentColor,
-                    onAccentColor = onAccentColor,
+                    // Scena: the selected segment inverts (ink on ground) instead of taking the accent,
+                    // which stays reserved for the play button and the words that light up.
+                    accentColor = onBackgroundColor,
+                    onAccentColor = backgroundColor,
                     // Pass progress so the back button animates with the gesture (draw-phase).
                     backProgressProvider = { backProgressProvider.value },
                 )
@@ -1108,7 +1180,8 @@ fun LyricsSheet(
         ) {
             FilledIconButton(
                 onClick = { resetImmersiveTimer() },
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(52.dp),
+                shape = Scena.ControlShape,
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = accentColor,
                     contentColor = onAccentColor
@@ -1116,7 +1189,7 @@ fun LyricsSheet(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowUp,
-                    contentDescription = "Show Controls"
+                    contentDescription = stringResource(R.string.lyrics_scena_cd_show_controls)
                 )
             }
         }
@@ -1165,6 +1238,7 @@ fun LyricsSheet(
 
       }
     }
+    } // MaterialTheme (album scheme -> Scena colours)
 }
 
 @Composable
@@ -1194,6 +1268,45 @@ private fun LyricsPlaybackSeekBar(
     )
 }
 
+/** Where a lyric line sits relative to the playback position. */
+enum class LyricLinePhase { Past, Active, Future }
+
+/** Size, in sp, of the lines that are not active. The caller's [TextStyle] scales it (immersive mode). */
+private const val ScenaBaseLyricSp = 22f
+
+/** After an auto-scroll, how long to wait for the active line to finish growing before re-centring it. */
+private const val ScenaLineSettleMillis = 300L
+
+private fun TextStyle.lyricBaseSizeSp(): Float =
+    if (fontSize.isSpecified) fontSize.value else ScenaBaseLyricSp
+
+/** Longest run of Latin letters between spaces: the word that decides how big a line can be before it breaks. */
+private fun longestLatinWordChars(text: String): Int =
+    text.split(' ', '\u00A0')
+        .filter { word -> word.isNotEmpty() && word.all { it.code < 0x250 } }
+        .maxOfOrNull { it.length } ?: 0
+
+/**
+ * Size of the active line. Expanded heavy letterforms are wide (about 0.7 em per letter), so long lines
+ * step down instead of turning into a wall of text, and a long single word is kept from breaking in
+ * the middle. [userScale] (the caller's text scale, e.g. immersive mode) is carried halfway so the
+ * active line never explodes.
+ */
+private fun scenaActiveLyricSizeSp(charCount: Int, longestWordChars: Int, userScale: Float): Float {
+    val byLength = when {
+        charCount <= 22 -> 40f
+        charCount <= 36 -> 36f
+        charCount <= 56 -> 32f
+        else -> 28f
+    }
+    val byWord = if (longestWordChars > 0) {
+        (280f / (0.7f * longestWordChars)).coerceAtLeast(ScenaBaseLyricSp)
+    } else {
+        byLength
+    }
+    return minOf(byLength, byWord) * (1f + (userScale - 1f) * 0.5f)
+}
+
 @OptIn(ExperimentalSnapperApi::class)
 @Composable
 fun SyncedLyricsList(
@@ -1220,14 +1333,32 @@ fun SyncedLyricsList(
     footer: LazyListScope.() -> Unit = {}
 ) {
     val density = LocalDensity.current
-    val playbackPosition by playbackPositionFlow.collectAsStateWithLifecycle()
-    val position = remember(playbackPosition, lyricsSyncOffset, positionOverrideMs) {
-        positionOverrideMs ?: (playbackPosition + lyricsSyncOffset).coerceAtLeast(0L)
-    }
-    val isPreviewSeeking = positionOverrideMs != null
-    val currentLineIndex by remember(position, lines) {
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+
+    // The playback position stays a State on purpose: nothing at list level reads its value in
+    // composition. Only the derived line indexes (they change once per line) and the words of the
+    // active line (through [positionProvider]) depend on it, so a position tick never recomposes
+    // the whole list.
+    val playbackPositionState = playbackPositionFlow.collectAsStateWithLifecycle()
+    val latestSyncOffset by rememberUpdatedState(lyricsSyncOffset)
+    val latestPositionOverride by rememberUpdatedState(positionOverrideMs)
+    val positionState = remember {
         derivedStateOf {
-            resolveCurrentLineIndex(lines = lines, position = position)
+            latestPositionOverride ?: (playbackPositionState.value + latestSyncOffset).coerceAtLeast(0L)
+        }
+    }
+    val positionProvider: () -> Long = remember(positionState) { { positionState.value } }
+    val isPreviewSeeking = positionOverrideMs != null
+    val currentLineIndex by remember(lines) {
+        derivedStateOf {
+            resolveCurrentLineIndex(lines = lines, position = positionState.value)
+        }
+    }
+    // Last line that has started (it can have ended already): tells past lines from future ones.
+    val passedLineIndex by remember(lines) {
+        derivedStateOf {
+            val positionMs = positionState.value
+            lines.indexOfLast { it.time.toLong() <= positionMs }
         }
     }
     var hasAlignedInitialLine by remember(lines) { mutableStateOf(false) }
@@ -1248,60 +1379,63 @@ fun SyncedLyricsList(
         )
         val flingBehavior = rememberSnapperFlingBehavior(layoutInfo = snapperLayoutInfo)
 
-        LaunchedEffect(currentLineIndex, lines.size, metrics, isPreviewSeeking) {
+        // Snapshot of the active line for the effect below: it must not see the index change under its feet.
+        val activeLineIndex = currentLineIndex
+
+        LaunchedEffect(activeLineIndex, lines.size, metrics, isPreviewSeeking) {
             if (lines.isEmpty()) return@LaunchedEffect
-            if (currentLineIndex !in lines.indices) return@LaunchedEffect
+            if (activeLineIndex !in lines.indices) return@LaunchedEffect
 
             if (listState.layoutInfo.totalItemsCount == 0) {
                 snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
             }
 
             if (!hasAlignedInitialLine) {
-                listState.scrollToItem(currentLineIndex)
+                listState.scrollToItem(activeLineIndex)
                 snapToSnapIndex(
                     listState = listState,
                     layoutInfo = snapperLayoutInfo,
-                    targetIndex = currentLineIndex
+                    targetIndex = activeLineIndex
                 )
                 hasAlignedInitialLine = true
-                lastAutoScrolledLineIndex = currentLineIndex
+                lastAutoScrolledLineIndex = activeLineIndex
                 return@LaunchedEffect
             }
 
             if (listState.isScrollInProgress && !isPreviewSeeking) return@LaunchedEffect
 
             val lineJumpDistance = if (lastAutoScrolledLineIndex >= 0) {
-                abs(currentLineIndex - lastAutoScrolledLineIndex)
+                abs(activeLineIndex - lastAutoScrolledLineIndex)
             } else {
                 0
             }
 
             if (isPreviewSeeking) {
-                if (lineJumpDistance > 2) {
-                    listState.scrollToItem(currentLineIndex)
+                if (lineJumpDistance > 2 || !animationsEnabled) {
+                    listState.scrollToItem(activeLineIndex)
                     snapToSnapIndex(
                         listState = listState,
                         layoutInfo = snapperLayoutInfo,
-                        targetIndex = currentLineIndex
+                        targetIndex = activeLineIndex
                     )
                 } else {
                     animateToSnapIndex(
                         listState = listState,
                         layoutInfo = snapperLayoutInfo,
-                        targetIndex = currentLineIndex,
+                        targetIndex = activeLineIndex,
                         animationSpec = tween(durationMillis = 110, easing = FastOutSlowInEasing)
                     )
                 }
-                lastAutoScrolledLineIndex = currentLineIndex
+                lastAutoScrolledLineIndex = activeLineIndex
                 return@LaunchedEffect
             }
 
             // Music Style Dynamic Velocity
             val dynamicAnimationSpec = if (useAnimatedLyrics) {
-                val currentLineTime = lines.getOrNull(currentLineIndex)?.time ?: 0
-                val nextLineTime = lines.getOrNull(currentLineIndex + 1)?.time ?: (currentLineTime + 1000)
+                val currentLineTime = lines.getOrNull(activeLineIndex)?.time ?: 0
+                val nextLineTime = lines.getOrNull(activeLineIndex + 1)?.time ?: (currentLineTime + 1000)
                 val timeDiff = (nextLineTime - currentLineTime).coerceIn(250, 2000) // Bound the duration
-                
+
                 tween<Float>(
                     durationMillis = timeDiff,
                     easing = FastOutSlowInEasing
@@ -1310,13 +1444,42 @@ fun SyncedLyricsList(
                 autoscrollAnimationSpec
             }
 
-            animateToSnapIndex(
-                listState = listState,
-                layoutInfo = snapperLayoutInfo,
-                targetIndex = currentLineIndex,
-                animationSpec = dynamicAnimationSpec
-            )
-            lastAutoScrolledLineIndex = currentLineIndex
+            if (animationsEnabled) {
+                animateToSnapIndex(
+                    listState = listState,
+                    layoutInfo = snapperLayoutInfo,
+                    targetIndex = activeLineIndex,
+                    animationSpec = dynamicAnimationSpec
+                )
+            } else {
+                snapToSnapIndex(
+                    listState = listState,
+                    layoutInfo = snapperLayoutInfo,
+                    targetIndex = activeLineIndex
+                )
+            }
+            lastAutoScrolledLineIndex = activeLineIndex
+
+            // Scena: the active line grows (and the previous one shrinks) while the list scrolls, so the
+            // distance measured when the scroll started is a little off. Once the sizes have settled,
+            // re-centre the line. Skipped when the user grabbed the list in the meantime.
+            delay(if (animationsEnabled) ScenaLineSettleMillis else 64L)
+            if (!listState.isScrollInProgress) {
+                if (animationsEnabled) {
+                    animateToSnapIndex(
+                        listState = listState,
+                        layoutInfo = snapperLayoutInfo,
+                        targetIndex = activeLineIndex,
+                        animationSpec = tween(durationMillis = 240, easing = Scena.EaseEmphasised)
+                    )
+                } else {
+                    snapToSnapIndex(
+                        listState = listState,
+                        layoutInfo = snapperLayoutInfo,
+                        targetIndex = activeLineIndex
+                    )
+                }
+            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -1331,8 +1494,14 @@ fun SyncedLyricsList(
                     key = { index, item -> "${item.time}_$index" }
                 ) { index, line ->
                     val nextTime = lines.getOrNull(index + 1)?.time ?: Int.MAX_VALUE
-                    val distanceFromCurrent = if (currentLineIndex != -1) abs(currentLineIndex - index) else 100
-                    
+                    val activeIndex = currentLineIndex
+                    val distanceFromCurrent = if (activeIndex != -1) abs(activeIndex - index) else 100
+                    val phase = when {
+                        index == activeIndex -> LyricLinePhase.Active
+                        index <= passedLineIndex -> LyricLinePhase.Past
+                        else -> LyricLinePhase.Future
+                    }
+
                     val parallaxModifier = if (useAnimatedLyrics) {
                         Modifier.graphicsLayer {
                             // Calculate translation dynamically inside graphicsLayer to avoid recomposing the row during scroll
@@ -1340,12 +1509,12 @@ fun SyncedLyricsList(
                             val lineItemInfo = currentLayoutInfo.visibleItemsInfo.find { it.index == index }
                             val itemCenter = lineItemInfo?.let { it.offset + (it.size / 2f) }
                             val viewportCenter = currentLayoutInfo.viewportEndOffset / 2f
-                            
+
                             val distanceFromCenter = itemCenter?.let { it - viewportCenter } ?: 0f
-                            
-                            val maxTranslation = 40f 
+
+                            val maxTranslation = 40f
                             val distanceRatio = (distanceFromCenter / viewportCenter).coerceIn(-1f, 1f)
-                            translationY = distanceRatio * distanceRatio * distanceRatio * maxTranslation 
+                            translationY = distanceRatio * distanceRatio * distanceRatio * maxTranslation
                         }
                     } else Modifier
 
@@ -1353,7 +1522,6 @@ fun SyncedLyricsList(
                         LyricLineRow(
                             line = line,
                             nextTime = nextTime,
-                            position = position,
                             distanceFromCurrent = distanceFromCurrent,
                             useAnimatedLyrics = useAnimatedLyrics,
                             animatedLyricsBlurEnabled = animatedLyricsBlurEnabled,
@@ -1364,6 +1532,8 @@ fun SyncedLyricsList(
                             showRomanization = showRomanization,
                             accentColor = accentColor,
                             style = textStyle,
+                            positionProvider = positionProvider,
+                            phase = phase,
                             modifier = parallaxModifier
                                 .fillMaxWidth()
                                 .testTag("synced_line_${line.time}"),
@@ -1373,7 +1543,7 @@ fun SyncedLyricsList(
                         BubblesLine(
                             positionFlow = playbackPositionFlow,
                             time = line.time,
-                            color = LocalContentColor.current.copy(alpha = 0.6f),
+                            color = MaterialTheme.scena.ink2.copy(alpha = 0.6f),
                             nextTime = nextTime,
                             modifier = parallaxModifier
                                 .fillMaxWidth()
@@ -1401,12 +1571,25 @@ fun SyncedLyricsList(
     }
 }
 
+/**
+ * One synced line.
+ *
+ * Scena type: the active line is large, expanded and heavy ([scenaDisplay]); the others are
+ * [scenaWide] at reduced alpha, past lines more present than future ones. Lines with word timings
+ * light up word by word (dim ink2 to the accent, with a small springy pop on the word that just
+ * lit); lines without word timings light up all at once when they become active. Word timings are
+ * never invented.
+ *
+ * [positionProvider] lets the caller hand over the playback position as a lazily-read State, and
+ * [phase] the already-resolved relation of the line to the playback position; both keep the row from
+ * recomposing on every position tick. Without them the row falls back to [position].
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LyricLineRow(
     line: SyncedLine,
     nextTime: Int,
-    position: Long,
+    position: Long = 0L,
     distanceFromCurrent: Int = 100,
     useAnimatedLyrics: Boolean = false,
     animatedLyricsBlurEnabled: Boolean = true,
@@ -1417,9 +1600,17 @@ fun LyricLineRow(
     showRomanization: Boolean = true,
     accentColor: Color,
     style: TextStyle,
+    positionProvider: (() -> Long)? = null,
+    phase: LyricLinePhase? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val scena = MaterialTheme.scena
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val density = LocalDensity.current
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val seekLabel = stringResource(R.string.lyrics_scena_cd_seek_line)
+
     val sanitizedLine = remember(line.line) { sanitizeLyricLineText(line.line) }
     val sanitizedWords = remember(line.words) {
         line.words?.let(::sanitizeSyncedWords)
@@ -1430,52 +1621,105 @@ fun LyricLineRow(
     val lineEndTime = remember(line, nextTime) {
         resolveLineEndTimeMs(line, nextTime)
     }
-    val isCurrentLine by remember(position, line.time, lineEndTime) {
-        derivedStateOf { position in line.time.toLong()..<lineEndTime }
+    val readPosition: () -> Long = positionProvider ?: { position }
+    val resolvedPhase = phase ?: when {
+        position < line.time.toLong() -> LyricLinePhase.Future
+        position < lineEndTime -> LyricLinePhase.Active
+        else -> LyricLinePhase.Past
     }
-    val unhighlightedColor = LocalContentColor.current.copy(alpha = 0.45f)
+    val isCurrentLine = resolvedPhase == LyricLinePhase.Active
+
+    // ─── Type: big, expanded and heavy when active; wide semibold otherwise ───────────────────────
+    val baseSp = style.lyricBaseSizeSp()
+    val activeSp = remember(sanitizedLine, baseSp) {
+        scenaActiveLyricSizeSp(
+            charCount = sanitizedLine.length,
+            longestWordChars = longestLatinWordChars(sanitizedLine),
+            userScale = baseSp / ScenaBaseLyricSp
+        )
+    }
+    val growth by animateFloatAsState(
+        targetValue = if (isCurrentLine) 1f else 0f,
+        animationSpec = if (animationsEnabled) {
+            tween(durationMillis = 420, easing = Scena.EaseEmphasised)
+        } else {
+            snap()
+        },
+        label = "lineGrowth"
+    )
+    val fontSp = lerp(baseSp, activeSp, growth)
+    val lineTextStyle = if (isCurrentLine) {
+        scenaDisplay(fontSp.sp).copy(lineHeight = (fontSp * 1.12f).sp)
+    } else {
+        scenaWide(fontSp.sp)
+    }
+
+    // ─── Colour: ink2 (dim) until the line, or the word, is reached; then the single accent ──────
+    val restingAlpha = when (resolvedPhase) {
+        LyricLinePhase.Active -> 0.62f
+        LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.74f
+        LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.52f
+    }
+    val unlitColor = scena.ink2.copy(alpha = restingAlpha)
     val lineColor by animateColorAsState(
-        targetValue = if (isCurrentLine) accentColor else unhighlightedColor,
-        animationSpec = if (useAnimatedLyrics) spring(
-            stiffness = Spring.StiffnessVeryLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
-        ) else tween(durationMillis = 250),
+        targetValue = if (isCurrentLine) accentColor else unlitColor,
+        animationSpec = if (animationsEnabled) {
+            tween(durationMillis = 260, easing = Scena.EaseEmphasised)
+        } else {
+            snap()
+        },
         label = "lineColor"
     )
 
-    // Animated mode: fisheye scaling + alpha based on distance from current line
+    // Animated mode (user preference): fisheye scaling + alpha based on distance from current line
     val targetScale = if (useAnimatedLyrics) when (distanceFromCurrent) {
-        0 -> if (immersiveMode) 1.02f else 1.1f; 1 -> 0.95f; else -> 0.85f
+        0 -> if (immersiveMode) 1f else 1.04f; 1 -> 0.95f; else -> 0.85f
     } else 1f
     val targetPadding = if (useAnimatedLyrics) when (distanceFromCurrent) {
-        0 -> 32.dp; 1 -> 16.dp; else -> 8.dp
-    } else 12.dp
+        0 -> 28.dp; 1 -> 16.dp; else -> 8.dp
+    } else if (isCurrentLine) 16.dp else 10.dp
     val targetAlpha = if (useAnimatedLyrics) when (distanceFromCurrent) {
         0 -> 1.0f; 1 -> 0.6f; else -> 0.3f
     } else 1f
 
-    val scale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = if (useAnimatedLyrics) spring(
+    val floatSpec: AnimationSpec<Float> = when {
+        !animationsEnabled -> snap()
+        useAnimatedLyrics -> spring(
             stiffness = Spring.StiffnessVeryLow,
             dampingRatio = Spring.DampingRatioMediumBouncy
-        ) else tween(durationMillis = 200),
+        )
+        else -> tween(durationMillis = 200)
+    }
+    val dpSpec: AnimationSpec<Dp> = when {
+        !animationsEnabled -> snap()
+        useAnimatedLyrics -> spring(
+            stiffness = Spring.StiffnessVeryLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy
+        )
+        else -> tween(durationMillis = 420, easing = Scena.EaseEmphasised)
+    }
+    val alphaSpec: AnimationSpec<Float> = when {
+        !animationsEnabled -> snap()
+        useAnimatedLyrics -> spring(
+            stiffness = Spring.StiffnessLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        )
+        else -> tween(durationMillis = 200)
+    }
+
+    val scale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = floatSpec,
         label = "lineScale"
     )
     val verticalPadding by animateDpAsState(
         targetValue = targetPadding,
-        animationSpec = if (useAnimatedLyrics) spring(
-            stiffness = Spring.StiffnessVeryLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
-        ) else tween(durationMillis = 200),
+        animationSpec = dpSpec,
         label = "linePadding"
     )
     val alpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = if (useAnimatedLyrics) spring(
-            stiffness = Spring.StiffnessLow,
-            dampingRatio = Spring.DampingRatioNoBouncy
-        ) else tween(durationMillis = 200),
+        animationSpec = alphaSpec,
         label = "lineAlpha"
     )
 
@@ -1486,7 +1730,11 @@ fun LyricLineRow(
 
     val blurRadius by animateDpAsState(
         targetValue = targetBlur,
-        animationSpec = if (useAnimatedLyrics) tween(durationMillis = 400) else tween(durationMillis = 200),
+        animationSpec = if (animationsEnabled) {
+            tween(durationMillis = if (useAnimatedLyrics) 400 else 200)
+        } else {
+            snap()
+        },
         label = "lineBlur"
     )
 
@@ -1509,8 +1757,8 @@ fun LyricLineRow(
                 transformOrigin = TransformOrigin(
                     pivotFractionX = when (lyricsAlignment) {
                         "center" -> 0.5f
-                        "right" -> 1f
-                        else -> 0f
+                        "right" -> if (isRtl) 0f else 1f
+                        else -> if (isRtl) 1f else 0f
                     },
                     pivotFractionY = 0.5f
                 )
@@ -1522,15 +1770,15 @@ fun LyricLineRow(
     val translationText = line.translation
     val romanizationText = line.romanization
 
-    val secondaryStyle = remember(style) {
+    val secondaryStyle = remember(style, baseSp) {
         style.copy(
-            fontSize = (style.fontSize.value * 0.75f).sp,
+            fontSize = (baseSp * 0.75f).sp,
             fontWeight = FontWeight.Normal
         )
     }
 
-    val romanizationColor = lineColor.copy(alpha = lineColor.alpha * 0.85f)
-    val translationColor = lineColor.copy(alpha = lineColor.alpha * 0.55f)
+    val romanizationColor = scena.ink2.copy(alpha = if (isCurrentLine) 0.95f else 0.6f)
+    val translationColor = scena.ink2.copy(alpha = if (isCurrentLine) 0.8f else 0.45f)
 
     val horizontalAlignment = when (lyricsAlignment) {
         "center" -> Alignment.CenterHorizontally
@@ -1540,132 +1788,150 @@ fun LyricLineRow(
 
     val textAlign = when (lyricsAlignment) {
         "center" -> TextAlign.Center
-        "right" -> TextAlign.Right
-        else -> TextAlign.Left
+        "right" -> TextAlign.End
+        else -> TextAlign.Start
     }
 
-    val boxAlignment = when (lyricsAlignment) {
-        "center" -> Alignment.TopCenter
-        "right" -> Alignment.TopEnd
-        else -> Alignment.TopStart
-    }
+    // 48 dp touch target; the 8 dp of inner padding leave room for the pop of a word that just lit
+    // (it is drawn in a graphics layer, inside the clip of the row).
+    val rowModifier = animatedModifier
+        .fillMaxWidth()
+        .heightIn(min = 48.dp)
+        .semantics { selected = isCurrentLine }
+        .clip(Scena.ControlShape)
+        .clickable(onClickLabel = seekLabel) { onClick() }
+        .padding(vertical = verticalPadding, horizontal = 8.dp)
 
     if (sanitizedWordClusters.isNullOrEmpty()) {
+        // No word timings (SRT, line-level LRC): the whole line lights at once.
         Column(
-            modifier = animatedModifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onClick() }
-                .padding(vertical = verticalPadding, horizontal = 2.dp),
+            modifier = rowModifier,
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = horizontalAlignment
         ) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = boxAlignment) {
-                // Invisible bold text to reserve layout space and prevent reflow
-                Text(
-                    text = sanitizedLine,
-                    style = style,
-                    color = Color.Transparent,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = textAlign
-                )
-                Text(
-                    text = sanitizedLine,
-                    style = style,
-                    color = lineColor,
-                    fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
-                    textAlign = textAlign
-                )
-            }
+            Text(
+                text = sanitizedLine,
+                style = lineTextStyle,
+                color = lineColor,
+                textAlign = textAlign,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            if (showRomanization && !romanizationText.isNullOrBlank()) {
-                Text(
-                    text = romanizationText,
-                    style = secondaryStyle,
-                    color = romanizationColor,
-                    textAlign = textAlign,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
-            if (showTranslation && !translationText.isNullOrBlank()) {
-                Text(
-                    text = translationText,
-                    style = secondaryStyle,
-                    color = translationColor,
-                    textAlign = textAlign,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            LyricSecondaryLines(
+                romanization = romanizationText.takeIf { showRomanization },
+                translation = translationText.takeIf { showTranslation },
+                style = secondaryStyle,
+                romanizationColor = romanizationColor,
+                translationColor = translationColor,
+                textAlign = textAlign
+            )
         }
     } else {
-        val highlightedWordIndex by remember(position, sanitizedWords, line.time, lineEndTime) {
+        // Word timings: every word lights as playback reaches its timestamp, and stays lit for the
+        // rest of the line. Read lazily: only the active line looks at the position.
+        val highlightedWordIndex by remember(sanitizedWords, line.time, lineEndTime, readPosition) {
             derivedStateOf {
                 resolveHighlightedWordIndex(
                     words = requireNotNull(sanitizedWords),
-                    positionMs = position,
+                    positionMs = readPosition(),
                     lineStartTimeMs = line.time.toLong(),
                     lineEndTimeMs = lineEndTime
                 )
             }
         }
+        val litUpTo = if (isCurrentLine) highlightedWordIndex else -1
+        // A space of the active face; syllables of one word are glued together by their cluster Row.
+        val wordGap = with(density) { (fontSp * 0.26f).sp.toDp() }
 
         Column(
-            modifier = animatedModifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onClick() }
-                .padding(vertical = verticalPadding, horizontal = 2.dp),
+            modifier = rowModifier,
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = horizontalAlignment
         ) {
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = when (lyricsAlignment) {
-                    "center" -> Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
-                    "right" -> Arrangement.spacedBy(3.dp, Alignment.End)
-                    else -> Arrangement.spacedBy(3.dp, Alignment.Start)
+                    "center" -> Arrangement.spacedBy(wordGap, Alignment.CenterHorizontally)
+                    "right" -> Arrangement.spacedBy(wordGap, Alignment.End)
+                    else -> Arrangement.spacedBy(wordGap, Alignment.Start)
                 },
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 sanitizedWordClusters.forEach { cluster ->
-                    cluster.words.forEachIndexed { clusterOffset, word ->
-                        val wordIndex = cluster.startIndex + clusterOffset
-                        key("${line.time}_${word.time}_${word.word}_$wordIndex") {
-                            LyricWordSpan(
-                                word = word,
-                                isHighlighted = isCurrentLine && wordIndex == highlightedWordIndex,
-                                useAnimatedLyrics = useAnimatedLyrics,
-                                style = style,
-                                highlightedColor = accentColor,
-                                unhighlightedColor = unhighlightedColor
-                            )
+                    key("${line.time}_cluster_${cluster.startIndex}") {
+                        Row {
+                            cluster.words.forEachIndexed { clusterOffset, word ->
+                                val wordIndex = cluster.startIndex + clusterOffset
+                                key("${line.time}_${word.time}_${word.word}_$wordIndex") {
+                                    LyricWordSpan(
+                                        word = word,
+                                        isHighlighted = wordIndex <= litUpTo,
+                                        isCurrentWord = wordIndex == litUpTo,
+                                        useAnimatedLyrics = useAnimatedLyrics,
+                                        style = lineTextStyle,
+                                        highlightedColor = accentColor,
+                                        unhighlightedColor = unlitColor,
+                                        positionProvider = readPosition
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            if (showRomanization && !romanizationText.isNullOrBlank()) {
-                Text(
-                    text = romanizationText,
-                    style = secondaryStyle,
-                    color = romanizationColor,
-                    textAlign = textAlign,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
-            if (showTranslation && !translationText.isNullOrBlank()) {
-                Text(
-                    text = translationText,
-                    style = secondaryStyle,
-                    color = translationColor,
-                    textAlign = textAlign,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            LyricSecondaryLines(
+                romanization = romanizationText.takeIf { showRomanization },
+                translation = translationText.takeIf { showTranslation },
+                style = secondaryStyle,
+                romanizationColor = romanizationColor,
+                translationColor = translationColor,
+                textAlign = textAlign
+            )
         }
     }
 }
 
+/** Romanization and translation under a synced line (null or blank = not shown). */
+@Composable
+private fun LyricSecondaryLines(
+    romanization: String?,
+    translation: String?,
+    style: TextStyle,
+    romanizationColor: Color,
+    translationColor: Color,
+    textAlign: TextAlign
+) {
+    if (!romanization.isNullOrBlank()) {
+        Text(
+            text = romanization,
+            style = style,
+            color = romanizationColor,
+            textAlign = textAlign,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+        )
+    }
+
+    if (!translation.isNullOrBlank()) {
+        Text(
+            text = translation,
+            style = style,
+            color = translationColor,
+            textAlign = textAlign,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp)
+        )
+    }
+}
+
+/**
+ * One word (or syllable) of a word-timed line. [isHighlighted] means the word has been reached, so it is
+ * lit; [isCurrentWord] marks the one that lit last: it gets a small springy scale pop (about 1.08) when it
+ * has just lit, never a made-up one for words that were already lit when the row came into view.
+ */
 @Composable
 fun LyricWordSpan(
     word: SyncedWord,
@@ -1674,62 +1940,55 @@ fun LyricWordSpan(
     style: TextStyle,
     highlightedColor: Color,
     unhighlightedColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isCurrentWord: Boolean = isHighlighted,
+    positionProvider: (() -> Long)? = null
 ) {
-    val wordAnimSpec = if (useAnimatedLyrics) spring<Float>(
-        stiffness = Spring.StiffnessVeryLow,
-        dampingRatio = Spring.DampingRatioMediumBouncy
-    ) else tween(durationMillis = 200)
+    val animationsEnabled = rememberScenaAnimationsEnabled()
 
     val color by animateColorAsState(
         targetValue = if (isHighlighted) highlightedColor else unhighlightedColor,
-        animationSpec = if (useAnimatedLyrics) spring(
-            stiffness = Spring.StiffnessVeryLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
-        ) else tween(durationMillis = 200),
+        animationSpec = if (animationsEnabled) {
+            tween(durationMillis = 220, easing = Scena.EaseEmphasised)
+        } else {
+            snap()
+        },
         label = "wordColor"
     )
 
-    // Scale: pop up to 1.10 on highlight, settle back to 1f. Only active when
-    // animated lyrics is on — layout is untouched because it's applied in graphicsLayer.
-    val scale by animateFloatAsState(
-        targetValue = if (useAnimatedLyrics && isHighlighted) 1.10f else 1f,
-        animationSpec = wordAnimSpec,
-        label = "wordScale"
-    )
-
-    // Alpha: unhighlighted words dim slightly so the active word pops without
-    // needing a hard color contrast. Only active when animated lyrics is on.
-    val alpha by animateFloatAsState(
-        targetValue = if (useAnimatedLyrics && !isHighlighted) 0.55f else 1f,
-        animationSpec = wordAnimSpec,
-        label = "wordAlpha"
-    )
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        // Invisible bold text to reserve layout space and prevent reflow
-        Text(
-            text = word.word,
-            style = style,
-            color = Color.Transparent,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = word.word,
-            style = style,
-            color = color,
-            fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
-            // Scale and alpha applied at draw phase — zero layout impact per frame.
-            modifier = Modifier.graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                this.alpha = alpha
+    // Pop: up to ~1.08 when the word lights, then settle back to 1. Applied in the graphics layer, so
+    // the layout is untouched and nothing recomposes while it runs.
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(isCurrentWord, animationsEnabled) {
+        if (!animationsEnabled) {
+            pop.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (isCurrentWord) {
+            val sinceWordStart = (positionProvider?.invoke() ?: word.time.toLong()) - word.time.toLong()
+            if (sinceWordStart in 0L..600L) {
+                pop.animateTo(
+                    targetValue = 1.08f,
+                    animationSpec = spring(
+                        dampingRatio = 0.5f,
+                        stiffness = Spring.StiffnessHigh
+                    )
+                )
             }
-        )
+        }
+        pop.animateTo(1f, Scena.Springy)
     }
+
+    Text(
+        text = word.word,
+        style = style,
+        color = color,
+        // Scale applied at draw phase — zero layout impact per frame.
+        modifier = modifier.graphicsLayer {
+            scaleX = pop.value
+            scaleY = pop.value
+        }
+    )
 }
 
 @Composable
@@ -1771,8 +2030,8 @@ fun PlainLyricsLine(
     }
     val textAlign = when (lyricsAlignment) {
         "center" -> TextAlign.Center
-        "right" -> TextAlign.Right
-        else -> TextAlign.Left
+        "right" -> TextAlign.End
+        else -> TextAlign.Start
     }
 
     val horizontalAlignment = when (lyricsAlignment) {
@@ -1781,17 +2040,27 @@ fun PlainLyricsLine(
         else -> Alignment.Start
     }
 
-    val translationStyle = remember(style) {
+    // Scena: static lyrics are wide semibold ink, translations and romanizations ink2.
+    val scena = MaterialTheme.scena
+    val baseSp = style.lyricBaseSizeSp()
+    val primaryStyle = remember(baseSp) { scenaWide(baseSp.sp) }
+    val translationStyle = remember(style, baseSp) {
         style.copy(
-            fontSize = (style.fontSize.value * 0.75f).sp,
+            fontSize = (baseSp * 0.75f).sp,
             fontWeight = FontWeight.Normal
         )
     }
-    val translationColor = LocalContentColor.current.copy(alpha = 0.45f)
+    val translationColor = scena.ink2.copy(alpha = 0.8f)
 
     Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
         if (primaryText.isNotBlank()) {
-            Text(text = primaryText, style = style, color = LocalContentColor.current.copy(alpha = 0.7f), textAlign = textAlign)
+            Text(
+                text = primaryText,
+                style = primaryStyle,
+                color = scena.ink.copy(alpha = 0.9f),
+                textAlign = textAlign,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             if (showRomanization && romanizationText.isNotBlank()) {
                 Text(
@@ -2002,6 +2271,60 @@ internal fun resolveCurrentLineIndex(
     }?.index ?: -1
 }
 
+/**
+ * Scena: a big accent cookie behind the lyrics, at low alpha. It sits partly off the top end corner and
+ * turns very slowly, only while the music plays ([CookieDisc] never spins with system animations off).
+ */
+@Composable
+private fun ScenaLyricsBlob(
+    color: Color,
+    spinning: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    CookieDisc(
+        modifier = modifier
+            .size(380.dp)
+            // Pushed towards the outside of the end edge, whichever side that is.
+            .offset(x = if (isRtl) (-150).dp else 150.dp, y = (-90).dp)
+            .graphicsLayer { alpha = 0.10f },
+        color = color,
+        spinning = spinning,
+        periodMillis = 90_000
+    )
+}
+
+/** Scena: tells whether the current lyrics are timed per word or per line (derived from the data). */
+@Composable
+private fun LyricsTimingChip(
+    perWord: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    Row(
+        modifier = modifier
+            .background(color = scena.bg2, shape = CircleShape)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(color = if (perWord) scena.acc else scena.ink2, shape = CircleShape)
+        )
+        Text(
+            text = stringResource(
+                if (perWord) R.string.lyrics_scena_timing_word else R.string.lyrics_scena_timing_line
+            ),
+            style = scenaWide(12.sp),
+            color = scena.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 private fun LyricsTrackInfo(
     song: Song?,
@@ -2012,37 +2335,25 @@ private fun LyricsTrackInfo(
 ) {
     if (song == null) return
 
-    val albumShape = CircleShape
+    val scena = MaterialTheme.scena
+    val animationsEnabled = rememberScenaAnimationsEnabled()
 
-    // Helper state to stop rotation when paused, but we want it to pause in place?
-    // Using infiniteTransition.animateFloat will reset on recomposition if spec changes or stops.
-    // For a realistic vinyl pause, we need a manual Animatable that loops.
-    // But for simplicity requested: "Animate the cover art to rotate... when music is playing".
-    // If we just use conditional Modifier.graphicsLayer rotation, it might jump.
-    // Let's use a simpler approach: if isPlaying, rotate.
-    
-    // Better approach for pausing rotation in place is non-trivial without a dedicated running time state.
-    // Given the constraints, I will use a simple AnimatedVisibility or just let it reset, OR
-    // use a monotonic clock if possible.
-    // Let's stick to infinite transition for running, and maybe 0f for static?
-    // Actually, user said "simulate a vinyl record". This implies continuous storage of rotation?
-    // I'll try to implement continuous rotation.
-    
+    // Scena: the cover is the record, a cookie that turns slowly and only while the music plays. A small
+    // notch near the rim makes the spin visible. The rotation lives in the graphics layer.
     val currentRotation = remember { Animatable(0f) }
-    
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            // Spin forever. 8s per revolution halves the effective per-second animation work
-            // vs the original 4s cadence — visually still clearly a rotating "vinyl", but
-            // drives fewer Compose invalidations during long listening sessions.
+
+    LaunchedEffect(isPlaying, animationsEnabled) {
+        if (isPlaying && animationsEnabled) {
+            // Spin forever, 16 s per revolution. The angle is kept when paused, so the record resumes
+            // where it stopped.
             while (true) {
                 currentRotation.animateTo(
                     targetValue = currentRotation.value + 360f,
-                    animationSpec = tween(8000, easing = LinearEasing)
+                    animationSpec = tween(16_000, easing = LinearEasing)
                 )
             }
         } else {
-             currentRotation.stop()
+            currentRotation.stop()
         }
     }
 
@@ -2053,15 +2364,23 @@ private fun LyricsTrackInfo(
     ) {
         SmartImage(
             model = song.albumArtUriString ?: R.drawable.rounded_album_24,
-            shape = albumShape,
-            contentDescription = "Cover Art",
+            shape = CookieShape,
+            contentDescription = stringResource(R.string.lyrics_scena_cd_cover),
             modifier = Modifier
                 .size(66.dp)
                 .padding(6.dp)
                 .graphicsLayer {
                     rotationZ = currentRotation.value % 360f
                 }
-                .clip(albumShape),
+                .clip(CookieShape)
+                .drawWithContent {
+                    drawContent()
+                    drawCircle(
+                        color = backgroundColor,
+                        radius = size.minDimension * 0.045f,
+                        center = Offset(size.width / 2f, size.height * 0.13f)
+                    )
+                },
             contentScale = ContentScale.Crop
         )
 
@@ -2074,20 +2393,15 @@ private fun LyricsTrackInfo(
         ) {
             Text(
                 text = song.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = contentColor,
-                    //textGeometricTransform = TextGeometricTransform(scaleX = (0.9f)),
-                ),
+                style = scenaWide(16.sp),
+                color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.displayArtist,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = contentColor.copy(alpha = 0.7f),
-                    //textGeometricTransform = TextGeometricTransform(scaleX = (0.9f)),
-                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = scena.ink2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: Library screen, tabs and song rows. English is the default. -->
+<resources>
+    <!-- Spoken description of the cover of the track that is playing right now. -->
+    <string name="scena_library_cover_now_playing">Now playing: %1$s</string>
+    <!-- Spoken description of the cover of the current track while it is paused. -->
+    <string name="scena_library_cover_current">Current track: %1$s</string>
+</resources>

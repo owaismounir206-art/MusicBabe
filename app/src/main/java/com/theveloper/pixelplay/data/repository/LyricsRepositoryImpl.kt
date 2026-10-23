@@ -1161,7 +1161,12 @@ class LyricsRepositoryImpl @Inject constructor(
             .replace("&#39;", "'")
 
     /**
-     * Find local .lrc file next to the music file (matching Rhythm)
+     * Find a local lyrics file next to the music file (matching Rhythm).
+     *
+     * Only the song's own folder is searched. The same-basename sidecar is tried for every
+     * extension in [LyricsImportSecurity.supportedFileExtensions]: .lrc first, then .ttml, then
+     * the subtitle formats .srt and .vtt. Each candidate goes through the usual size / encoding
+     * validation before it is accepted.
      */
     private suspend fun findLocalLyricsFile(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {

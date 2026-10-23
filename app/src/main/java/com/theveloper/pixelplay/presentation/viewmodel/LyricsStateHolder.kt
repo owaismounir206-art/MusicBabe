@@ -383,7 +383,7 @@ class LyricsStateHolder @Inject constructor(
                         _messageEvents.emit(cb.getString(R.string.lyrics_translate_success))
                     } else {
                         val reason = (validation as LyricsImportValidationResult.Invalid).reason
-                        val errorMsg = LyricsImportSecurity.messageFor(reason)
+                        val errorMsg = cb.getString(LyricsImportSecurity.messageResFor(reason))
                         _messageEvents.emit(cb.getErrorString(errorMsg))
                     }
                 } else {
@@ -457,7 +457,9 @@ class LyricsStateHolder @Inject constructor(
                     _searchUiState.value = LyricsSearchUiState.Success(validation.value.parsedLyrics)
                 } else if (!autoMode) {
                     val reason = (validation as LyricsImportValidationResult.Invalid).reason
-                    _messageEvents.emit(cb.getErrorString(LyricsImportSecurity.messageFor(reason)))
+                    _messageEvents.emit(
+                        cb.getErrorString(cb.getString(LyricsImportSecurity.messageResFor(reason)))
+                    )
                 }
             } else if (!autoMode) {
                 val error = aiResult?.exceptionOrNull()
@@ -520,6 +522,8 @@ class LyricsStateHolder @Inject constructor(
         return runCatching {
             val songFile = File(song.path)
             val directory = songFile.parentFile ?: return@runCatching null
+            // Same-basename sidecar files in the song's own folder only, tried in the order of
+            // supportedFileExtensions(): .lrc, .ttml, then the subtitle formats .srt and .vtt.
             for (extension in LyricsImportSecurity.supportedFileExtensions()) {
                 val lyricsFile = File(directory, "${songFile.nameWithoutExtension}.$extension")
                 if (!lyricsFile.exists() || !lyricsFile.canRead()) continue

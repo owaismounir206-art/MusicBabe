@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: Settings bento grid. English is the default; other locales fall back to it until translated. -->
+<resources>
+    <!-- Accessibility: click label of a Settings tile ("Double tap to open Playback"). %1$s is the tile title. -->
+    <string name="settings_scena_tile_open">Open %1$s</string>
+</resources>

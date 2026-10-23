@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.utils
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Lyrics
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -57,6 +60,30 @@ object LyricsImportSecurity {
                 "application/ttml+xml",
                 "application/xml",
                 "text/xml",
+                "text/plain",
+                "application/octet-stream"
+            )
+        ),
+
+        // SubRip and WebVTT subtitles. The extension only selects the size / MIME policy; the
+        // actual format is always detected from the content by LyricsUtils.parseLyrics.
+        // The declaration order is also the order in which sidecar files next to a song are
+        // tried: .lrc first, then .ttml, then .srt and .vtt.
+        SRT(
+            extension = "srt",
+            allowedMimeTypes = setOf(
+                "application/x-subrip",
+                "application/subrip",
+                "text/srt",
+                "text/x-srt",
+                "text/plain",
+                "application/octet-stream"
+            )
+        ),
+        VTT(
+            extension = "vtt",
+            allowedMimeTypes = setOf(
+                "text/vtt",
                 "text/plain",
                 "application/octet-stream"
             )
@@ -133,18 +160,57 @@ object LyricsImportSecurity {
             return LyricsImportValidationResult.Invalid(LyricsImportFailureReason.INVALID_LYRICS_CONTENT)
         }
 
+        // SubRip / WebVTT documents are stored as the equivalent LRC, exactly like TTML imports,
+        // so the text saved to the database and embedded in the audio file stays portable and the
+        // AI translation flows keep receiving LRC. The conversion is only used when it parses back
+        // to the very same lyrics and fits the text limit; otherwise the original text is kept.
+        val storedContent = LyricsUtils.convertSubtitleDocumentToLrc(sanitized, parsed)
+            ?.let(::sanitizeImportedLyrics)
+            ?.takeIf { it.isNotBlank() && it.length <= MAX_LYRICS_TEXT_CHARS }
+            ?: sanitized
+
         return LyricsImportValidationResult.Valid(
             ValidatedLyricsImport(
-                sanitizedContent = sanitized,
+                sanitizedContent = storedContent,
                 parsedLyrics = parsed
             )
         )
     }
 
+    /**
+     * String resource describing [reason], for callers that can resolve resources (so the text
+     * follows the app language).
+     */
+    @StringRes
+    fun messageResFor(reason: LyricsImportFailureReason): Int {
+        return when (reason) {
+            LyricsImportFailureReason.UNSUPPORTED_EXTENSION ->
+                R.string.scena_lyrics_formats_error_unsupported_extension
+            LyricsImportFailureReason.UNSUPPORTED_MIME_TYPE ->
+                R.string.scena_lyrics_formats_error_unsupported_mime
+            LyricsImportFailureReason.FILE_TOO_LARGE ->
+                R.string.scena_lyrics_formats_error_too_large
+            LyricsImportFailureReason.EMPTY_CONTENT ->
+                R.string.scena_lyrics_formats_error_empty
+            LyricsImportFailureReason.INVALID_ENCODING ->
+                R.string.scena_lyrics_formats_error_encoding
+            LyricsImportFailureReason.INVALID_LYRICS_CONTENT ->
+                R.string.scena_lyrics_formats_error_invalid
+        }
+    }
+
+    /** Localized message for [reason]. Prefer this overload wherever a [Context] is at hand. */
+    fun messageFor(context: Context, reason: LyricsImportFailureReason): String =
+        context.getString(messageResFor(reason))
+
+    /**
+     * English fallback for callers that have no way to resolve resources. Kept so existing call
+     * sites keep compiling; new code should use [messageResFor] or the [Context] overload.
+     */
     fun messageFor(reason: LyricsImportFailureReason): String {
         return when (reason) {
             LyricsImportFailureReason.UNSUPPORTED_EXTENSION ->
-                "Only .lrc and .ttml lyrics files are supported."
+                "Only .lrc, .ttml, .srt and .vtt lyrics files are supported."
             LyricsImportFailureReason.UNSUPPORTED_MIME_TYPE ->
                 "The selected file type is not a supported lyrics file."
             LyricsImportFailureReason.FILE_TOO_LARGE ->
@@ -193,6 +259,11 @@ object LyricsImportSecurity {
             )
             LyricsDocumentFormat.TTML -> listOfNotNull(
                 TtmlLyricsParser.parseToEnhancedLrc(decoded)?.let(::sanitizeImportedLyrics),
+                sanitizeImportedLyrics(decoded)
+            )
+            // SubRip / WebVTT: parseLyrics detects them from the content.
+            LyricsDocumentFormat.SRT,
+            LyricsDocumentFormat.VTT -> listOfNotNull(
                 sanitizeImportedLyrics(decoded)
             )
         }

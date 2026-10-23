@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scena redesign: griglia bento delle Impostazioni. -->
+<resources>
+    <!-- Accessibilità: etichetta del tocco su una tessera delle Impostazioni. %1$s è il titolo della tessera. -->
+    <string name="settings_scena_tile_open">Apri %1$s</string>
+</resources>

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-23
+
+### Added
+- **Sottotitoli SRT e VTT per i testi**: oltre a LRC e TTML, i file `.srt` e `.vtt` vengono importati e letti. Il formato si riconosce dal contenuto, non dall'estensione. VTT supporta i tempi per parola; SRT ha solo i tempi per riga, quindi le parole non vengono illuminate singolarmente. Lo stesso vale per i file `.srt`/`.vtt` accanto all'audio, cercati dopo il `.lrc`.
+- **Nuovo linguaggio visivo "Scena"**: colore sempre dinamico (Material You e copertina), con titoli espansi, copertine squircle che diventano dischi rotanti durante la riproduzione, pulsante play che cambia forma. Applicato a Home, Libreria, player a schermo intero, mini player, barra di navigazione, testi, impostazioni e chiavi AI.
+
+### Changed
+- **Testi**: le parole si illuminano una alla volta nel momento in cui vengono cantate, dove il file ha i tempi per parola. Un'etichetta indica se i testi sono "parola per parola" o "per riga".
+- **Chiavi AI**: la sezione è riorganizzata, con la chiave mascherata, lo stato di verifica e una nota sulla cifratura.
+
+### Known limits
+- Le sezioni Ascoltati di recente e Daily Mix, e la card delle statistiche in Home, usano ancora lo stile precedente.
+- Il video musicale è solo nel design, non è ancora implementato nell'app.
+
 ## [1.4.0] - 2026-10-22
 
 ### Changed

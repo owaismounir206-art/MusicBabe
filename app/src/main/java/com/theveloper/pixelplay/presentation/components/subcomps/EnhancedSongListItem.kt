@@ -1,7 +1,10 @@
 package com.theveloper.pixelplay.presentation.components.subcomps
 
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -30,15 +33,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalDensity
@@ -52,8 +63,12 @@ import com.theveloper.pixelplay.presentation.components.ShimmerBox
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.SmartImage
-import com.theveloper.pixelplay.ui.theme.Sleeve
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
 import com.theveloper.pixelplay.utils.formatDuration
+import kotlin.math.roundToInt
+import kotlinx.coroutines.isActive
 
 @Immutable
 private data class EnhancedSongAnimationTarget(
@@ -65,9 +80,44 @@ private fun lerpFloat(start: Float, stop: Float, fraction: Float): Float {
     return start + (stop - start) * fraction
 }
 
+/** Tabular figures, so durations and counts line up in a column. */
+private val SongRowTabularFigures = TextStyle(fontFeatureSettings = "tnum")
+
+/** One slow turn of the record while the track plays. */
+private const val SongRowRecordSpinMillis = 18_000
+
+/** Corner percent of [Scena.ArtShape]; the record morphs from this to 50 (a circle). */
+private const val SongRowArtCornerPercent = 34
+
 /**
- * Enhanced song list item with multi-selection support.
- * 
+ * Shape of the cover at [morph] 0 (squircle, [Scena.ArtShape]) up to 1 (circle). The spring that
+ * drives [morph] may overshoot a little, so the result is kept in a sane range.
+ */
+private fun songRowRecordShape(morph: Float): Shape {
+    val percent = (SongRowArtCornerPercent + (50 - SongRowArtCornerPercent) * morph).coerceIn(20f, 50f).roundToInt()
+    return RoundedCornerShape(percent = percent)
+}
+
+/**
+ * The marks that make the spin visible: a hole in the middle and a small notch bitten out of the
+ * rim at 12 o'clock. Both take [holeColor], the colour of whatever is behind the cover, and fade in
+ * with [progress] so the squircle at rest stays clean.
+ */
+private fun DrawScope.drawSongRowRecordMarks(holeColor: Color, progress: Float) {
+    val radius = size.minDimension / 2f
+    val centre = Offset(size.width / 2f, size.height / 2f)
+    val color = holeColor.copy(alpha = holeColor.alpha * progress)
+    drawCircle(color = color, radius = radius * 0.17f, center = centre)
+    drawCircle(color = color, radius = radius * 0.12f, center = Offset(centre.x, centre.y - radius))
+}
+
+/**
+ * Enhanced song list item with multi-selection support, in the Scena style.
+ *
+ * The current track sits on a soft [com.theveloper.pixelplay.ui.theme.ScenaColors.bg2] tile and its
+ * cover morphs from a squircle into a record that turns slowly while the track plays. The turn lives
+ * in a graphics layer, so it never recomposes the row.
+ *
  * @param song The song to display
  * @param isPlaying Whether this song is currently playing
  * @param isCurrentSong Whether this is the current song in the queue (may be paused)
@@ -103,6 +153,8 @@ fun EnhancedSongListItem(
 ) {
     val albumArtTargetSizePx = with(LocalDensity.current) { albumArtSize.roundToPx() }
     val isHighlighted = isCurrentSong && !isLoading
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val scena = MaterialTheme.scena
     val transition = updateTransition(
         targetState = EnhancedSongAnimationTarget(
             isHighlighted = isHighlighted,
@@ -113,63 +165,65 @@ fun EnhancedSongListItem(
 
     // Share one transition across the item and derive the visual properties from a
     // couple of progress values instead of animating each color/radius independently.
+    // These three stay inside 0..1 (colours are interpolated with them).
     val highlightProgress by transition.animateFloat(
-        transitionSpec = { tween(durationMillis = 400) },
+        transitionSpec = { if (animationsEnabled) tween<Float>(durationMillis = 400) else snap<Float>() },
         label = "highlightProgress"
     ) { state ->
         if (state.isHighlighted) 1f else 0f
     }
     val selectionVisualProgress by transition.animateFloat(
-        transitionSpec = { tween(durationMillis = 250) },
+        transitionSpec = { if (animationsEnabled) tween<Float>(durationMillis = 250) else snap<Float>() },
         label = "selectionVisualProgress"
     ) { state ->
         if (state.isSelected) 1f else 0f
     }
     val selectionScaleProgress by transition.animateFloat(
         transitionSpec = {
-            spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
+            if (animationsEnabled) {
+                spring<Float>(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            } else {
+                snap<Float>()
+            }
         },
         label = "selectionScaleProgress"
     ) { state ->
         if (state.isSelected) 1f else 0f
     }
+    // Springy, may overshoot: only used for the cover shape, never for colours.
+    val morphProgress by transition.animateFloat(
+        transitionSpec = { if (animationsEnabled) Scena.Springy else snap<Float>() },
+        label = "morphProgress"
+    ) { state ->
+        if (state.isHighlighted) 1f else 0f
+    }
 
     val selectionScale = lerpFloat(1f, 0.98f, selectionScaleProgress)
     val selectionBorderWidth = lerpDp(0.dp, 2.dp, selectionVisualProgress)
 
-    // Sleeve direction: rows are typeset on the page, not boxed in cards. A row only gets a
-    // background while it is the current track or selected; callers may still override it.
-    val surfaceShape = customShape ?: Sleeve.RowShape
-    val albumShape = Sleeve.ArtShape
+    // Scena: rows are set on the ground. Only the current track (bg2) and a selected row (bg3, with
+    // an accent border) get a tile; callers may still override the base colour.
+    val surfaceShape = customShape ?: Scena.CoverShape
 
-    val colors = MaterialTheme.colorScheme
     val baseContainerColor = containerColorOverride ?: Color.Transparent
-    val playbackContainerColor = lerpColor(
-        baseContainerColor,
-        colors.primary.copy(alpha = 0.10f).compositeOver(containerColorOverride ?: colors.surface),
-        highlightProgress
-    )
-    val containerColor = lerpColor(playbackContainerColor, colors.secondaryContainer, selectionVisualProgress)
+    val playbackContainerColor = lerpColor(baseContainerColor, scena.bg2, highlightProgress)
+    val containerColor = lerpColor(playbackContainerColor, scena.bg3, selectionVisualProgress)
 
-    val titleColor = lerpColor(
-        lerpColor(colors.onSurface, colors.primary, highlightProgress),
-        colors.onSecondaryContainer,
-        selectionVisualProgress
-    )
-    val secondaryColor = lerpColor(colors.onSurfaceVariant, colors.onSecondaryContainer, selectionVisualProgress)
+    val titleColor = scena.ink
+    val secondaryColor = scena.ink2
 
-    val selectionBorderColor = lerpColor(colors.primary.copy(alpha = 0f), colors.primary, selectionVisualProgress)
+    val selectionBorderColor = lerpColor(scena.acc.copy(alpha = 0f), scena.acc, selectionVisualProgress)
     val selectionOverlayColor = lerpColor(
         Color.Transparent,
-        colors.primary.copy(alpha = 0.7f),
+        scena.acc.copy(alpha = 0.85f),
         selectionVisualProgress
     )
     val selectionOverlayContentColor = lerpColor(
         Color.Transparent,
-        colors.onPrimary,
+        scena.onAcc,
         selectionVisualProgress
     )
     val showSelectionDecoration = selectionVisualProgress > 0.001f
@@ -186,7 +240,7 @@ fun EnhancedSongListItem(
                 ShimmerBox(
                     modifier = Modifier
                         .size(albumArtSize)
-                        .clip(albumShape)
+                        .clip(Scena.ArtShape)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
             }
@@ -195,25 +249,44 @@ fun EnhancedSongListItem(
                     modifier = Modifier
                         .fillMaxWidth(0.6f)
                         .height(16.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(percent = 50))
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 ShimmerBox(
                     modifier = Modifier
                         .fillMaxWidth(0.4f)
                         .height(14.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(percent = 50))
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
             ShimmerBox(
                 modifier = Modifier
                     .size(width = 32.dp, height = 14.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .clip(RoundedCornerShape(percent = 50))
             )
             Spacer(modifier = Modifier.width(48.dp))
         }
     } else {
+        // The record turns only while this exact track plays. Its angle is read inside a graphics
+        // layer, so each frame redraws the cover and nothing else.
+        val discAngle = remember { Animatable(0f) }
+        LaunchedEffect(isHighlighted, isPlaying, animationsEnabled) {
+            if (isHighlighted && isPlaying && animationsEnabled) {
+                while (isActive) {
+                    discAngle.animateTo(discAngle.value + 360f, tween(SongRowRecordSpinMillis, easing = LinearEasing))
+                    discAngle.snapTo(discAngle.value % 360f)
+                }
+            } else if (!isHighlighted && discAngle.value != 0f) {
+                // Leaving the squircle: settle on the nearest full turn so it ends up upright.
+                val upright = (discAngle.value / 360f).roundToInt() * 360f
+                if (animationsEnabled && discAngle.value != upright) {
+                    discAngle.animateTo(upright, tween(400))
+                }
+                discAngle.snapTo(0f)
+            }
+        }
+
         Surface(
             modifier = modifier
                 .fillMaxWidth()
@@ -256,32 +329,61 @@ fun EnhancedSongListItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (showAlbumArt) {
-                    Box(
-                        modifier = Modifier
-                            .size(albumArtSize)
-                            .clip(albumShape)
-                            .background(colors.surfaceVariant)
-                    ) {
-                        SmartImage(
-                            model = song.albumArtUriString,
-                            contentDescription = song.title,
-                            shape = albumShape,
-                            targetSize = Size(albumArtTargetSizePx, albumArtTargetSizePx),
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    // What is behind the cover: the hole and the notch are cut in this colour.
+                    val holeColor = containerColor.compositeOver(scena.bg)
+                    val coverDescription = when {
+                        isHighlighted && !isSelectionMode && isPlaying ->
+                            stringResource(R.string.scena_library_cover_now_playing, song.title)
+                        isHighlighted && !isSelectionMode ->
+                            stringResource(R.string.scena_library_cover_current, song.title)
+                        else -> song.title
+                    }
+                    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
 
-                        // Selection check overlay on album art
+                    Box(modifier = Modifier.size(albumArtSize)) {
+                        // The record: squircle at rest, a spinning disc for the current track.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    rotationZ = discAngle.value
+                                    shape = songRowRecordShape(morphProgress)
+                                    clip = true
+                                }
+                                .background(surfaceVariant)
+                                .drawWithContent {
+                                    drawContent()
+                                    val progress = morphProgress.coerceIn(0f, 1f)
+                                    if (progress > 0.01f) {
+                                        drawSongRowRecordMarks(holeColor = holeColor, progress = progress)
+                                    }
+                                }
+                        ) {
+                            SmartImage(
+                                model = song.albumArtUriString,
+                                contentDescription = coverDescription,
+                                targetSize = Size(albumArtTargetSizePx, albumArtTargetSizePx),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        // Selection check overlay on the cover; it follows the cover's shape but
+                        // does not turn with the record.
                         if (showSelectionDecoration) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .graphicsLayer {
+                                        shape = songRowRecordShape(morphProgress)
+                                        clip = true
+                                    }
                                     .background(color = selectionOverlayColor),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (selectionIndex != null && selectionIndex >= 0) {
                                     Text(
                                         text = selectionIndex.toString(),
-                                        style = MaterialTheme.typography.titleMedium.merge(Sleeve.TabularFigures),
+                                        style = MaterialTheme.typography.titleMedium.merge(SongRowTabularFigures),
                                         fontWeight = FontWeight.Bold,
                                         color = selectionOverlayContentColor
                                     )
@@ -308,16 +410,16 @@ fun EnhancedSongListItem(
                         AutoScrollingText(
                             text = song.title,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.SemiBold,
                                 color = titleColor
                             ),
-                            gradientEdgeColor = containerColor.compositeOver(colors.surface),
+                            gradientEdgeColor = containerColor.compositeOver(scena.bg),
                         )
                     } else {
                         Text(
                             text = song.title,
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             color = titleColor,
                             overflow = TextOverflow.Ellipsis
@@ -340,13 +442,13 @@ fun EnhancedSongListItem(
                 if (showPlayingIndicator) {
                     PlayingEqIcon(
                         modifier = Modifier.size(width = 18.dp, height = 16.dp),
-                        color = colors.primary,
+                        color = scena.acc,
                         isPlaying = isPlaying
                     )
                 } else if (song.duration > 0L) {
                     Text(
                         text = formatDuration(song.duration),
-                        style = MaterialTheme.typography.labelMedium.merge(Sleeve.TabularFigures),
+                        style = MaterialTheme.typography.labelMedium.merge(SongRowTabularFigures),
                         fontWeight = FontWeight.Normal,
                         color = secondaryColor,
                         maxLines = 1
@@ -354,7 +456,10 @@ fun EnhancedSongListItem(
                 }
 
                 if (showTrailingAction) {
-                    IconButton(onClick = { onMoreOptionsClick(song) }) {
+                    IconButton(
+                        onClick = { onMoreOptionsClick(song) },
+                        modifier = Modifier.size(48.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
                             contentDescription = stringResource(R.string.common_more_options_for, song.title),

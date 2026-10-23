@@ -1,53 +1,54 @@
 package com.theveloper.pixelplay.presentation.screens
 
-import androidx.compose.foundation.layout.heightIn
-import com.theveloper.pixelplay.presentation.navigation.navigateSafely
-
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDp
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -60,8 +61,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -69,25 +70,30 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.CollapsibleCommonTopBar
-import com.theveloper.pixelplay.presentation.components.ExpressiveTopBarContent
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.model.SettingsCategory
 import com.theveloper.pixelplay.presentation.navigation.Screen
+import com.theveloper.pixelplay.presentation.navigation.navigateSafely
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.SettingsViewModel
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.rememberScenaAnimationsEnabled
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
+import com.theveloper.pixelplay.ui.theme.scenaRise
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
-import com.theveloper.pixelplay.data.preferences.LaunchTab
 
 // SettingsTopBar removed, replaced by CollapsibleCommonTopBar
 
@@ -101,23 +107,7 @@ fun SettingsScreen(
         settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
 
-    // Animation effects
-    val transitionState = remember { MutableTransitionState(false) }
-    LaunchedEffect(true) { transitionState.targetState = true }
-
-    val transition = rememberTransition(transitionState, label = "SettingsAppearTransition")
-
-    val contentAlpha by
-            transition.animateFloat(
-                    label = "ContentAlpha",
-                    transitionSpec = { tween(durationMillis = 500) }
-            ) { if (it) 1f else 0f }
-
-    val contentOffset by
-            transition.animateDp(
-                    label = "ContentOffset",
-                    transitionSpec = { tween(durationMillis = 400, easing = FastOutSlowInEasing) }
-            ) { if (it) 0.dp else 40.dp }
+    val scena = MaterialTheme.scena
 
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -125,7 +115,7 @@ fun SettingsScreen(
 
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val minTopBarHeight = 64.dp + statusBarHeight
-    val maxTopBarHeight = 180.dp 
+    val maxTopBarHeight = 180.dp
 
     val minTopBarHeightPx = with(density) { minTopBarHeight.toPx() }
     val maxTopBarHeightPx = with(density) { maxTopBarHeight.toPx() }
@@ -193,119 +183,46 @@ fun SettingsScreen(
         }
     }
 
+    // The screen ground is drenched with the dynamic scheme (Scena). The ground is drawn outside of
+    // any animated layer so it never moves while the tiles rise in.
     Box(
             modifier =
-                    Modifier.nestedScroll(nestedScrollConnection).fillMaxSize().graphicsLayer {
-                        alpha = contentAlpha
-                        translationY = contentOffset.toPx()
-                    }
+                    Modifier
+                        .nestedScroll(nestedScrollConnection)
+                        .fillMaxSize()
+                        .background(scena.bg)
     ) {
         val currentTopBarHeightDp = with(density) { topBarHeight.value.toDp() }
         LazyColumn(
                 state = lazyListState,
                 contentPadding = PaddingValues(
                     top = currentTopBarHeightDp + 8.dp,
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = Scena.Gutter,
+                    end = Scena.Gutter,
                     bottom = MiniPlayerHeight + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
         ) {
             item {
-                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                ExpressiveSettingsGroup {
-                    val mainCategories = SettingsCategory.entries.filter {
-                        it != SettingsCategory.ABOUT && 
-                        it != SettingsCategory.DEVICE_CAPABILITIES
-                    }
-
-                    val totalItems = mainCategories.size + 4 // Device + Accounts + Downloads + About
-                    fun shapeFor(index: Int) =
-                        when {
-                            totalItems == 1 -> RoundedCornerShape(12.dp)
-                            index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
-                            index == totalItems - 1 -> RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 12.dp, bottomEnd = 12.dp)
-                            else -> RoundedCornerShape(2.dp)
-                        }
-
-                    var itemIndex = 0
-
-                    mainCategories.forEach { category ->
-                        val colors = getCategoryColors(category, isDark)
-
-                        ExpressiveCategoryItem(
-                            category = category,
-                            customColors = colors,
-                            onClick = {
-                                if (category == SettingsCategory.EQUALIZER) {
-                                    navController.navigateSafely(Screen.Equalizer.route)
-                                } else {
-                                    navController.navigateSafely(Screen.SettingsCategory.createRoute(category.id))
-                                }
-                            },
-                            shape = shapeFor(itemIndex)
-                        )
-                        if (itemIndex < totalItems - 1) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                        }
-                        itemIndex++
-                    }
-
-                    ExpressiveCategoryItem(
-                        category = SettingsCategory.DEVICE_CAPABILITIES,
-                        customColors = getCategoryColors(SettingsCategory.DEVICE_CAPABILITIES, isDark),
-                        onClick = { navController.navigateSafely(Screen.DeviceCapabilities.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
-
-                    ExpressiveNavigationItem(
-                        title = stringResource(R.string.settings_category_accounts_title),
-                        subtitle = stringResource(R.string.settings_category_accounts_subtitle),
-                        icon = Icons.Rounded.AccountCircle,
-                        colors = getAccountsColors(isDark),
-                        onClick = { navController.navigateSafely(Screen.Accounts.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
-
-                    ExpressiveNavigationItem(
-                        title = stringResource(R.string.downloads_title),
-                        subtitle = stringResource(R.string.settings_download_section_summary),
-                        icon = Icons.Rounded.Download,
-                        colors = getCategoryColors(SettingsCategory.LIBRARY, isDark),
-                        onClick = { navController.navigateSafely(Screen.Downloads.route) },
-                        shape = shapeFor(itemIndex)
-                    )
-                    if (itemIndex < totalItems - 1) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-                    itemIndex++
-
-                    ExpressiveCategoryItem(
-                        category = SettingsCategory.ABOUT,
-                        customColors = getCategoryColors(SettingsCategory.ABOUT, isDark),
-                        onClick = { navController.navigateSafely("about") },
-                        shape = shapeFor(itemIndex)
-                    )
-                }
+                SettingsBento(tiles = settingsTiles(navController))
 
                 // for player active:
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+        // Scena title: big and tight. The bar owns the font family (it replaces it with its own
+        // variable-font setup), so size, tracking and colour are what we can steer from here.
         CollapsibleCommonTopBar(
                 title = stringResource(R.string.common_settings),
                 collapseFraction = collapseFraction,
                 headerHeight = currentTopBarHeightDp,
-                onBackClick = onNavigationIconClick
+                onBackClick = onNavigationIconClick,
+                titleStyle = scenaDisplay(40.sp),
+                titleScaleRange = 1f to 1f,
+                titleFontSizeRange = 40.sp to 22.sp,
+                containerColor = scena.bg,
+                contentColor = scena.ink
         )
 
         // Block interaction during transition
@@ -329,6 +246,287 @@ fun SettingsScreen(
         }
     }
 }
+
+// ─── Bento grid ──────────────────────────────────────────────────────────────────────────────
+
+/** One entry of the bento grid. [featured] tiles span both columns and use the accent colour. */
+private class SettingsBentoEntry(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector?,
+    @DrawableRes val iconRes: Int?,
+    val featured: Boolean,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun categoryTile(category: SettingsCategory, onClick: () -> Unit): SettingsBentoEntry =
+    SettingsBentoEntry(
+        title = stringResource(category.titleRes),
+        subtitle = stringResource(category.subtitleRes),
+        icon = category.icon,
+        iconRes = category.iconRes,
+        // The assistant category is the one prominent tile.
+        featured = category == SettingsCategory.AI_INTEGRATION,
+        onClick = onClick
+    )
+
+/** Same categories, same order and same destinations as the previous vertical list. */
+@Composable
+private fun settingsTiles(navController: NavController): List<SettingsBentoEntry> {
+    val mainCategories = SettingsCategory.entries.filter {
+        it != SettingsCategory.ABOUT &&
+        it != SettingsCategory.DEVICE_CAPABILITIES
+    }
+
+    val tiles = ArrayList<SettingsBentoEntry>()
+
+    mainCategories.forEach { category ->
+        tiles.add(
+            categoryTile(category) {
+                if (category == SettingsCategory.EQUALIZER) {
+                    navController.navigateSafely(Screen.Equalizer.route)
+                } else {
+                    navController.navigateSafely(Screen.SettingsCategory.createRoute(category.id))
+                }
+            }
+        )
+    }
+
+    tiles.add(
+        categoryTile(SettingsCategory.DEVICE_CAPABILITIES) {
+            navController.navigateSafely(Screen.DeviceCapabilities.route)
+        }
+    )
+
+    tiles.add(
+        SettingsBentoEntry(
+            title = stringResource(R.string.settings_category_accounts_title),
+            subtitle = stringResource(R.string.settings_category_accounts_subtitle),
+            icon = Icons.Rounded.AccountCircle,
+            iconRes = null,
+            featured = false,
+            onClick = { navController.navigateSafely(Screen.Accounts.route) }
+        )
+    )
+
+    tiles.add(
+        SettingsBentoEntry(
+            title = stringResource(R.string.downloads_title),
+            subtitle = stringResource(R.string.settings_download_section_summary),
+            icon = Icons.Rounded.Download,
+            iconRes = null,
+            featured = false,
+            onClick = { navController.navigateSafely(Screen.Downloads.route) }
+        )
+    )
+
+    tiles.add(
+        categoryTile(SettingsCategory.ABOUT) {
+            navController.navigateSafely("about")
+        }
+    )
+
+    return tiles
+}
+
+/**
+ * Packs [tiles] into rows, keeping their order: two tiles per row, a featured tile alone on a row,
+ * and a trailing odd tile alone on its row (it then spans both columns instead of leaving a hole).
+ */
+private fun packBentoRows(tiles: List<SettingsBentoEntry>): List<List<SettingsBentoEntry>> {
+    val rows = ArrayList<List<SettingsBentoEntry>>()
+    var pending: SettingsBentoEntry? = null
+    for (tile in tiles) {
+        val waiting = pending
+        if (tile.featured) {
+            if (waiting != null) rows.add(listOf(waiting))
+            rows.add(listOf(tile))
+            pending = null
+        } else if (waiting == null) {
+            pending = tile
+        } else {
+            rows.add(listOf(waiting, tile))
+            pending = null
+        }
+    }
+    val last = pending
+    if (last != null) rows.add(listOf(last))
+    return rows
+}
+
+/** Rows of this index and above do not play the entrance (they start below the fold). */
+private const val BentoEntranceRows = 5
+
+private val BentoGap = 12.dp
+private val BentoTileMinHeight = 148.dp
+
+@Composable
+private fun SettingsBento(tiles: List<SettingsBentoEntry>, modifier: Modifier = Modifier) {
+    val animationsEnabled = rememberScenaAnimationsEnabled()
+    val rows = packBentoRows(tiles)
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(BentoGap)
+    ) {
+        rows.forEachIndexed { rowIndex, rowTiles ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .then(if (rowIndex < BentoEntranceRows) Modifier.scenaRise(rowIndex) else Modifier),
+                horizontalArrangement = Arrangement.spacedBy(BentoGap)
+            ) {
+                val wide = rowTiles.size == 1
+                rowTiles.forEach { tile ->
+                    SettingsBentoTile(
+                        tile = tile,
+                        wide = wide,
+                        animationsEnabled = animationsEnabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsBentoTile(
+    tile: SettingsBentoEntry,
+    wide: Boolean,
+    animationsEnabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val hovered by interactionSource.collectIsHoveredAsState()
+
+    // Springy with a little overshoot; with system animations off the tile just snaps.
+    val motionSpec: AnimationSpec<Float> = if (animationsEnabled) Scena.Springy else snap<Float>()
+    val iconMorph by animateFloatAsState(
+        targetValue = if (pressed || hovered) 1f else 0f,
+        animationSpec = motionSpec,
+        label = "SettingsTileIconMorph"
+    )
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = motionSpec,
+        label = "SettingsTilePressScale"
+    )
+
+    val container = if (tile.featured) scena.acc else scena.bg2
+    val onContainer = if (tile.featured) scena.onAcc else scena.ink
+    val onContainerVariant = if (tile.featured) scena.onAcc.copy(alpha = 0.86f) else scena.ink2
+
+    // The icon holder sits on bg3 (the primary container), so its glyph uses the matching role.
+    val holderIconTint = MaterialTheme.colorScheme.onPrimaryContainer
+    // Rounded square at rest, a circle while pressed or hovered.
+    val holderCorner = lerp(16.dp, 24.dp, iconMorph).coerceAtLeast(0.dp)
+
+    val openLabel = stringResource(R.string.settings_scena_tile_open, tile.title)
+    val icon = tile.icon
+    val iconRes = tile.iconRes
+
+    CompositionLocalProvider(LocalContentColor provides onContainer) {
+        Box(
+            modifier = modifier
+                .heightIn(min = BentoTileMinHeight)
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                }
+                .clip(Scena.TileShape)
+                .background(container)
+                .hoverable(interactionSource = interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(),
+                    onClickLabel = openLabel,
+                    role = Role.Button,
+                    onClick = tile.onClick
+                )
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(holderCorner))
+                            .background(scena.bg3)
+                    ) {
+                        if (icon != null) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = holderIconTint,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else if (iconRes != null) {
+                            Icon(
+                                painter = painterResource(id = iconRes),
+                                contentDescription = null,
+                                tint = holderIconTint,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    if (wide) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        // Decorative: the whole tile is the button, and it carries the label.
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(onContainer.copy(alpha = 0.14f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = onContainer,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = tile.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = onContainer,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = tile.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onContainerVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+// ─── Legacy row composables ──────────────────────────────────────────────────────────────────
+// No longer used by the Settings screen (the bento grid above replaced the vertical list). They are
+// kept as public API for compatibility.
 
 @Composable
 fun ExpressiveNavigationItem(
@@ -398,7 +596,7 @@ fun ExpressiveCategoryItem(
         onClick = onClick,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp) 
+        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -428,9 +626,9 @@ fun ExpressiveCategoryItem(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(category.titleRes),
@@ -448,33 +646,9 @@ fun ExpressiveCategoryItem(
                     maxLines = 2
                 )
             }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-//            // Chevron or indicator
-//             Box(
-//                contentAlignment = Alignment.Center,
-//                modifier = Modifier
-//                    .size(36.dp)
-//                    .clip(CircleShape)
-//                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-//            ) {
-//                 Icon(
-//                    imageVector = Icons.Rounded.ChevronRight,
-//                    contentDescription = null,
-//                    tint = MaterialTheme.colorScheme.onSurface,
-//                    modifier = Modifier.size(20.dp)
-//                )
-//            }
-        }
-    }
-}
 
-private fun getAccountsColors(isDark: Boolean): Pair<Color, Color> {
-    return if (isDark) {
-        Color(0xFF37474F) to Color(0xFFBBD9E8)
-    } else {
-        Color(0xFFD6EAF5) to Color(0xFF103548)
+            Spacer(modifier = Modifier.width(8.dp))
+        }
     }
 }
 
@@ -487,35 +661,5 @@ fun ExpressiveSettingsGroup(content: @Composable () -> Unit) {
             .background(Color.Transparent)
     ) {
         content()
-    }
-}
-
-private fun getCategoryColors(category: SettingsCategory, isDark: Boolean): Pair<Color, Color> {
-    return if (isDark) {
-        when (category) {
-            SettingsCategory.LIBRARY -> Color(0xFF004A77) to Color(0xFFC2E7FF) 
-            SettingsCategory.APPEARANCE -> Color(0xFF7D5260) to Color(0xFFFFD8E4) 
-            SettingsCategory.PLAYBACK -> Color(0xFF633B48) to Color(0xFFFFD8EC) 
-            SettingsCategory.BEHAVIOR -> Color(0xFF3E4C63) to Color(0xFFD7E3FF)
-            SettingsCategory.AI_INTEGRATION -> Color(0xFF004F58) to Color(0xFF88FAFF) 
-            SettingsCategory.BACKUP_RESTORE -> Color(0xFF3B4869) to Color(0xFFD9E2FF)
-            SettingsCategory.DEVELOPER -> Color(0xFF324F34) to Color(0xFFCBEFD0) 
-            SettingsCategory.EQUALIZER -> Color(0xFF6E4E13) to Color(0xFFFFDEAC) 
-            SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFF004D61) to Color(0xFFACEFEE) // Custom teal/cyan mix
-            SettingsCategory.ABOUT -> Color(0xFF3F474D) to Color(0xFFDEE3EB) 
-        }
-    } else {
-        when (category) {
-            SettingsCategory.LIBRARY -> Color(0xFFD7E3FF) to Color(0xFF005AC1)
-            SettingsCategory.APPEARANCE -> Color(0xFFFFD8E4) to Color(0xFF631835)
-            SettingsCategory.PLAYBACK -> Color(0xFFFFD8EC) to Color(0xFF631B4B)
-            SettingsCategory.BEHAVIOR -> Color(0xFFD7E3FF) to Color(0xFF253347)
-            SettingsCategory.AI_INTEGRATION -> Color(0xFFCCE8EA) to Color(0xFF004F58)
-            SettingsCategory.BACKUP_RESTORE -> Color(0xFFD9E2FF) to Color(0xFF27304E)
-            SettingsCategory.DEVELOPER -> Color(0xFFCBEFD0) to Color(0xFF042106)
-            SettingsCategory.EQUALIZER -> Color(0xFFFFDEAC) to Color(0xFF281900)
-            SettingsCategory.DEVICE_CAPABILITIES -> Color(0xFFACEFEE) to Color(0xFF002022)
-            SettingsCategory.ABOUT -> Color(0xFFEFF1F7) to Color(0xFF44474F)
-        }
     }
 }

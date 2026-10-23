@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -39,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -59,6 +57,7 @@ import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.StorageFilter
 import com.theveloper.pixelplay.presentation.components.ExpressiveScrollBar
 import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
+import com.theveloper.pixelplay.ui.theme.scena
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.songFastScrollLabel
 import com.theveloper.pixelplay.presentation.components.subcomps.EnhancedSongListItem
@@ -224,17 +223,10 @@ fun LibraryFavoritesTab(
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
+                        // Scena: rows carry their own large corners, so the list is not clipped.
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 0.dp,
-                                    topEnd = 0.dp,
-                                    bottomStart = PlayerSheetCollapsedCornerRadius,
-                                    bottomEnd = PlayerSheetCollapsedCornerRadius
-                                )
-                            ),
+                            .padding(start = LibraryScenaListEdge, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else LibraryScenaListEdge, bottom = 6.dp),
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
@@ -312,15 +304,7 @@ fun LibrarySongsTabPaginated(
         paginatedSongs.loadState.refresh is LoadState.Loading && paginatedSongs.itemCount == 0 -> {
             LazyColumn(
                 modifier = Modifier
-                    .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 0.dp,
-                            topEnd = 0.dp,
-                            bottomStart = PlayerSheetCollapsedCornerRadius,
-                            bottomEnd = PlayerSheetCollapsedCornerRadius
-                        )
-                    )
+                    .padding(start = LibraryScenaListEdge, end = if (LocalShowScrollbar.current && (listState.canScrollForward || listState.canScrollBackward)) 22.dp else LibraryScenaListEdge, bottom = 6.dp)
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + ListExtraBottomGap)
@@ -409,15 +393,7 @@ fun LibrarySongsTabPaginated(
                         val activeListState = if (paginatedSongs.itemCount > 0) listState else dummyListState
                         LazyColumn(
                             modifier = Modifier
-                                .padding(start = 12.dp, end = if (LocalShowScrollbar.current && (activeListState.canScrollForward || activeListState.canScrollBackward)) 22.dp else 12.dp, bottom = 6.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 0.dp,
-                                        bottomStart = PlayerSheetCollapsedCornerRadius,
-                                        bottomEnd = PlayerSheetCollapsedCornerRadius
-                                    )
-                                ),
+                                .padding(start = LibraryScenaListEdge, end = if (LocalShowScrollbar.current && (activeListState.canScrollForward || activeListState.canScrollBackward)) 22.dp else LibraryScenaListEdge, bottom = 6.dp),
                             state = activeListState,
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(bottom = bottomBarHeight + MiniPlayerHeight + 30.dp)
@@ -498,7 +474,7 @@ fun LibrarySongsTabPaginated(
                         .background(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    MaterialTheme.colorScheme.surface, Color.Transparent
+                                    MaterialTheme.scena.bg, Color.Transparent
                                 )
                             )
                         )
