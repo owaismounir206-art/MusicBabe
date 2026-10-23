@@ -45,4 +45,5 @@
     <string name="lyrics_save_mblrc_desc">Word timings, translation and singers, next to the song</string>
     <string name="karaoke_mode">Karaoke mode</string>
     <string name="karaoke_mode_desc">Takes the lead vocal out of the song. Works best on studio mixes.</string>
+    <string name="lyrics_share_line">Share this line</string>
 </resources>

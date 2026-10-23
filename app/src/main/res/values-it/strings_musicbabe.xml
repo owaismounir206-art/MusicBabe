@@ -44,4 +44,5 @@
     <string name="lyrics_save_mblrc_desc">Tempi delle parole, traduzione e cantanti, accanto al brano</string>
     <string name="karaoke_mode">Modalità karaoke</string>
     <string name="karaoke_mode_desc">Toglie la voce principale dal brano. Funziona meglio sui mix in studio.</string>
+    <string name="lyrics_share_line">Condividi questo verso</string>
 </resources>

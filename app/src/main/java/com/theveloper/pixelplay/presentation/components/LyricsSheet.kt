@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.combinedClickable
+import com.theveloper.pixelplay.utils.LyricShareCard
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LinearProgressIndicator
 import android.widget.Toast
@@ -879,6 +882,21 @@ fun LyricsSheet(
                                     )
                                     resetImmersiveTimer()
                                 },
+                                onLineLongClick = currentSong?.let { song ->
+                                    { syncedLine: SyncedLine ->
+                                        coroutineScope.launch {
+                                            LyricShareCard.share(
+                                                context = context,
+                                                song = song,
+                                                lineText = sanitizeLyricLineText(syncedLine.line),
+                                                background = scena.bg.toArgb(),
+                                                ink = scena.ink.toArgb(),
+                                                accent = scena.acc.toArgb()
+                                            )
+                                        }
+                                        Unit
+                                    }
+                                },
                                 highlightZoneFraction = highlightZoneFraction,
                                 highlightOffsetDp = highlightOffsetDp,
                                 autoscrollAnimationSpec = resolvedAutoscrollSpec,
@@ -1348,6 +1366,7 @@ fun SyncedLyricsList(
     accentColor: Color,
     textStyle: TextStyle,
     onLineClick: (SyncedLine) -> Unit,
+    onLineLongClick: ((SyncedLine) -> Unit)? = null,
     highlightZoneFraction: Float,
     highlightOffsetDp: Dp,
     autoscrollAnimationSpec: AnimationSpec<Float>,
@@ -1573,7 +1592,8 @@ fun SyncedLyricsList(
                             modifier = parallaxModifier
                                 .fillMaxWidth()
                                 .testTag("synced_line_${line.time}"),
-                            onClick = { onLineClick(line) }
+                            onClick = { onLineClick(line) },
+                            onLongClick = onLineLongClick?.let { longClick -> { longClick(line) } }
                         )
                     } else {
                         BubblesLine(
@@ -1639,6 +1659,7 @@ fun LyricLineRow(
     positionProvider: (() -> Long)? = null,
     phase: LyricLinePhase? = null,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val scena = MaterialTheme.scena
@@ -1646,6 +1667,7 @@ fun LyricLineRow(
     val density = LocalDensity.current
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val seekLabel = stringResource(R.string.lyrics_scena_cd_seek_line)
+    val shareLabel = stringResource(R.string.lyrics_share_line)
 
     val sanitizedLine = remember(line.line) { sanitizeLyricLineText(line.line) }
     val sanitizedWords = remember(line.words) {
@@ -1835,7 +1857,12 @@ fun LyricLineRow(
         .heightIn(min = 48.dp)
         .semantics { selected = isCurrentLine }
         .clip(Scena.ControlShape)
-        .clickable(onClickLabel = seekLabel) { onClick() }
+        .combinedClickable(
+            onClickLabel = seekLabel,
+            onLongClickLabel = if (onLongClick != null) shareLabel else null,
+            onLongClick = onLongClick,
+            onClick = onClick
+        )
         .padding(vertical = verticalPadding, horizontal = 8.dp)
 
     if (sanitizedWordClusters.isNullOrEmpty()) {
