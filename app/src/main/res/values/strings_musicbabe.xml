@@ -28,4 +28,9 @@
     <string name="lyrics_audio_align_too_few">Too few words could be heard in this song to time the lyrics reliably. Nothing was changed.</string>
     <string name="lyrics_audio_align_unsupported">Audio word sync is not available on this device.</string>
     <string name="lyrics_audio_align_failed">Audio word sync failed. Nothing was changed.</string>
+    <string name="music_video_show">Show music video</string>
+    <string name="music_video_hide">Show cover</string>
+    <string name="music_video_not_found">No music video found for this song.</string>
+    <string name="music_video_failed">The music video could not be loaded.</string>
+    <string name="music_video_retry">Retry</string>
 </resources>

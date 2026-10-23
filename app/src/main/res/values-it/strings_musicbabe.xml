@@ -27,4 +27,9 @@
     <string name="lyrics_audio_align_too_few">In questa canzone si sentono troppo poche parole per dare tempi affidabili. Non ho cambiato nulla.</string>
     <string name="lyrics_audio_align_unsupported">La sincronizzazione sull\'audio non è disponibile su questo dispositivo.</string>
     <string name="lyrics_audio_align_failed">Sincronizzazione sull\'audio non riuscita. Non ho cambiato nulla.</string>
+    <string name="music_video_show">Mostra il video musicale</string>
+    <string name="music_video_hide">Mostra la copertina</string>
+    <string name="music_video_not_found">Nessun video musicale trovato per questo brano.</string>
+    <string name="music_video_failed">Impossibile caricare il video musicale.</string>
+    <string name="music_video_retry">Riprova</string>
 </resources>

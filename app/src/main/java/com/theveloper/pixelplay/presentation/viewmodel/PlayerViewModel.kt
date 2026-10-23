@@ -3236,6 +3236,14 @@ class PlayerViewModel @Inject constructor(
     /** Progress (0..100) of the on-device audio word alignment, null when idle. */
     val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
 
+    private val _isMusicVideoVisible = MutableStateFlow(false)
+    /** The player shows the song's music video in place of the cover. */
+    val isMusicVideoVisible: StateFlow<Boolean> = _isMusicVideoVisible.asStateFlow()
+
+    fun toggleMusicVideo() {
+        _isMusicVideoVisible.value = !_isMusicVideoVisible.value
+    }
+
     fun alignLyricsToAudio() {
         val currentSong = stablePlayerState.value.currentSong ?: return
         lyricsStateHolder.alignLyricsToAudio(

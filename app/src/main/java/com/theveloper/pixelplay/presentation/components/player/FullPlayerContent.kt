@@ -118,6 +118,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.BookmarkAdded
@@ -567,8 +569,13 @@ fun FullPlayerContent(
         Unit
     }
 
+    val isMusicVideoVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
-        FullPlayerAlbumCoverSection(
+        if (isMusicVideoVisible && song != null) {
+            Box(modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                MusicVideoPanel(song = song, playerViewModel = playerViewModel)
+            }
+        } else FullPlayerAlbumCoverSection(
             song = song,
             currentPlaybackQueue = currentPlaybackQueue,
             currentMediaItemIndex = currentQueueIndex ?: currentMediaItemIndex,
@@ -1638,6 +1645,7 @@ private fun SongMetadataDisplaySection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                MusicVideoToggleButton(playerViewModel, chipColor, chipContentColor)
                 Box(
                     modifier = Modifier
                         .size(PlayerActionSize)
@@ -1719,6 +1727,8 @@ private fun SongMetadataDisplaySection(
                     }
                 }
 
+                MusicVideoToggleButton(playerViewModel, chipColor, chipContentColor)
+
                 FilledIconButton(
                     modifier = Modifier.size(PlayerActionSize),
                     shape = PlayerActionShape,
@@ -1735,6 +1745,29 @@ private fun SongMetadataDisplaySection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MusicVideoToggleButton(
+    playerViewModel: PlayerViewModel,
+    chipColor: Color,
+    chipContentColor: Color
+) {
+    val isVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
+    FilledIconButton(
+        modifier = Modifier.size(PlayerActionSize),
+        shape = PlayerActionShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = if (isVisible) MaterialTheme.colorScheme.primary else chipColor,
+            contentColor = if (isVisible) MaterialTheme.colorScheme.onPrimary else chipContentColor
+        ),
+        onClick = { playerViewModel.toggleMusicVideo() }
+    ) {
+        Icon(
+            imageVector = if (isVisible) Icons.Rounded.Album else Icons.Rounded.SmartDisplay,
+            contentDescription = stringResource(if (isVisible) R.string.music_video_hide else R.string.music_video_show)
+        )
     }
 }
 
