@@ -617,7 +617,8 @@ fun SettingsCategoryScreen(
                                     description = stringResource(R.string.settings_carousel_style_subtitle),
                                     options = mapOf(
                                         CarouselStyle.NO_PEEK to stringResource(R.string.settings_carousel_no_peek),
-                                        CarouselStyle.ONE_PEEK to stringResource(R.string.settings_carousel_one_peek)
+                                        CarouselStyle.ONE_PEEK to stringResource(R.string.settings_carousel_one_peek),
+                                        CarouselStyle.DISC to stringResource(R.string.settings_carousel_disc)
                                     ),
                                     selectedKey = uiState.carouselStyle,
                                     onSelectionChanged = { settingsViewModel.setCarouselStyle(it) },

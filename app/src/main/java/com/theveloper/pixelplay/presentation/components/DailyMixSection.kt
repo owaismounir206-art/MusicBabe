@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
+import com.theveloper.pixelplay.ui.theme.scena
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -196,7 +197,7 @@ private fun DailyMixCard(
             cornerRadiusTL = cornerRadius,
             smoothnessAsPercentBR = 60
         ),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.scena.bg2),
         elevation = CardDefaults.elevatedCardElevation(0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {

@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.ui.unit.sp
+import com.theveloper.pixelplay.ui.theme.scenaWide
+import com.theveloper.pixelplay.ui.theme.scena
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -52,7 +55,7 @@ fun StatsOverviewCard(
     summary: PlaybackStatsRepository.PlaybackStatsSummary?,
     onClick: () -> Unit
 ) {
-    val containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val containerColor = MaterialTheme.scena.bg2
     val shape = AbsoluteSmoothCornerShape(
         cornerRadiusTL = 28.dp,
         smoothnessAsPercentTR = 60,
@@ -83,7 +86,7 @@ fun StatsOverviewCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(color = MaterialTheme.colorScheme.surfaceContainer),
+                        .background(color = MaterialTheme.scena.bg3),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -92,8 +95,8 @@ fun StatsOverviewCard(
                     ) {
                         Text(
                             text = stringResource(R.string.home_stats_overview_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = scenaWide(20.sp),
+                            color = MaterialTheme.scena.ink
                         )
                         Text(
                             text = stringResource((summary?.range ?: StatsTimeRange.WEEK).displayNameRes()),

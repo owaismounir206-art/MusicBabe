@@ -45,4 +45,5 @@
     <string name="karaoke_mode">Modalità karaoke</string>
     <string name="karaoke_mode_desc">Toglie la voce principale dal brano. Funziona meglio sui mix in studio.</string>
     <string name="lyrics_share_line">Condividi questo verso</string>
+    <string name="settings_carousel_disc">Disco</string>
 </resources>

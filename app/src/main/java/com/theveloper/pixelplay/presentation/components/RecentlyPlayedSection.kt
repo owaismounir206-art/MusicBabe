@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.ui.unit.sp
+import com.theveloper.pixelplay.ui.theme.scenaWide
+import com.theveloper.pixelplay.ui.theme.scena
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -119,16 +122,16 @@ fun RecentlyPlayedSection(
             Text(
                 modifier = Modifier.padding(start = 6.dp),
                 text = stringResource(R.string.home_recently_played_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                style = scenaWide(22.sp),
+                color = MaterialTheme.scena.ink
             )
             FilledIconButton(
                 modifier = Modifier
                     .height(40.dp)
                     .width(64.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.secondary
+                    containerColor = MaterialTheme.scena.bg2,
+                    contentColor = MaterialTheme.scena.ink
                 ),
                 onClick = onOpenAllClick,
                 enabled = visibleSongs.size >= RecentlyPlayedSectionMinSongsToShow

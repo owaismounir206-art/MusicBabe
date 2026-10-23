@@ -46,4 +46,5 @@
     <string name="karaoke_mode">Karaoke mode</string>
     <string name="karaoke_mode_desc">Takes the lead vocal out of the song. Works best on studio mixes.</string>
     <string name="lyrics_share_line">Share this line</string>
+    <string name="settings_carousel_disc">Disc</string>
 </resources>

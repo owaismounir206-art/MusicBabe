@@ -578,6 +578,17 @@ fun FullPlayerContent(
             Box(modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                 MusicVideoPanel(song = song, playerViewModel = playerViewModel)
             }
+        } else if (carouselStyle == CarouselStyle.DISC && song != null) {
+            ScenaDiscCover(
+                song = song,
+                isPlaying = isPlayingProvider(),
+                progressProvider = {
+                    val total = totalDurationProvider()
+                    if (total > 0) latestCurrentPositionProvider().toFloat() / total else 0f
+                },
+                onClick = { playerViewModel.triggerAlbumNavigationFromPlayer(song.albumId) },
+                modifier = modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
         } else FullPlayerAlbumCoverSection(
             song = song,
             currentPlaybackQueue = currentPlaybackQueue,
