@@ -267,7 +267,7 @@ private fun IdleContent(
         ) {
             Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Crea sincronizzati con AI", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.lyrics_audio_transcribe_action), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
 
         Button(
@@ -565,7 +565,7 @@ fun NotFoundContent(
         ) {
             Icon(Icons.Rounded.AutoAwesome, null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Crea sincronizzati con AI")
+            Text(stringResource(R.string.lyrics_audio_transcribe_action), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
 
         Button(

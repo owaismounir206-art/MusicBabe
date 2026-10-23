@@ -65,4 +65,19 @@ class LyricsAudioAlignerTest {
         assertTrue(LyricsAudioAligner.similarity("parola", "parole") >= 0.8)
         assertTrue(LyricsAudioAligner.similarity("luce", "notte") < 0.72)
     }
+
+    @Test
+    fun `transcription breaks lines at pauses and punctuation`() {
+        val rec = listOf(
+            RecognizedWord(1_000, 1_300, "accendi"), RecognizedWord(1_350, 1_600, "la"), RecognizedWord(1_650, 2_000, "luce."),
+            RecognizedWord(2_100, 2_400, "poi"), RecognizedWord(2_450, 2_700, "ancora"),
+            RecognizedWord(5_000, 5_300, "dopo"), RecognizedWord(5_350, 5_600, "pausa")
+        )
+
+        val lines = LyricsAudioAligner.linesFromRecognized(rec)
+
+        assertEquals(listOf("Accendi la luce", "Poi ancora", "Dopo pausa"), lines.map { it.line })
+        assertEquals(listOf(1_000, 2_100, 5_000), lines.map { it.time })
+        assertEquals(listOf(1_000, 1_350, 1_650), lines[0].words!!.map { it.time })
+    }
 }

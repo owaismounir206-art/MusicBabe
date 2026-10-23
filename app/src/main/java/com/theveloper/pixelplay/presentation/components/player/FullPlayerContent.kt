@@ -415,8 +415,10 @@ fun FullPlayerContent(
                     filePickerLauncher.launch(com.theveloper.pixelplay.utils.LyricsImportSecurity.pickerMimeTypes())
                 },
                 onGenerateAiLyrics = {
+                    // No lyrics were found: write them from the audio (on-device Whisper).
                     showFetchLyricsDialog = false
-                    playerViewModel.generateSyncedLyricsViaAi()
+                    playerViewModel.resetLyricsSearchState()
+                    playerViewModel.alignLyricsToAudio()
                 }
             )
 
@@ -1039,6 +1041,8 @@ fun FullPlayerContent(
             onTranslateViaAi = { playerViewModel.translateLyricsViaAi() },
             onGenerateAiLyrics = { playerViewModel.generateSyncedLyricsViaAi() },
             onAlignLyricsToAudio = { playerViewModel.alignLyricsToAudio() },
+            onWriteLyricsWithCloudAi = { playerViewModel.writeLyricsWithCloudAi() },
+            onSaveLyricsAsMbLrc = playerViewModel::saveLyricsAsMbLrc,
             audioAlignmentProgress = lyricsAudioAlignmentProgress,
             onCancelAudioAlignment = { playerViewModel.cancelLyricsAudioAlignment() },
             onSeekTo = { playerViewModel.seekTo(it) },

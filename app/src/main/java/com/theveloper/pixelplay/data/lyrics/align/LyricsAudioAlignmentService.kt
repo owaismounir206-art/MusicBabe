@@ -3,6 +3,7 @@ package com.theveloper.pixelplay.data.lyrics.align
 import android.content.Context
 import android.net.Uri
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.model.SyncedLine
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -50,17 +51,30 @@ class LyricsAudioAlignmentService @Inject constructor(
         if (WhisperNative.isAvailable) WhisperNative.nativeAbort()
     }
 
-    suspend fun align(song: Song, lyricLines: List<String>): Result<AudioAlignment> = mutex.withLock {
+    suspend fun align(song: Song, lyricLines: List<String>): Result<AudioAlignment> = runExclusive {
+        val (recognized, durationMs) = recognize(song, prompt = lyricLines.joinToString(" ").take(PROMPT_CHARS))
+        LyricsAudioAligner.align(lyricLines, recognized, durationMs)
+            ?: throw AudioAlignmentException.TooFewMatches(0.0)
+    }
+
+    /** Writes word-timed lyrics from the audio alone, for songs that have no lyrics at all. */
+    suspend fun transcribe(song: Song): Result<List<SyncedLine>> = runExclusive {
+        val (recognized, _) = recognize(song, prompt = null)
+        LyricsAudioAligner.linesFromRecognized(recognized).takeIf { it.size >= MIN_TRANSCRIBED_LINES }
+            ?: throw AudioAlignmentException.NoSpeech()
+    }
+
+    private suspend fun <T> runExclusive(block: suspend () -> T): Result<T> = mutex.withLock {
         withContext(Dispatchers.Default) {
             try {
-                runCatching { alignLocked(song, lyricLines) }
+                runCatching { block() }
             } finally {
                 _progress.value = null
             }
         }
     }
 
-    private suspend fun alignLocked(song: Song, lyricLines: List<String>): AudioAlignment {
+    private suspend fun recognize(song: Song, prompt: String?): Pair<List<RecognizedWord>, Long> {
         if (!WhisperNative.isAvailable) throw AudioAlignmentException.Unsupported()
         val uri = Uri.parse(song.contentUriString)
         if (uri.scheme != "content" && uri.scheme != "file") throw AudioAlignmentException.NotLocal()
@@ -85,7 +99,7 @@ class LyricsAudioAlignmentService @Inject constructor(
                         }
                     }
                     val threads = (Runtime.getRuntime().availableProcessors() - 1).coerceIn(2, 4)
-                    val bytes = WhisperNative.nativeTranscribe(ctx, pcm, null, null, threads)
+                    val bytes = WhisperNative.nativeTranscribe(ctx, pcm, null, prompt, threads)
                     poller.cancel()
                     bytes
                 }
@@ -97,8 +111,7 @@ class LyricsAudioAlignmentService @Inject constructor(
             if (recognized.isEmpty()) throw AudioAlignmentException.NoSpeech()
             Timber.d("Whisper heard %d words for '%s'", recognized.size, song.title)
             val durationMs = if (song.duration > 0) song.duration else pcm.size * 1000L / WhisperAudioDecoder.SAMPLE_RATE
-            return LyricsAudioAligner.align(lyricLines, recognized, durationMs)
-                ?: throw AudioAlignmentException.TooFewMatches(0.0)
+            return recognized to durationMs
         } finally {
             WhisperNative.nativeFree(ctx)
         }
@@ -127,5 +140,8 @@ class LyricsAudioAlignmentService @Inject constructor(
 
     private companion object {
         const val MODEL_ASSET_NAME = "ggml-base-q5_1.bin"
+        /** Whisper's prompt is capped at about 224 tokens; the start of the lyrics is enough to bias it. */
+        const val PROMPT_CHARS = 600
+        const val MIN_TRANSCRIBED_LINES = 3
     }
 }

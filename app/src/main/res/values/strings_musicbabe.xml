@@ -23,7 +23,6 @@
     <string name="lyrics_audio_align_progress">Timing words from the audio: %1$d%%</string>
     <string name="lyrics_audio_align_cancel">Cancel</string>
     <string name="lyrics_audio_align_done">Lyrics synced word by word to the audio.</string>
-    <string name="lyrics_audio_align_need_lyrics">Word sync needs the lyrics first: find or import them, then try again.</string>
     <string name="lyrics_audio_align_not_local">Only songs stored on this device can be synced to the audio.</string>
     <string name="lyrics_audio_align_too_few">Too few words could be heard in this song to time the lyrics reliably. Nothing was changed.</string>
     <string name="lyrics_audio_align_unsupported">Audio word sync is not available on this device.</string>
@@ -33,4 +32,15 @@
     <string name="music_video_not_found">No music video found for this song.</string>
     <string name="music_video_failed">The music video could not be loaded.</string>
     <string name="music_video_retry">Retry</string>
+    <string name="lyrics_audio_transcribe_started">No lyrics yet: writing them from the audio, word by word…</string>
+    <string name="lyrics_audio_cloud_started">Gemini is listening to the song…</string>
+    <string name="lyrics_cloud_action">Write lyrics with Gemini (sends the audio)</string>
+    <string name="lyrics_cloud_no_key">Add your Gemini API key in the AI settings first.</string>
+    <string name="lyrics_cloud_error">Gemini could not write the lyrics</string>
+    <string name="lyrics_cloud_too_large">The song file is too large to send to Gemini (max 14 MB).</string>
+    <string name="lyrics_cloud_refused">Gemini refused to write these lyrics. Use the on-device sync instead</string>
+    <string name="lyrics_audio_transcribe_action">Write lyrics from the audio</string>
+    <string name="lyrics_audio_transcribe_action_desc">Listens to the song on this phone and writes word-timed lyrics. Takes a few minutes.</string>
+    <string name="lyrics_save_mblrc">Save as .mblrc</string>
+    <string name="lyrics_save_mblrc_desc">Word timings, translation and singers, next to the song</string>
 </resources>

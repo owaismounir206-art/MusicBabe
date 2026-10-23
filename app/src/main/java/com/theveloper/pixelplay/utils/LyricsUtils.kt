@@ -734,6 +734,9 @@ object LyricsUtils {
         val entireLyricsHasKana = lyricsText.any { it in '\u3040'..'\u309F' || it in '\u30A0'..'\u30FF' }
 
         val normalizedInput = stripLeadingLyricsDocumentNoise(lyricsText)
+        if (MbLrcFormat.looksLikeMbLrc(normalizedInput)) {
+            return MbLrcFormat.decode(normalizedInput) ?: Lyrics(plain = emptyList(), synced = emptyList())
+        }
         if (looksLikeTtmlDocument(normalizedInput)) {
             val converted = TtmlLyricsParser.parseToEnhancedLrc(normalizedInput)
                 ?: return Lyrics(plain = emptyList(), synced = emptyList())

@@ -42,6 +42,45 @@ object LyricsAudioAligner {
         RecognizedWord(start, maxOf(start, end), text)
     }.toList()
 
+    /**
+     * Lyrics written from the audio alone, for songs that have none: the recognised words become
+     * lines, broken at sung pauses, at sentence punctuation, or when a line gets too long.
+     */
+    fun linesFromRecognized(recognized: List<RecognizedWord>): List<SyncedLine> {
+        val lines = mutableListOf<List<RecognizedWord>>()
+        var current = mutableListOf<RecognizedWord>()
+        for (word in recognized.sortedBy { it.startMs }) {
+            val prev = current.lastOrNull()
+            val breakHere = prev != null && (
+                word.startMs - prev.endMs >= LINE_PAUSE_MS ||
+                    current.size >= MAX_WORDS_PER_LINE ||
+                    prev.text.last() in ".!?" ||
+                    (prev.text.last() in ",;:" && current.size >= MIN_WORDS_BEFORE_COMMA_BREAK)
+                )
+            if (breakHere) {
+                lines += current
+                current = mutableListOf()
+            }
+            current += word
+        }
+        if (current.isNotEmpty()) lines += current
+
+        return lines.mapNotNull { words ->
+            val timed = words
+                .map { it.startMs.toInt() to it.text.trimEnd('.', ',', ';', ':') }
+                .filter { (_, text) -> text.isNotEmpty() }
+                .mapIndexed { i, (time, text) ->
+                    SyncedWord(time, if (i == 0) text.replaceFirstChar { it.uppercaseChar() } else text)
+                }
+            if (timed.isEmpty()) return@mapNotNull null
+            SyncedLine(time = timed.first().time, line = timed.joinToString(" ") { it.word }, words = timed)
+        }
+    }
+
+    private const val LINE_PAUSE_MS = 800L
+    private const val MAX_WORDS_PER_LINE = 10
+    private const val MIN_WORDS_BEFORE_COMMA_BREAK = 4
+
     fun align(lines: List<String>, recognized: List<RecognizedWord>, durationMs: Long): AudioAlignment? {
         data class LyricToken(val line: Int, val text: String, val norm: String)
 

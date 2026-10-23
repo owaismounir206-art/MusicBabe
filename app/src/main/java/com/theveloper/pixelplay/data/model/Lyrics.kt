@@ -22,7 +22,8 @@ data class SyncedLine(
     val line: String,
     val words: List<SyncedWord>? = null, // Null if not a word-by-word synced lyric
     val translation: String? = null, // Translation text paired by identical timestamp
-    val romanization: String? = null // Romanization text paired by identical timestamp
+    val romanization: String? = null, // Romanization text paired by identical timestamp
+    val singer: String? = null // Who sings the line in a duet (only .mblrc carries it)
 )
 
 @Serializable

@@ -291,6 +291,7 @@ class PlayerViewModelTest {
         )
         playerViewModel = PlayerViewModel(
             mockContext,
+            mockk(relaxed = true),
             mockMusicRepository,
             mockUserPreferencesRepository,
             mockAiPreferencesRepository,

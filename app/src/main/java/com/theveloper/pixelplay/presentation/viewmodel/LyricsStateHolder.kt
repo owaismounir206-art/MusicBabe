@@ -14,6 +14,8 @@ import com.theveloper.pixelplay.data.repository.NoLyricsFoundException
 import com.theveloper.pixelplay.utils.LyricsImportSecurity
 import com.theveloper.pixelplay.utils.LyricsImportValidationResult
 import com.theveloper.pixelplay.utils.LyricsUtils
+import com.theveloper.pixelplay.utils.MbLrcFormat
+import com.theveloper.pixelplay.data.model.SyncedLine
 import com.theveloper.pixelplay.utils.ValidatedLyricsImport
 import java.io.File
 import javax.inject.Inject
@@ -332,8 +334,11 @@ class LyricsStateHolder @Inject constructor(
      * Times the current lyrics word by word by listening to the song on the device (Whisper).
      * The words are always the lyrics we already have; only their timings come from the audio.
      */
+    /**
+     * Times the lyrics word by word from the audio (on-device Whisper). Songs without lyrics get
+     * them written from the audio. The result is saved as `.mblrc` (an LRC copy goes in the tags).
+     */
     fun alignLyricsToAudio(currentSong: Song, lyricsObj: Lyrics?, getString: (Int) -> String) {
-        val songId = currentSong.id.toLongOrNull() ?: return
         val aligner = audioAligner
         if (aligner == null || !aligner.isSupported) {
             _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_unsupported))
@@ -342,27 +347,64 @@ class LyricsStateHolder @Inject constructor(
         val sourceLines = lyricsObj?.synced?.filter { it.line.isNotBlank() }
         val lines = sourceLines?.map { it.line }?.takeIf { it.isNotEmpty() }
             ?: lyricsObj?.plain?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
-        if (lines.isNullOrEmpty()) {
-            _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_need_lyrics))
-            return
+        runAudioLyricsJob(
+            currentSong,
+            getString,
+            startedMessage = if (lines == null) R.string.lyrics_audio_transcribe_started else R.string.lyrics_audio_align_started,
+            source = MBLRC_SOURCE_WHISPER
+        ) {
+            if (lines == null) {
+                aligner.transcribe(currentSong)
+            } else {
+                aligner.align(currentSong, lines).map { alignment ->
+                    // Keep translations/romanizations: lines map 1:1 with the synced source lines.
+                    if (sourceLines != null && sourceLines.size == alignment.lines.size) {
+                        alignment.lines.mapIndexed { i, line ->
+                            line.copy(
+                                translation = sourceLines[i].translation,
+                                romanization = sourceLines[i].romanization,
+                                singer = sourceLines[i].singer
+                            )
+                        }
+                    } else alignment.lines
+                }
+            }
         }
+    }
+
+    /**
+     * Lyrics written by Gemini listening to the song (the user's own key; the audio is uploaded).
+     * Opt-in alternative to on-device Whisper.
+     */
+    fun transcribeLyricsWithCloudAi(
+        currentSong: Song,
+        getString: (Int) -> String,
+        transcribe: suspend (Song) -> Result<List<SyncedLine>>
+    ) {
+        runAudioLyricsJob(currentSong, getString, R.string.lyrics_audio_cloud_started, MBLRC_SOURCE_GEMINI) {
+            transcribe(currentSong)
+        }
+    }
+
+    private fun runAudioLyricsJob(
+        currentSong: Song,
+        getString: (Int) -> String,
+        startedMessage: Int,
+        source: String,
+        work: suspend () -> Result<List<SyncedLine>>
+    ) {
+        val songId = currentSong.id.toLongOrNull() ?: return
         if (audioAlignmentJob?.isActive == true) return
 
         audioAlignmentJob = scope?.launch {
-            _messageEvents.emit(getString(R.string.lyrics_audio_align_started))
-            aligner.align(currentSong, lines)
-                .onSuccess { alignment ->
-                    // Keep translations/romanizations: lines map 1:1 with the synced source lines.
-                    val alignedLines = if (sourceLines != null && sourceLines.size == alignment.lines.size) {
-                        alignment.lines.mapIndexed { i, line ->
-                            line.copy(translation = sourceLines[i].translation, romanization = sourceLines[i].romanization)
-                        }
-                    } else alignment.lines
-                    val lrc = LyricsUtils.syncedToLrcString(alignedLines)
-                    val parsed = LyricsUtils.parseLyrics(lrc)
-                    musicRepository.updateLyrics(songId, lrc)
-                    val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, lrc)
-                    val updatedSong = currentSong.withPersistedLyrics(lrc, refreshedAlbumArtUri)
+            _messageEvents.emit(getString(startedMessage))
+            work()
+                .onSuccess { syncedLines ->
+                    val document = MbLrcFormat.encode(syncedLines, source = source)
+                    val parsed = LyricsUtils.parseLyrics(document)
+                    musicRepository.updateLyrics(songId, document)
+                    val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, document)
+                    val updatedSong = currentSong.withPersistedLyrics(document, refreshedAlbumArtUri)
                     _songUpdates.emit(updatedSong to parsed.takeIf(::hasValidLyrics))
                     _searchUiState.value = LyricsSearchUiState.Success(parsed)
                     _messageEvents.emit(getString(R.string.lyrics_audio_align_done))
@@ -377,9 +419,15 @@ class LyricsStateHolder @Inject constructor(
                             R.string.lyrics_audio_align_too_few
                         is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.Unsupported ->
                             R.string.lyrics_audio_align_unsupported
-                        else -> R.string.lyrics_audio_align_failed
+                        else -> null
                     }
-                    _messageEvents.emit(getString(messageRes))
+                    val message = when {
+                        messageRes != null -> getString(messageRes)
+                        error is com.theveloper.pixelplay.data.lyrics.align.CloudLyricsException ->
+                            getString(error.messageRes) + (error.detail?.let { " ($it)" } ?: "")
+                        else -> getString(R.string.lyrics_audio_align_failed)
+                    }
+                    _messageEvents.emit(message)
                 }
         }
     }
@@ -617,7 +665,11 @@ class LyricsStateHolder @Inject constructor(
 
     private suspend fun persistLyricsToFileMetadataIfPossible(song: Song, rawLyrics: String): String? {
         val songId = song.id.toLongOrNull() ?: return null
-        val normalizedLyrics = rawLyrics.trim()
+        // Tags get the enhanced LRC equivalent of a .mblrc document: other players read LRC.
+        val portableLyrics = if (MbLrcFormat.looksLikeMbLrc(rawLyrics)) {
+            LyricsUtils.parseLyrics(rawLyrics).synced?.let(LyricsUtils::syncedToLrcString) ?: return null
+        } else rawLyrics
+        val normalizedLyrics = portableLyrics.trim()
         if (normalizedLyrics.isBlank()) return null
 
         return withContext(Dispatchers.IO) {
@@ -663,3 +715,6 @@ internal fun Song.withPersistedLyrics(rawLyrics: String, refreshedAlbumArtUri: S
         albumArtUriString = refreshedAlbumArtUri ?: albumArtUriString
     )
 }
+
+private const val MBLRC_SOURCE_WHISPER = "whisper"
+private const val MBLRC_SOURCE_GEMINI = "gemini"

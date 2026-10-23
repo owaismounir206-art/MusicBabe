@@ -22,7 +22,6 @@
     <string name="lyrics_audio_align_progress">Tempi delle parole dall\'audio: %1$d%%</string>
     <string name="lyrics_audio_align_cancel">Annulla</string>
     <string name="lyrics_audio_align_done">Testo sincronizzato parola per parola sull\'audio.</string>
-    <string name="lyrics_audio_align_need_lyrics">Per sincronizzare le parole serve prima il testo: cercalo o importalo, poi riprova.</string>
     <string name="lyrics_audio_align_not_local">Solo le canzoni salvate sul dispositivo si possono sincronizzare sull\'audio.</string>
     <string name="lyrics_audio_align_too_few">In questa canzone si sentono troppo poche parole per dare tempi affidabili. Non ho cambiato nulla.</string>
     <string name="lyrics_audio_align_unsupported">La sincronizzazione sull\'audio non è disponibile su questo dispositivo.</string>
@@ -32,4 +31,15 @@
     <string name="music_video_not_found">Nessun video musicale trovato per questo brano.</string>
     <string name="music_video_failed">Impossibile caricare il video musicale.</string>
     <string name="music_video_retry">Riprova</string>
+    <string name="lyrics_audio_transcribe_started">Nessun testo: lo scrivo ascoltando l\'audio, parola per parola…</string>
+    <string name="lyrics_audio_cloud_started">Gemini sta ascoltando il brano…</string>
+    <string name="lyrics_cloud_action">Scrivi il testo con Gemini (invia l\'audio)</string>
+    <string name="lyrics_cloud_no_key">Aggiungi prima la tua chiave Gemini nelle impostazioni AI.</string>
+    <string name="lyrics_cloud_error">Gemini non è riuscito a scrivere il testo</string>
+    <string name="lyrics_cloud_too_large">Il file del brano è troppo grande da inviare a Gemini (massimo 14 MB).</string>
+    <string name="lyrics_cloud_refused">Gemini si è rifiutato di scrivere questo testo. Usa la sincronizzazione sul telefono</string>
+    <string name="lyrics_audio_transcribe_action">Scrivi il testo dall\'audio</string>
+    <string name="lyrics_audio_transcribe_action_desc">Ascolta il brano sul telefono e scrive il testo con i tempi di ogni parola. Richiede qualche minuto.</string>
+    <string name="lyrics_save_mblrc">Salva come .mblrc</string>
+    <string name="lyrics_save_mblrc_desc">Tempi delle parole, traduzione e cantanti, accanto al brano</string>
 </resources>

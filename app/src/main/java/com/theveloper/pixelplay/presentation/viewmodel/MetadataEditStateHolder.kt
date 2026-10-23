@@ -17,6 +17,7 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.utils.FileDeletionUtils
 import com.theveloper.pixelplay.utils.LyricsUtils
+import com.theveloper.pixelplay.utils.MbLrcFormat
 import com.theveloper.pixelplay.utils.MediaItemBuilder
 import com.theveloper.pixelplay.utils.MediaStorePermissionHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -83,7 +84,8 @@ private data class PendingBatchMetadataEdit(
 private data class PendingLyricsSave(
     val song: Song,
     val lyrics: Lyrics,
-    val preferSynced: Boolean
+    val preferSynced: Boolean,
+    val asMbLrc: Boolean = false
 )
 
 class MetadataEditStateHolder @Inject constructor(
@@ -474,15 +476,22 @@ class MetadataEditStateHolder @Inject constructor(
         }
     }
 
-    fun saveLyricsToFile(song: Song, lyrics: Lyrics, preferSynced: Boolean, cb: MetadataEditCallbacks) {
-        val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
-        if (lrcContent.isEmpty()) {
+    /** Saves a sidecar next to the song: `.lrc`, or `.mblrc` with every word timing when [asMbLrc]. */
+    fun saveLyricsToFile(
+        song: Song,
+        lyrics: Lyrics,
+        preferSynced: Boolean,
+        cb: MetadataEditCallbacks,
+        asMbLrc: Boolean = false
+    ) {
+        val content = lyricsFileContent(lyrics, preferSynced, asMbLrc)
+        if (content.isEmpty()) {
             cb.sendToast(context.getString(R.string.metadata_edit_lyrics_none_to_save))
             return
         }
 
         val songFile = java.io.File(song.path)
-        val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.lrc")
+        val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.${lyricsFileExtension(asMbLrc)}")
 
         // Android 11+ check: if file exists and we might not have permission
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R && lrcFile.exists() && !lrcFile.canWrite()) {
@@ -490,15 +499,21 @@ class MetadataEditStateHolder @Inject constructor(
             if (uri != null) {
                 val intentSender = MediaStorePermissionHelper.createWriteRequestIntentSender(context, listOf(uri))
                 if (intentSender != null) {
-                    pendingLyricsSave = PendingLyricsSave(song, lyrics, preferSynced)
+                    pendingLyricsSave = PendingLyricsSave(song, lyrics, preferSynced, asMbLrc)
                     cb.scope.launch { _writePermissionRequest.emit(intentSender) }
                     return
                 }
             }
         }
 
-        performLyricsSave(song, lyrics, preferSynced, cb)
+        performLyricsSave(song, lyrics, preferSynced, cb, asMbLrc)
     }
+
+    private fun lyricsFileExtension(asMbLrc: Boolean) = if (asMbLrc) MbLrcFormat.EXTENSION else "lrc"
+
+    private fun lyricsFileContent(lyrics: Lyrics, preferSynced: Boolean, asMbLrc: Boolean): String =
+        if (asMbLrc) lyrics.synced?.takeIf { it.isNotEmpty() }?.let { MbLrcFormat.encode(it) }.orEmpty()
+        else LyricsUtils.toLrcString(lyrics, preferSynced)
 
     /** Called from the UI after the user approves or denies the MediaStore write permission. */
     fun onWritePermissionResult(granted: Boolean, cb: MetadataEditCallbacks) {
@@ -551,7 +566,7 @@ class MetadataEditStateHolder @Inject constructor(
                 cb.sendToast(context.getString(R.string.metadata_edit_permission_denied_save_lyrics))
                 return
             }
-            performLyricsSave(pendingLyrics.song, pendingLyrics.lyrics, pendingLyrics.preferSynced, cb)
+            performLyricsSave(pendingLyrics.song, pendingLyrics.lyrics, pendingLyrics.preferSynced, cb, pendingLyrics.asMbLrc)
             return
         }
 
@@ -573,12 +588,18 @@ class MetadataEditStateHolder @Inject constructor(
         }
     }
 
-    private fun performLyricsSave(song: Song, lyrics: Lyrics, preferSynced: Boolean, cb: MetadataEditCallbacks) {
+    private fun performLyricsSave(
+        song: Song,
+        lyrics: Lyrics,
+        preferSynced: Boolean,
+        cb: MetadataEditCallbacks,
+        asMbLrc: Boolean = false
+    ) {
         cb.scope.launch(Dispatchers.IO) {
             try {
                 val songFile = java.io.File(song.path)
-                val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.lrc")
-                val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
+                val lrcFile = java.io.File(songFile.parentFile, "${songFile.nameWithoutExtension}.${lyricsFileExtension(asMbLrc)}")
+                val lrcContent = lyricsFileContent(lyrics, preferSynced, asMbLrc)
 
                 lrcFile.writeText(lrcContent, Charsets.UTF_8)
                 cb.sendToast(context.getString(R.string.metadata_edit_lyrics_saved_successfully))

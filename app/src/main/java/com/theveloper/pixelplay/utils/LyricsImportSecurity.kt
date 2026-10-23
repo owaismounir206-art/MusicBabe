@@ -54,6 +54,15 @@ object LyricsImportSecurity {
                 "application/x-lrc"
             )
         ),
+        // MusicBabe's JSON word-timed lyrics (see MbLrcFormat): first, as the richest format.
+        MBLRC(
+            extension = "mblrc",
+            allowedMimeTypes = setOf(
+                "application/json",
+                "text/plain",
+                "application/octet-stream"
+            )
+        ),
         TTML(
             extension = "ttml",
             allowedMimeTypes = setOf(
@@ -210,7 +219,7 @@ object LyricsImportSecurity {
     fun messageFor(reason: LyricsImportFailureReason): String {
         return when (reason) {
             LyricsImportFailureReason.UNSUPPORTED_EXTENSION ->
-                "Only .lrc, .ttml, .srt and .vtt lyrics files are supported."
+                "Only .lrc, .mblrc, .ttml, .srt and .vtt lyrics files are supported."
             LyricsImportFailureReason.UNSUPPORTED_MIME_TYPE ->
                 "The selected file type is not a supported lyrics file."
             LyricsImportFailureReason.FILE_TOO_LARGE ->
@@ -261,7 +270,8 @@ object LyricsImportSecurity {
                 TtmlLyricsParser.parseToEnhancedLrc(decoded)?.let(::sanitizeImportedLyrics),
                 sanitizeImportedLyrics(decoded)
             )
-            // SubRip / WebVTT: parseLyrics detects them from the content.
+            // SubRip / WebVTT / .mblrc: parseLyrics detects them from the content.
+            LyricsDocumentFormat.MBLRC,
             LyricsDocumentFormat.SRT,
             LyricsDocumentFormat.VTT -> listOfNotNull(
                 sanitizeImportedLyrics(decoded)

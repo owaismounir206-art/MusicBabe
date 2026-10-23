@@ -75,6 +75,8 @@ fun LyricsMoreBottomSheet(
     onTranslateViaAi: () -> Unit,
     onGenerateSyncedLyricsViaAi: () -> Unit = {},
     onAlignLyricsToAudio: (() -> Unit)? = null,
+    onWriteLyricsWithCloudAi: (() -> Unit)? = null,
+    onSaveLyricsAsMbLrc: (() -> Unit)? = null,
     onToggleSyncControls: () -> Unit,
 
     isImmersiveTemporarilyDisabled: Boolean,
@@ -218,11 +220,16 @@ fun LyricsMoreBottomSheet(
                 }
 
 
-                // Word-by-word timings heard from the audio (on device). Shown only when wired and lyrics exist.
-                if (onAlignLyricsToAudio != null && lyrics != null) {
+                // Word-by-word timings heard from the audio (on device). Without lyrics it writes them.
+                val hasLyricsText = !lyrics?.synced.isNullOrEmpty() || !lyrics?.plain.isNullOrEmpty()
+                if (onAlignLyricsToAudio != null) {
                     ListItem(
-                        headlineContent = { Text(stringResource(R.string.lyrics_audio_align_action)) },
-                        supportingContent = { Text(stringResource(R.string.lyrics_audio_align_action_desc)) },
+                        headlineContent = {
+                            Text(stringResource(if (hasLyricsText) R.string.lyrics_audio_align_action else R.string.lyrics_audio_transcribe_action))
+                        },
+                        supportingContent = {
+                            Text(stringResource(if (hasLyricsText) R.string.lyrics_audio_align_action_desc else R.string.lyrics_audio_transcribe_action_desc))
+                        },
                         leadingContent = {
                             Icon(
                                 painter = painterResource(R.drawable.rounded_lyrics_24),
@@ -236,6 +243,52 @@ fun LyricsMoreBottomSheet(
                             .clickable {
                                 onDismissRequest()
                                 onAlignLyricsToAudio()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            supportingColor = contentColor.copy(alpha = 0.7f),
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                if (onWriteLyricsWithCloudAi != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lyrics_cloud_action)) },
+                        leadingContent = {
+                            Icon(painter = painterResource(R.drawable.rounded_lyrics_24), contentDescription = null)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onWriteLyricsWithCloudAi()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                if (onSaveLyricsAsMbLrc != null && !lyrics?.synced.isNullOrEmpty()) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lyrics_save_mblrc)) },
+                        supportingContent = { Text(stringResource(R.string.lyrics_save_mblrc_desc)) },
+                        leadingContent = {
+                            Icon(painter = painterResource(R.drawable.rounded_lyrics_24), contentDescription = null)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onSaveLyricsAsMbLrc()
                             },
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,

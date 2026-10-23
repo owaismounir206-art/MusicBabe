@@ -201,6 +201,7 @@ private data class SortOptionsSnapshot(
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -3150,6 +3151,9 @@ class PlayerViewModel @Inject constructor(
     fun saveLyricsToFile(song: Song, lyrics: Lyrics, preferSynced: Boolean) =
         metadataEditStateHolder.saveLyricsToFile(song, lyrics, preferSynced, metadataEditCallbacks())
 
+    fun saveLyricsAsMbLrc(song: Song, lyrics: Lyrics) =
+        metadataEditStateHolder.saveLyricsToFile(song, lyrics, preferSynced = true, metadataEditCallbacks(), asMbLrc = true)
+
     suspend fun forceRegenerateAlbumPaletteForSong(song: Song): Boolean {
         val albumArtUri = song.albumArtUriString?.takeIf { it.isNotBlank() } ?: return false
         return runCatching {
@@ -3254,6 +3258,16 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun cancelLyricsAudioAlignment() = lyricsStateHolder.cancelAudioAlignment()
+
+    /** Gemini listens to the song and writes the lyrics (opt-in: the audio is uploaded). */
+    fun writeLyricsWithCloudAi() {
+        val currentSong = stablePlayerState.value.currentSong ?: return
+        lyricsStateHolder.transcribeLyricsWithCloudAi(
+            currentSong = currentSong,
+            getString = { resId -> context.getString(resId) },
+            transcribe = geminiAudioLyricsTranscriber::transcribe
+        )
+    }
 
     fun translateLyricsViaAi() {
         val currentSong = stablePlayerState.value.currentSong ?: return

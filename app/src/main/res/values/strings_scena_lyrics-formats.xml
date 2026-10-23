@@ -2,7 +2,7 @@
 <!-- Scena redesign: lyrics file formats (LRC, TTML, SubRip, WebVTT). English is the default. -->
 <resources>
     <!-- Lyrics import errors, shown when a picked or local lyrics file is rejected -->
-    <string name="scena_lyrics_formats_error_unsupported_extension">Only .lrc, .ttml, .srt and .vtt lyrics files are supported.</string>
+    <string name="scena_lyrics_formats_error_unsupported_extension">Only .lrc, .mblrc, .ttml, .srt and .vtt lyrics files are supported.</string>
     <string name="scena_lyrics_formats_error_unsupported_mime">The selected file type is not a supported lyrics file.</string>
     <string name="scena_lyrics_formats_error_too_large">Lyrics file is too large.</string>
     <string name="scena_lyrics_formats_error_empty">Lyrics file is empty.</string>

@@ -267,6 +267,8 @@ fun LyricsSheet(
     onTranslateViaAi: () -> Unit,
     onGenerateAiLyrics: () -> Unit = {},
     onAlignLyricsToAudio: (() -> Unit)? = null,
+    onWriteLyricsWithCloudAi: (() -> Unit)? = null,
+    onSaveLyricsAsMbLrc: ((Song, Lyrics) -> Unit)? = null,
     audioAlignmentProgress: Int? = null,
     onCancelAudioAlignment: () -> Unit = {},
     // BottomToggleRow Params
@@ -1120,6 +1122,12 @@ fun LyricsSheet(
                     onTranslateViaAi = onTranslateViaAi,
                     onGenerateSyncedLyricsViaAi = onGenerateAiLyrics,
                     onAlignLyricsToAudio = onAlignLyricsToAudio,
+                    onWriteLyricsWithCloudAi = onWriteLyricsWithCloudAi,
+                    onSaveLyricsAsMbLrc = onSaveLyricsAsMbLrc?.let { save ->
+                        val song = currentSong
+                        val currentLyrics = lyrics
+                        if (song != null && currentLyrics != null) ({ save(song, currentLyrics) }) else null
+                    },
                     onToggleSyncControls = {
 
                         resetImmersiveTimer()
