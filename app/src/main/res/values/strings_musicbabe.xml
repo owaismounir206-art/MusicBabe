@@ -17,4 +17,15 @@
     <string name="ai_lyrics_need_plain_text">To sync with AI the song needs its lyrics first: import them or find them online, then try again.</string>
     <string name="ai_lyrics_sync_in_progress">Syncing lyrics with AI…</string>
     <string name="ai_lyrics_sync_failed">AI could not sync these lyrics. Try again later or check your AI key in Settings.</string>
+    <string name="lyrics_audio_align_action">Sync word by word to the audio</string>
+    <string name="lyrics_audio_align_action_desc">Listens to the song on this device; takes a few minutes</string>
+    <string name="lyrics_audio_align_started">Listening to the song to time each word. This takes a few minutes.</string>
+    <string name="lyrics_audio_align_progress">Timing words from the audio: %1$d%%</string>
+    <string name="lyrics_audio_align_cancel">Cancel</string>
+    <string name="lyrics_audio_align_done">Lyrics synced word by word to the audio.</string>
+    <string name="lyrics_audio_align_need_lyrics">Word sync needs the lyrics first: find or import them, then try again.</string>
+    <string name="lyrics_audio_align_not_local">Only songs stored on this device can be synced to the audio.</string>
+    <string name="lyrics_audio_align_too_few">Too few words could be heard in this song to time the lyrics reliably. Nothing was changed.</string>
+    <string name="lyrics_audio_align_unsupported">Audio word sync is not available on this device.</string>
+    <string name="lyrics_audio_align_failed">Audio word sync failed. Nothing was changed.</string>
 </resources>

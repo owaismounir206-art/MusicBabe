@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-23
+
+### Added
+- **Sincronizza parola per parola sull'audio**: nuova voce nel menu dei testi. L'app ascolta la canzone sul telefono con Whisper (whisper.cpp, modello "base" incluso nell'APK) e assegna a ogni parola del testo il momento in cui viene cantata. Il testo resta sempre quello vero: dall'audio vengono presi solo i tempi. Le parole non riconosciute ricevono un tempo interpolato tra le vicine; se se ne sentono troppo poche (meno del 35%), il testo non viene toccato. Richiede qualche minuto per brano, mostra l'avanzamento e si può annullare. Funziona sui brani salvati sul telefono.
+
+### Fixed
+- I tempi per parola venivano scartati ogni volta che un testo veniva salvato (database o file `.lrc`): ora sono salvati come LRC avanzato. Questo riguardava anche i tempi veri di NetEase della 1.5.2.
+- I tempi LRC salvati con la lingua araba usavano cifre arabo-indiche e non si potevano rileggere.
+
+### Changed
+- L'APK passa da circa 66 a circa 129 MB per via del modello vocale incluso.
+
 ## [1.5.2] - 2026-10-23
 
 ### Added

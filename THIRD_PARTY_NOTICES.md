@@ -73,3 +73,17 @@ The following contributor names were generated from the Git history through `cee
 - jair1c
 - ori
 - Неважно
+
+## whisper.cpp and ggml
+
+Used on the device to time lyrics word by word from the audio. Vendored from
+https://github.com/ggml-org/whisper.cpp (v1.9.5) under `app/src/main/cpp/third_party/whisper.cpp`,
+CPU backend only. MIT License, Copyright (c) 2023-2026 The ggml authors; full text in
+`app/src/main/cpp/third_party/whisper.cpp/LICENSE`.
+
+## Whisper model (ggml-base-q5_1)
+
+OpenAI Whisper "base" weights converted and quantized for ggml, from
+https://huggingface.co/ggerganov/whisper.cpp (SHA-256
+422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898). The Whisper code and model
+weights are released by OpenAI under the MIT License.

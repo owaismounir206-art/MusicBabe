@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import android.widget.Toast
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.Lyrics
@@ -264,6 +266,9 @@ fun LyricsSheet(
     onSaveLyricsToFile: (Song, Lyrics, Boolean) -> Unit,
     onTranslateViaAi: () -> Unit,
     onGenerateAiLyrics: () -> Unit = {},
+    onAlignLyricsToAudio: (() -> Unit)? = null,
+    audioAlignmentProgress: Int? = null,
+    onCancelAudioAlignment: () -> Unit = {},
     // BottomToggleRow Params
 
     isShuffleEnabled: Boolean,
@@ -803,6 +808,17 @@ fun LyricsSheet(
                     )
                 }
 
+                if (audioAlignmentProgress != null) {
+                    AudioAlignmentBanner(
+                        progress = audioAlignmentProgress,
+                        onCancel = onCancelAudioAlignment,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .zIndex(3f)
+                            .padding(horizontal = Scena.Gutter, vertical = 12.dp)
+                    )
+                }
+
                 when (showSyncedLyrics) {
                     null -> {
                         LazyColumn(
@@ -1103,6 +1119,7 @@ fun LyricsSheet(
                     },
                     onTranslateViaAi = onTranslateViaAi,
                     onGenerateSyncedLyricsViaAi = onGenerateAiLyrics,
+                    onAlignLyricsToAudio = onAlignLyricsToAudio,
                     onToggleSyncControls = {
 
                         resetImmersiveTimer()
@@ -2270,6 +2287,43 @@ internal fun resolveCurrentLineIndex(
         val lineEndTime = resolveLineEndTimeMs(line, nextTime)
         position in line.time.toLong()..<lineEndTime
     }?.index ?: -1
+}
+
+/** Progress of the on-device audio word alignment, with a cancel action. */
+@Composable
+private fun AudioAlignmentBanner(
+    progress: Int,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scena = MaterialTheme.scena
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(color = scena.bg2, shape = Scena.ControlShape)
+            .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = stringResource(R.string.lyrics_audio_align_progress, progress),
+                style = MaterialTheme.typography.labelLarge,
+                color = scena.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+                color = scena.acc,
+                trackColor = scena.bg3,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.lyrics_audio_align_cancel), color = scena.acc)
+        }
+    }
 }
 
 /** Scena: tells whether the current lyrics are timed per word or per line (derived from the data). */

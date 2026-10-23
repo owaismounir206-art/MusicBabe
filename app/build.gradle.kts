@@ -1,11 +1,16 @@
 import java.io.File
+import java.net.URI
+import java.security.MessageDigest
 import java.util.Properties
 import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
@@ -39,6 +44,61 @@ abstract class CopyThirdPartyNotices : DefaultTask() {
     }
 }
 
+/**
+ * Puts the Whisper speech model (used to align lyrics to the audio, word by word) into the APK
+ * assets. The 57 MB model is not committed to git: it is downloaded once into the Gradle user
+ * home and always verified against its SHA-256 before it is packaged.
+ */
+abstract class FetchWhisperModel : DefaultTask() {
+    @get:Input
+    abstract val url: Property<String>
+
+    @get:Input
+    abstract val sha256: Property<String>
+
+    @get:Internal
+    abstract val cacheDirectory: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    private fun hashOf(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(1 shl 16)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+    }
+
+    @TaskAction
+    fun fetch() {
+        val expected = sha256.get()
+        val cached = cacheDirectory.file("ggml-base-q5_1-$expected.bin").get().asFile
+        if (!cached.exists() || hashOf(cached) != expected) {
+            cached.parentFile.mkdirs()
+            val partial = File(cached.parentFile, cached.name + ".part")
+            URI(url.get()).toURL().openStream().use { input ->
+                partial.outputStream().use { output -> input.copyTo(output) }
+            }
+            val actual = hashOf(partial)
+            if (actual != expected) {
+                partial.delete()
+                throw GradleException("Whisper model hash mismatch: expected $expected, got $actual")
+            }
+            if (cached.exists()) cached.delete()
+            partial.renameTo(cached)
+        }
+        val target = outputDirectory.file("whisper/ggml-base-q5_1.bin").get().asFile
+        target.parentFile.mkdirs()
+        cached.copyTo(target, overwrite = true)
+    }
+}
+
 // Load keystore properties early to avoid unresolved references inside the android block
 val keystoreProperties = Properties().apply {
     val propFile = rootProject.file("keystore.properties")
@@ -63,6 +123,13 @@ val enableComposeCompilerReports = providers.gradleProperty("pixelplay.enableCom
     .toBoolean()
 
 val generatedNoticesAssets = layout.buildDirectory.dir("generated/assets/thirdPartyNotices")
+val fetchWhisperModel = tasks.register<FetchWhisperModel>("fetchWhisperModel") {
+    url.set("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
+    sha256.set("422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898")
+    cacheDirectory.set(File(gradle.gradleUserHomeDir, "caches/musicbabe-whisper"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/whisperModel"))
+}
+
 val copyThirdPartyNotices = tasks.register<CopyThirdPartyNotices>("copyThirdPartyNotices") {
     sourceFile.set(rootProject.layout.projectDirectory.file("THIRD_PARTY_NOTICES.md"))
     outputDirectory.set(generatedNoticesAssets)
@@ -81,6 +148,17 @@ android {
 
     androidResources {
         noCompress.add("tflite")
+        // The Whisper model is memory-mapped/read as is: keep it uncompressed in the APK.
+        noCompress.add("ggml-base-q5_1.bin")
+    }
+
+    ndkVersion = "29.0.14206865"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.31.6"
+        }
     }
 
     packaging {
@@ -196,6 +274,10 @@ androidComponents {
         variant.sources.assets?.addGeneratedSourceDirectory(
             copyThirdPartyNotices,
             CopyThirdPartyNotices::outputDirectory,
+        )
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            fetchWhisperModel,
+            FetchWhisperModel::outputDirectory,
         )
     }
 }

@@ -16,4 +16,15 @@
     <string name="ai_lyrics_need_plain_text">Per sincronizzare con l\'AI serve prima il testo della canzone: importalo o cercalo online, poi riprova.</string>
     <string name="ai_lyrics_sync_in_progress">Sincronizzazione del testo con l\'AI…</string>
     <string name="ai_lyrics_sync_failed">L\'AI non è riuscita a sincronizzare questo testo. Riprova più tardi o controlla la chiave AI nelle Impostazioni.</string>
+    <string name="lyrics_audio_align_action">Sincronizza parola per parola sull\'audio</string>
+    <string name="lyrics_audio_align_action_desc">Ascolta la canzone su questo dispositivo; richiede qualche minuto</string>
+    <string name="lyrics_audio_align_started">Ascolto la canzone per trovare il tempo di ogni parola. Ci vuole qualche minuto.</string>
+    <string name="lyrics_audio_align_progress">Tempi delle parole dall\'audio: %1$d%%</string>
+    <string name="lyrics_audio_align_cancel">Annulla</string>
+    <string name="lyrics_audio_align_done">Testo sincronizzato parola per parola sull\'audio.</string>
+    <string name="lyrics_audio_align_need_lyrics">Per sincronizzare le parole serve prima il testo: cercalo o importalo, poi riprova.</string>
+    <string name="lyrics_audio_align_not_local">Solo le canzoni salvate sul dispositivo si possono sincronizzare sull\'audio.</string>
+    <string name="lyrics_audio_align_too_few">In questa canzone si sentono troppo poche parole per dare tempi affidabili. Non ho cambiato nulla.</string>
+    <string name="lyrics_audio_align_unsupported">La sincronizzazione sull\'audio non è disponibile su questo dispositivo.</string>
+    <string name="lyrics_audio_align_failed">Sincronizzazione sull\'audio non riuscita. Non ho cambiato nulla.</string>
 </resources>

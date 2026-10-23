@@ -1004,6 +1004,7 @@ fun FullPlayerContent(
             animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
+        val lyricsAudioAlignmentProgress by playerViewModel.lyricsAudioAlignmentProgress.collectAsStateWithLifecycle()
         LyricsSheet(
             stablePlayerStateFlow = playerViewModel.stablePlayerState,
             playbackPositionFlow = playerViewModel.currentPlaybackPosition,
@@ -1028,6 +1029,9 @@ fun FullPlayerContent(
             onSaveLyricsToFile = playerViewModel::saveLyricsToFile,
             onTranslateViaAi = { playerViewModel.translateLyricsViaAi() },
             onGenerateAiLyrics = { playerViewModel.generateSyncedLyricsViaAi() },
+            onAlignLyricsToAudio = { playerViewModel.alignLyricsToAudio() },
+            audioAlignmentProgress = lyricsAudioAlignmentProgress,
+            onCancelAudioAlignment = { playerViewModel.cancelLyricsAudioAlignment() },
             onSeekTo = { playerViewModel.seekTo(it) },
 
             onPlayPause = {

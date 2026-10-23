@@ -72,4 +72,20 @@ class WordTimingsTest {
         assertTrue(out[0].words!!.first().startsNewWord)
         assertFalse(out[0].words!![1].startsNewWord)
     }
+
+    @Test
+    fun `word timings survive saving to LRC and parsing back`() {
+        val line = SyncedLine(
+            time = 12_340,
+            line = "Accendi la luce",
+            words = listOf(SyncedWord(12_340, "Accendi"), SyncedWord(12_820, "la"), SyncedWord(13_170, "luce"))
+        )
+        val lrc = LyricsUtils.syncedToLrcString(listOf(line, SyncedLine(20_000, "fine")))
+        val parsed = LyricsUtils.parseLyrics(lrc).synced!!
+
+        assertEquals(listOf(12_340, 12_820, 13_170), parsed[0].words!!.map { it.time })
+        assertEquals(listOf("Accendi", "la", "luce"), parsed[0].words!!.map { it.word })
+        assertTrue(parsed[0].words!!.all { it.startsNewWord })
+        assertEquals(20_000, parsed[1].time)
+    }
 }

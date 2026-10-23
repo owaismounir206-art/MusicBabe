@@ -3233,6 +3233,20 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.importLyricsFromFile(songId, validatedImport, currentSong)
     }
 
+    /** Progress (0..100) of the on-device audio word alignment, null when idle. */
+    val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
+
+    fun alignLyricsToAudio() {
+        val currentSong = stablePlayerState.value.currentSong ?: return
+        lyricsStateHolder.alignLyricsToAudio(
+            currentSong = currentSong,
+            lyricsObj = stablePlayerState.value.lyrics,
+            getString = { resId -> context.getString(resId) }
+        )
+    }
+
+    fun cancelLyricsAudioAlignment() = lyricsStateHolder.cancelAudioAlignment()
+
     fun translateLyricsViaAi() {
         val currentSong = stablePlayerState.value.currentSong ?: return
         lyricsStateHolder.translateLyricsViaAi(

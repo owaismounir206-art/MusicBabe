@@ -1098,15 +1098,33 @@ object LyricsUtils {
      * @param syncedLines The list of synced lines to convert.
      * @return A string in LRC format.
      */
+    private fun lrcWordTag(totalMs: Int): String {
+        val ms = totalMs.coerceAtLeast(0)
+        return String.format(Locale.ROOT, "<%02d:%02d.%02d>", ms / 60000, (ms % 60000) / 1000, (ms % 1000) / 10)
+    }
+
     fun syncedToLrcString(syncedLines: List<SyncedLine>): String {
         return syncedLines.sortedBy { it.time }.flatMap { line ->
             val totalMs = line.time
             val minutes = totalMs / 60000
             val seconds = (totalMs % 60000) / 1000
             val hundredths = (totalMs % 1000) / 10
-            val timestamp = "[%02d:%02d.%02d]".format(minutes, seconds, hundredths)
+            // Locale.ROOT: with the default locale Arabic users got unparsable Arabic-Indic digits.
+            val timestamp = String.format(Locale.ROOT, "[%02d:%02d.%02d]", minutes, seconds, hundredths)
             buildList {
-                add("$timestamp${line.line}")
+                // Keep per-word timings as enhanced LRC (<mm:ss.xx>word), which parseLyrics reads back.
+                // Writing only the line text here used to throw word timings away on every save.
+                val words = line.words
+                if (!words.isNullOrEmpty()) {
+                    val body = StringBuilder()
+                    words.sortedBy { it.time }.forEachIndexed { index, word ->
+                        if (index > 0 && word.startsNewWord) body.append(' ')
+                        body.append(lrcWordTag(word.time)).append(word.word)
+                    }
+                    add("$timestamp$body")
+                } else {
+                    add("$timestamp${line.line}")
+                }
                 if (!line.translation.isNullOrBlank()) {
                     line.translation
                         .lines()

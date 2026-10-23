@@ -65,7 +65,8 @@ class LyricsTranslationCallbacks(
 class LyricsStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val songMetadataEditor: SongMetadataEditor
+    private val songMetadataEditor: SongMetadataEditor,
+    private val audioAligner: com.theveloper.pixelplay.data.lyrics.align.LyricsAudioAlignmentService? = null
 ) {
     private var scope: CoroutineScope? = null
     private var loadingJob: Job? = null
@@ -321,6 +322,73 @@ class LyricsStateHolder @Inject constructor(
     /**
      * Import from file.
      */
+    /** Progress (0..100) of the audio word alignment, null when none is running. */
+    val audioAlignmentProgress: StateFlow<Int?> =
+        audioAligner?.progress ?: MutableStateFlow<Int?>(null).asStateFlow()
+
+    private var audioAlignmentJob: Job? = null
+
+    /**
+     * Times the current lyrics word by word by listening to the song on the device (Whisper).
+     * The words are always the lyrics we already have; only their timings come from the audio.
+     */
+    fun alignLyricsToAudio(currentSong: Song, lyricsObj: Lyrics?, getString: (Int) -> String) {
+        val songId = currentSong.id.toLongOrNull() ?: return
+        val aligner = audioAligner
+        if (aligner == null || !aligner.isSupported) {
+            _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_unsupported))
+            return
+        }
+        val sourceLines = lyricsObj?.synced?.filter { it.line.isNotBlank() }
+        val lines = sourceLines?.map { it.line }?.takeIf { it.isNotEmpty() }
+            ?: lyricsObj?.plain?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+        if (lines.isNullOrEmpty()) {
+            _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_need_lyrics))
+            return
+        }
+        if (audioAlignmentJob?.isActive == true) return
+
+        audioAlignmentJob = scope?.launch {
+            _messageEvents.emit(getString(R.string.lyrics_audio_align_started))
+            aligner.align(currentSong, lines)
+                .onSuccess { alignment ->
+                    // Keep translations/romanizations: lines map 1:1 with the synced source lines.
+                    val alignedLines = if (sourceLines != null && sourceLines.size == alignment.lines.size) {
+                        alignment.lines.mapIndexed { i, line ->
+                            line.copy(translation = sourceLines[i].translation, romanization = sourceLines[i].romanization)
+                        }
+                    } else alignment.lines
+                    val lrc = LyricsUtils.syncedToLrcString(alignedLines)
+                    val parsed = LyricsUtils.parseLyrics(lrc)
+                    musicRepository.updateLyrics(songId, lrc)
+                    val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, lrc)
+                    val updatedSong = currentSong.withPersistedLyrics(lrc, refreshedAlbumArtUri)
+                    _songUpdates.emit(updatedSong to parsed.takeIf(::hasValidLyrics))
+                    _searchUiState.value = LyricsSearchUiState.Success(parsed)
+                    _messageEvents.emit(getString(R.string.lyrics_audio_align_done))
+                }
+                .onFailure { error ->
+                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
+                    val messageRes = when (error) {
+                        is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.NotLocal ->
+                            R.string.lyrics_audio_align_not_local
+                        is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.NoSpeech,
+                        is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.TooFewMatches ->
+                            R.string.lyrics_audio_align_too_few
+                        is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.Unsupported ->
+                            R.string.lyrics_audio_align_unsupported
+                        else -> R.string.lyrics_audio_align_failed
+                    }
+                    _messageEvents.emit(getString(messageRes))
+                }
+        }
+    }
+
+    fun cancelAudioAlignment() {
+        audioAligner?.cancel()
+        audioAlignmentJob?.cancel()
+    }
+
     fun importLyricsFromFile(songId: Long, validatedImport: ValidatedLyricsImport, currentSong: Song?) {
         scope?.launch {
             val sanitizedContent = validatedImport.sanitizedContent

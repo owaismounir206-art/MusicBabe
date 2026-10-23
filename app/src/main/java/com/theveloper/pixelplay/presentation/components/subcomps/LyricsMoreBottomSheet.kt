@@ -74,6 +74,7 @@ fun LyricsMoreBottomSheet(
     onResetImportedLyrics: () -> Unit,
     onTranslateViaAi: () -> Unit,
     onGenerateSyncedLyricsViaAi: () -> Unit = {},
+    onAlignLyricsToAudio: (() -> Unit)? = null,
     onToggleSyncControls: () -> Unit,
 
     isImmersiveTemporarilyDisabled: Boolean,
@@ -216,6 +217,34 @@ fun LyricsMoreBottomSheet(
                     )
                 }
 
+
+                // Word-by-word timings heard from the audio (on device). Shown only when wired and lyrics exist.
+                if (onAlignLyricsToAudio != null && lyrics != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lyrics_audio_align_action)) },
+                        supportingContent = { Text(stringResource(R.string.lyrics_audio_align_action_desc)) },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.rounded_lyrics_24),
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onAlignLyricsToAudio()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            supportingColor = contentColor.copy(alpha = 0.7f),
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
 
                 // Reset imported lyrics
                 val resetShape = if (lyrics != null) {
