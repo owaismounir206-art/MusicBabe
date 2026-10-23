@@ -749,8 +749,24 @@ class LyricsRepositoryImpl @Inject constructor(
             if (lrc.isBlank()) return@withContext null
 
             val combined = if (translatedLrc.isNotBlank()) "$lrc\n$translatedLrc" else lrc
-            val parsed = LyricsUtils.parseLyrics(combined).copy(areFromRemote = true)
+            var parsed = LyricsUtils.parseLyrics(combined).copy(areFromRemote = true)
             if (!parsed.isValid()) return@withContext null
+
+            // Real per-word timings ("yrc"), already requested by getLyrics: prefer them when present,
+            // keeping the translations paired by time from the line-level lyrics.
+            val yrc = lyricRoot.optJSONObject("yrc")?.optString("lyric", "") ?: ""
+            val wordLines = if (yrc.isNotBlank()) {
+                runCatching { com.theveloper.pixelplay.utils.NeteaseYrcParser.parse(yrc) }.getOrDefault(emptyList())
+            } else emptyList()
+            if (wordLines.size >= 3) {
+                val lineLevel = parsed.synced.orEmpty()
+                val merged = wordLines.map { wl ->
+                    val match = lineLevel.minByOrNull { abs(it.time - wl.time) }
+                        ?.takeIf { abs(it.time - wl.time) <= 1_000 }
+                    wl.copy(translation = match?.translation, romanization = match?.romanization)
+                }
+                parsed = parsed.copy(synced = merged)
+            }
 
             Log.d(TAG, "===== FOUND NETEASE LYRICS (songId=$bestSongId) for: ${song.title} =====")
             parsed

@@ -646,6 +646,14 @@ fun LyricsSheet(
         )
     }
     val hasWordTimings = remember(lyrics) { lyrics?.synced?.any { it.words != null } == true }
+    // Lines without real word timings get estimated ones (shared in proportion to word length),
+    // so every song lights word by word; the chip says when the timings are an estimate.
+    val displaySyncedLines = remember(lyrics) {
+        lyrics?.synced?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.estimate(it) }
+    }
+    val hasEstimatedWordTimings = remember(lyrics) {
+        lyrics?.synced?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.canEstimate(it) } == true
+    }
 
     Scaffold(
         modifier = modifier
@@ -784,7 +792,8 @@ fun LyricsSheet(
                 // Scena: says whether the lyrics are timed per word or per line. Derived from the data.
                 if (showSyncedLyrics == true && !lyrics?.synced.isNullOrEmpty()) {
                     LyricsTimingChip(
-                        perWord = hasWordTimings,
+                        perWord = hasWordTimings || hasEstimatedWordTimings,
+                        estimated = hasEstimatedWordTimings,
                         modifier = Modifier
                             // On the header row, at the end edge: it never covers a lyric line.
                             .align(Alignment.TopEnd)
@@ -834,7 +843,7 @@ fun LyricsSheet(
                                     // text edge lands at Scena.Gutter + 8 dp.
                                     .padding(horizontal = Scena.Gutter - 4.dp),
                                 contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
-                                lines = synced,
+                                lines = displaySyncedLines ?: synced,
                                 listState = syncedListState,
                                 playbackPositionFlow = playbackPositionFlow,
                                 lyricsSyncOffset = lyricsSyncOffset,
@@ -2267,7 +2276,8 @@ internal fun resolveCurrentLineIndex(
 @Composable
 private fun LyricsTimingChip(
     perWord: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    estimated: Boolean = false
 ) {
     val scena = MaterialTheme.scena
     Row(
@@ -2284,7 +2294,11 @@ private fun LyricsTimingChip(
         )
         Text(
             text = stringResource(
-                if (perWord) R.string.lyrics_scena_timing_word else R.string.lyrics_scena_timing_line
+                when {
+                    estimated -> R.string.lyrics_scena_timing_estimated
+                    perWord -> R.string.lyrics_scena_timing_word
+                    else -> R.string.lyrics_scena_timing_line
+                }
             ),
             style = scenaWide(12.sp),
             color = scena.ink,

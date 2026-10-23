@@ -8,4 +8,5 @@
     <string name="lyrics_scena_cd_cover">Copertina</string>
     <string name="lyrics_scena_cd_show_controls">Mostra i controlli</string>
     <string name="lyrics_scena_cd_seek_line">Vai a questa riga</string>
+    <string name="lyrics_scena_timing_estimated">Parola per parola · stimato</string>
 </resources>

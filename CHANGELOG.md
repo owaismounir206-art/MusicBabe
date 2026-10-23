@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-23
+
+### Added
+- **Testi parola per parola su tutte le canzoni**: quando NetEase fornisce i tempi per parola (formato "yrc"), l'app ora li usa davvero; prima li scaricava e li ignorava. Per i testi che hanno solo i tempi per riga, il tempo della riga viene diviso tra le parole in base alla loro lunghezza. L'etichetta in alto dice "Parola per parola · stimato" quando i tempi sono una stima.
+
 ## [1.5.1] - 2026-10-23
 
 ### Fixed
