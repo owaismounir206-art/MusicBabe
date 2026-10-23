@@ -746,15 +746,6 @@ fun LyricsSheet(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                // Scena: a big accent cookie drifts behind the lyrics at low alpha. It turns only while the
-                // music plays and is not drawn at all when system animations are off.
-                if (animationsEnabled) {
-                    ScenaLyricsBlob(
-                        color = accentColor,
-                        spinning = isPlaying,
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    )
-                }
 
                 // Track Info Header (Fixed at top)
                 AnimatedContent(
@@ -795,9 +786,10 @@ fun LyricsSheet(
                     LyricsTimingChip(
                         perWord = hasWordTimings,
                         modifier = Modifier
-                            .align(Alignment.TopStart)
+                            // On the header row, at the end edge: it never covers a lyric line.
+                            .align(Alignment.TopEnd)
                             .zIndex(2f)
-                            .padding(top = 76.dp, start = 18.dp)
+                            .padding(top = 18.dp, end = 18.dp)
                             .scenaRise(1)
                     )
                 }
@@ -2269,29 +2261,6 @@ internal fun resolveCurrentLineIndex(
         val lineEndTime = resolveLineEndTimeMs(line, nextTime)
         position in line.time.toLong()..<lineEndTime
     }?.index ?: -1
-}
-
-/**
- * Scena: a big accent cookie behind the lyrics, at low alpha. It sits partly off the top end corner and
- * turns very slowly, only while the music plays ([CookieDisc] never spins with system animations off).
- */
-@Composable
-private fun ScenaLyricsBlob(
-    color: Color,
-    spinning: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    CookieDisc(
-        modifier = modifier
-            .size(380.dp)
-            // Pushed towards the outside of the end edge, whichever side that is.
-            .offset(x = if (isRtl) (-150).dp else 150.dp, y = (-90).dp)
-            .graphicsLayer { alpha = 0.10f },
-        color = color,
-        spinning = spinning,
-        periodMillis = 90_000
-    )
 }
 
 /** Scena: tells whether the current lyrics are timed per word or per line (derived from the data). */

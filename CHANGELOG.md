@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-23
+
+### Fixed
+- **Testi con l'AI (Gemini) lenti o mai generati**: quando una canzone non aveva già il testo, l'app chiedeva all'AI di scriverlo a memoria. Gemini blocca la riproduzione di testi protetti da copyright, quindi dopo una lunga attesa non arrivava niente. Ora l'AI viene usata solo per sincronizzare un testo che c'è già; altrimenti l'app lo dice subito. Se Gemini interrompe la risposta, l'errore spiega il motivo.
+- **Titoli Scena**: ora sono davvero larghi e pesanti come nelle anteprime. Il font non applicava la larghezza sul telefono.
+- **Colori Scena**: lo sfondo prende di più il colore dinamico.
+- **Testi**: l'etichetta "Per riga / Parola per parola" non copre più le righe; il pulsante "Sincronizzato" non va più a capo; tolto il disco sullo sfondo che copriva il testo.
+- **Home**: il disco mostra la copertina del mix invece di una forma vuota.
+
 ## [1.5.0] - 2026-10-23
 
 ### Added

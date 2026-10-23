@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -247,9 +248,11 @@ private fun ScenaSegment(
     ) {
         Text(
             text = text,
-            style = scenaWide(13.sp),
+            // Plain (unscaled) type: the expanded style made "Sincronizzato" break mid-word.
+            style = MaterialTheme.typography.labelLarge,
             color = textColor,
-            maxLines = 2,
+            maxLines = 1,
+            softWrap = false,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )

@@ -418,7 +418,7 @@ class LyricsStateHolder @Inject constructor(
 
         scope?.launch {
             if (!autoMode) {
-                _messageEvents.emit("Generazione testo sincronizzato in corso...")
+                _messageEvents.emit(cb.getString(R.string.ai_lyrics_sync_in_progress))
             }
 
             val existingPlainLyrics = withContext(Dispatchers.IO) {
@@ -426,6 +426,16 @@ class LyricsStateHolder @Inject constructor(
                     ?: readLocalLyricsFile(currentSong)
                     ?: readEmbeddedLyricsFromFile(currentSong)
                     ?: musicRepository.getStoredLyrics(currentSong)?.second
+            }
+
+            // Without the real lyrics the model would have to write them from memory: Gemini blocks
+            // that for copyrighted songs (empty "RECITATION" answer after a long wait) and other
+            // models invent words. Only timing of lyrics we already have is asked from the AI.
+            if (existingPlainLyrics.isNullOrBlank()) {
+                if (!autoMode) {
+                    _messageEvents.emit(cb.getString(R.string.ai_lyrics_need_plain_text))
+                }
+                return@launch
             }
 
             val durationMs = currentSong.duration.coerceAtLeast(30_000L)
@@ -468,7 +478,7 @@ class LyricsStateHolder @Inject constructor(
                 ) {
                     _messageEvents.emit(cb.getString(R.string.ai_state_error_api_key))
                 } else {
-                    _messageEvents.emit("Nessun testo trovato. Configura una chiave AI nelle Impostazioni per generarlo!")
+                    _messageEvents.emit(cb.getString(R.string.ai_lyrics_sync_failed))
                 }
             }
         }

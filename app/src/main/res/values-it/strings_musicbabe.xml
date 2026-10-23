@@ -13,4 +13,7 @@
     <string name="player_cd_download_track">Scarica il brano</string>
     <string name="home_wrapped_banner_title">Alza il volume, babe!</string>
     <string name="home_wrapped_banner_subtitle">Scopri il tuo MusicBabe Wrapped</string>
+    <string name="ai_lyrics_need_plain_text">Per sincronizzare con l\'AI serve prima il testo della canzone: importalo o cercalo online, poi riprova.</string>
+    <string name="ai_lyrics_sync_in_progress">Sincronizzazione del testo con l\'AI…</string>
+    <string name="ai_lyrics_sync_failed">L\'AI non è riuscita a sincronizzare questo testo. Riprova più tardi o controlla la chiave AI nelle Impostazioni.</string>
 </resources>

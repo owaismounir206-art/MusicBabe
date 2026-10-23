@@ -146,6 +146,17 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
                         )
                     }
 
+                    val finishReason = parsed.candidates.firstOrNull()?.finishReason
+                    if (finishReason == "RECITATION" || finishReason == "SAFETY" || finishReason == "BLOCKLIST") {
+                        throw AiProviderSupport.createException(
+                            providerName = "Gemini",
+                            statusCode = response.code,
+                            transportMessage = "Gemini stopped the answer (reason: $finishReason). Copyrighted text such as song lyrics cannot be reproduced.",
+                            responseBody = responseBody,
+                            requestedModel = resolvedModel
+                        )
+                    }
+
                     val text = parsed.candidates
                         .firstOrNull()
                         ?.content

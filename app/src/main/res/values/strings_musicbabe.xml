@@ -14,4 +14,7 @@
     <string name="player_cd_download_track">Download track</string>
     <string name="home_wrapped_banner_title">Turn up the volume, babe!</string>
     <string name="home_wrapped_banner_subtitle">Discover your MusicBabe Wrapped</string>
+    <string name="ai_lyrics_need_plain_text">To sync with AI the song needs its lyrics first: import them or find them online, then try again.</string>
+    <string name="ai_lyrics_sync_in_progress">Syncing lyrics with AI…</string>
+    <string name="ai_lyrics_sync_failed">AI could not sync these lyrics. Try again later or check your AI key in Settings.</string>
 </resources>

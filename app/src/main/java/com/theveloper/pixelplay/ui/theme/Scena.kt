@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -115,9 +116,9 @@ val MaterialTheme.scena: ScenaColors
         return remember(c, dark) {
             if (dark) {
                 ScenaColors(
-                    bg = lerp(c.surface, c.primaryContainer, 0.45f),
-                    bg2 = lerp(c.surface, c.primaryContainer, 0.72f),
-                    bg3 = c.primaryContainer,
+                    bg = lerp(c.surface, c.primaryContainer, 0.7f),
+                    bg2 = c.primaryContainer,
+                    bg3 = lerp(c.primaryContainer, c.primary, 0.22f),
                     ink = c.onSurface,
                     ink2 = c.onSurfaceVariant,
                     acc = c.primary,
@@ -125,9 +126,9 @@ val MaterialTheme.scena: ScenaColors
                 )
             } else {
                 ScenaColors(
-                    bg = lerp(c.surface, c.primaryContainer, 0.5f),
-                    bg2 = lerp(c.surface, c.primaryContainer, 0.78f),
-                    bg3 = c.primaryContainer,
+                    bg = lerp(c.surface, c.primaryContainer, 0.65f),
+                    bg2 = c.primaryContainer,
+                    bg3 = lerp(c.primaryContainer, c.primary, 0.18f),
                     ink = c.onSurface,
                     ink2 = c.onSurfaceVariant,
                     acc = c.primary,
@@ -169,22 +170,27 @@ val ScenaDisplayFamily: FontFamily by lazy { scenaFamily(weight = 800, width = 1
 /** Expanded, semibold: section titles, tabs, names on cards. */
 val ScenaWideFamily: FontFamily by lazy { scenaFamily(weight = 720, width = 122f) }
 
-/** Screen title style. The line height is tighter than 1 on purpose: titles are one or two lines. */
+/**
+ * Screen title style. Expansion uses a horizontal text scale: on devices the variation axes of a
+ * resource font are not reliably applied, while the scale is (the pre-Scena app used it too).
+ */
 fun scenaDisplay(fontSize: TextUnit): TextStyle = TextStyle(
-    fontFamily = ScenaDisplayFamily,
-    fontWeight = FontWeight.ExtraBold,
+    fontFamily = GoogleSansRounded,
+    fontWeight = FontWeight.Bold,
     fontSize = fontSize,
     lineHeight = fontSize * 1.0f,
-    letterSpacing = (-0.02).em
+    letterSpacing = (-0.03).em,
+    textGeometricTransform = TextGeometricTransform(scaleX = 1.22f)
 )
 
 /** Section title / tab style. */
 fun scenaWide(fontSize: TextUnit): TextStyle = TextStyle(
-    fontFamily = ScenaWideFamily,
+    fontFamily = GoogleSansRounded,
     fontWeight = FontWeight.Bold,
     fontSize = fontSize,
     lineHeight = fontSize * 1.15f,
-    letterSpacing = (-0.01).em
+    letterSpacing = (-0.01).em,
+    textGeometricTransform = TextGeometricTransform(scaleX = 1.1f)
 )
 
 // ─── Shapes ──────────────────────────────────────────────────────────────────────────────────

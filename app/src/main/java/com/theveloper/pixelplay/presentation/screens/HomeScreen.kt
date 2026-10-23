@@ -432,6 +432,7 @@ fun HomeScreen(
                             song = yourMixSong,
                             isShuffleEnabled = isShuffleEnabled,
                             isPlaying = isPlaying,
+                            coverArtUri = yourMixSongs.firstOrNull()?.albumArtUriString,
                             modifier = Modifier.homeRise(homeIntroPlayed, 0),
                             onPlayShuffled = {
                                 if (usesFallbackHomeMix) {
@@ -823,7 +824,8 @@ fun YourMixHeader(
     isShuffleEnabled: Boolean = false,
     onPlayShuffled: () -> Unit,
     isPlaying: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    coverArtUri: String? = null
 ) {
     val scena = MaterialTheme.scena
 
@@ -843,14 +845,23 @@ fun YourMixHeader(
             color = scena.bg3,
             spinning = isPlaying
         ) {
-            // Record label with a spindle hole: concentric, so it never betrays the (static) layer.
+            // The mix cover sits on the record, with a spindle hole: concentric, so the static
+            // cover never betrays the turning scallops around it.
             Box(
                 modifier = Modifier
-                    .fillMaxSize(0.34f)
+                    .fillMaxSize(0.8f)
                     .clip(CircleShape)
                     .background(scena.acc),
                 contentAlignment = Alignment.Center
             ) {
+                if (coverArtUri != null) {
+                    SmartImage(
+                        model = coverArtUri,
+                        contentDescription = null,
+                        shape = CircleShape,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .size(14.dp)
