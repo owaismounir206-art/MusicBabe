@@ -43,4 +43,6 @@
     <string name="lyrics_audio_transcribe_action_desc">Listens to the song on this phone and writes word-timed lyrics. Takes a few minutes.</string>
     <string name="lyrics_save_mblrc">Save as .mblrc</string>
     <string name="lyrics_save_mblrc_desc">Word timings, translation and singers, next to the song</string>
+    <string name="karaoke_mode">Karaoke mode</string>
+    <string name="karaoke_mode_desc">Takes the lead vocal out of the song. Works best on studio mixes.</string>
 </resources>

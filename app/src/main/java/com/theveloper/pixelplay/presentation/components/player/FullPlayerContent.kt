@@ -572,6 +572,7 @@ fun FullPlayerContent(
     }
 
     val isMusicVideoVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
+    val isKaraokeEnabled by playerViewModel.isKaraokeEnabled.collectAsStateWithLifecycle()
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
         if (isMusicVideoVisible && song != null) {
             Box(modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
@@ -1043,6 +1044,8 @@ fun FullPlayerContent(
             onAlignLyricsToAudio = { playerViewModel.alignLyricsToAudio() },
             onWriteLyricsWithCloudAi = { playerViewModel.writeLyricsWithCloudAi() },
             onSaveLyricsAsMbLrc = playerViewModel::saveLyricsAsMbLrc,
+            isKaraokeEnabled = isKaraokeEnabled,
+            onToggleKaraoke = playerViewModel::toggleKaraoke,
             audioAlignmentProgress = lyricsAudioAlignmentProgress,
             onCancelAudioAlignment = { playerViewModel.cancelLyricsAudioAlignment() },
             onSeekTo = { playerViewModel.seekTo(it) },

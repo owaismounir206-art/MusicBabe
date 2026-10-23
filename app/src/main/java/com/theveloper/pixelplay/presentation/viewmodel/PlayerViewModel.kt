@@ -3244,6 +3244,13 @@ class PlayerViewModel @Inject constructor(
     /** The player shows the song's music video in place of the cover. */
     val isMusicVideoVisible: StateFlow<Boolean> = _isMusicVideoVisible.asStateFlow()
 
+    /** Karaoke: the lead vocal is taken out of the mix (see KaraokeAudioProcessor). */
+    val isKaraokeEnabled: StateFlow<Boolean> = com.theveloper.pixelplay.data.service.player.KaraokeMode.enabled
+
+    fun toggleKaraoke() {
+        dualPlayerEngine.setKaraokeMode(!isKaraokeEnabled.value)
+    }
+
     fun toggleMusicVideo() {
         _isMusicVideoVisible.value = !_isMusicVideoVisible.value
     }

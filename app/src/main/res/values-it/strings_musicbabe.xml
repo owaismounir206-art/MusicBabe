@@ -42,4 +42,6 @@
     <string name="lyrics_audio_transcribe_action_desc">Ascolta il brano sul telefono e scrive il testo con i tempi di ogni parola. Richiede qualche minuto.</string>
     <string name="lyrics_save_mblrc">Salva come .mblrc</string>
     <string name="lyrics_save_mblrc_desc">Tempi delle parole, traduzione e cantanti, accanto al brano</string>
+    <string name="karaoke_mode">Modalità karaoke</string>
+    <string name="karaoke_mode_desc">Toglie la voce principale dal brano. Funziona meglio sui mix in studio.</string>
 </resources>

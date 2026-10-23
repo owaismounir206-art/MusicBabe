@@ -269,6 +269,8 @@ fun LyricsSheet(
     onAlignLyricsToAudio: (() -> Unit)? = null,
     onWriteLyricsWithCloudAi: (() -> Unit)? = null,
     onSaveLyricsAsMbLrc: ((Song, Lyrics) -> Unit)? = null,
+    isKaraokeEnabled: Boolean = false,
+    onToggleKaraoke: (() -> Unit)? = null,
     audioAlignmentProgress: Int? = null,
     onCancelAudioAlignment: () -> Unit = {},
     // BottomToggleRow Params
@@ -1123,6 +1125,8 @@ fun LyricsSheet(
                     onGenerateSyncedLyricsViaAi = onGenerateAiLyrics,
                     onAlignLyricsToAudio = onAlignLyricsToAudio,
                     onWriteLyricsWithCloudAi = onWriteLyricsWithCloudAi,
+                    isKaraokeEnabled = isKaraokeEnabled,
+                    onToggleKaraoke = onToggleKaraoke,
                     onSaveLyricsAsMbLrc = onSaveLyricsAsMbLrc?.let { save ->
                         val song = currentSong
                         val currentLyrics = lyrics

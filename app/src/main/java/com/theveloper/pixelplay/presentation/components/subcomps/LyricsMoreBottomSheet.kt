@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -77,6 +78,8 @@ fun LyricsMoreBottomSheet(
     onAlignLyricsToAudio: (() -> Unit)? = null,
     onWriteLyricsWithCloudAi: (() -> Unit)? = null,
     onSaveLyricsAsMbLrc: (() -> Unit)? = null,
+    isKaraokeEnabled: Boolean = false,
+    onToggleKaraoke: (() -> Unit)? = null,
     onToggleSyncControls: () -> Unit,
 
     isImmersiveTemporarilyDisabled: Boolean,
@@ -244,6 +247,39 @@ fun LyricsMoreBottomSheet(
                                 onDismissRequest()
                                 onAlignLyricsToAudio()
                             },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            supportingColor = contentColor.copy(alpha = 0.7f),
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                if (onToggleKaraoke != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.karaoke_mode)) },
+                        supportingContent = { Text(stringResource(R.string.karaoke_mode_desc)) },
+                        leadingContent = {
+                            Icon(imageVector = Icons.Rounded.Mic, contentDescription = null)
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isKaraokeEnabled,
+                                onCheckedChange = { onToggleKaraoke() },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = onAccentColor,
+                                    checkedTrackColor = accentColor,
+                                    uncheckedThumbColor = contentColor,
+                                    uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
+                                )
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable { onToggleKaraoke() },
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,
                             headlineColor = contentColor,

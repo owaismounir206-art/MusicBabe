@@ -1052,7 +1052,8 @@ class DualPlayerEngine @Inject constructor(
                     .setAudioProcessorChain(
                         DefaultAudioSink.DefaultAudioProcessorChain(
                             HiResSampleRateCapAudioProcessor(),
-                            SurroundDownmixProcessor()
+                            SurroundDownmixProcessor(),
+                            KaraokeAudioProcessor()
                         )
                     )
                     .build()
@@ -1133,18 +1134,7 @@ class DualPlayerEngine @Inject constructor(
             .setLoadControl(loadControl)
             .build().apply {
             setAudioAttributes(audioAttributes, false)
-            val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
-                .setAudioOffloadMode(
-                    if (audioOffloadEnabled) {
-                        TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
-                    } else {
-                        TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
-                    }
-                )
-                .build()
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setAudioOffloadPreferences(offloadPreferences)
-                .build()
+            applyAudioOffloadPreferences(this)
             setHandleAudioBecomingNoisy(true)
             setWakeMode(C.WAKE_MODE_LOCAL)
             playWhenReady = false
@@ -1183,6 +1173,31 @@ class DualPlayerEngine @Inject constructor(
             absoluteIndex = targetIndex,
             queueSize = snapshot.size
         )
+    }
+
+    /**
+     * Karaoke needs the PCM path ([KaraokeAudioProcessor]): hardware offload skips the audio
+     * processors, so it is paused while karaoke is on.
+     */
+    fun setKaraokeMode(enabled: Boolean) {
+        KaraokeMode.set(enabled)
+        if (::playerA.isInitialized) applyAudioOffloadPreferences(playerA)
+        playerB?.let(::applyAudioOffloadPreferences)
+    }
+
+    private fun applyAudioOffloadPreferences(player: ExoPlayer) {
+        val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
+            .setAudioOffloadMode(
+                if (audioOffloadEnabled && !KaraokeMode.enabled.value) {
+                    TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+                } else {
+                    TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
+                }
+            )
+            .build()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setAudioOffloadPreferences(offloadPreferences)
+            .build()
     }
 
     fun setHiFiMode(enabled: Boolean) {
