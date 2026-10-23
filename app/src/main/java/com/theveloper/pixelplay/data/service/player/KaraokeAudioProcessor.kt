@@ -69,7 +69,7 @@ class KaraokeAudioProcessor : AudioProcessor {
         val target = if (KaraokeMode.enabled.value) 1f else 0f
         val isFloat = format.encoding == C.ENCODING_PCM_FLOAT
         val bytes = inputBuffer.remaining()
-        outputBuffer = ensureOutputBuffer(bytes)
+        outputBuffer = ensureOutputBuffer(bytes, inputBuffer)
 
         // Fast path: fully off and not fading, copy as is.
         if (target == 0f && mix == 0f) {
@@ -115,8 +115,10 @@ class KaraokeAudioProcessor : AudioProcessor {
         outputBuffer.flip()
     }
 
-    private fun ensureOutputBuffer(capacity: Int): ByteBuffer {
-        if (buffer.capacity() < capacity) {
+    private fun ensureOutputBuffer(capacity: Int, input: ByteBuffer): ByteBuffer {
+        // The sink can hand our own previous output back as input: never write into the buffer
+        // being read (ByteBuffer.put throws "The source buffer is this buffer").
+        if (buffer.capacity() < capacity || buffer === input) {
             buffer = ByteBuffer.allocateDirect(capacity).order(ByteOrder.nativeOrder())
         } else {
             buffer.clear()

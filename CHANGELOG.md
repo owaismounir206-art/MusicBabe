@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-23
+
+### Fixed
+- **"Unexpected runtime error" all'avvio di ogni canzone**: il nuovo processore audio del karaoke a volte riceveva in ingresso il proprio buffer d'uscita e la riproduzione si fermava. Ora suonano sia i brani sul telefono sia quelli online (verificato su emulatore).
+
 ## [1.7.0] - 2026-10-23
 
 ### Added

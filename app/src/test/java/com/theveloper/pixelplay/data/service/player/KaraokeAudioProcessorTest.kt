@@ -62,4 +62,19 @@ class KaraokeAudioProcessorTest {
         }
         assertTrue(centre / side < 0.2, "centre/side ratio ${centre / side}")
     }
+
+    @Test
+    fun `own output fed back as input does not crash`() {
+        for (enabled in listOf(false, true)) {
+            KaraokeMode.set(enabled)
+            val p = KaraokeAudioProcessor()
+            p.configure(AudioFormat(44_100, 2, C.ENCODING_PCM_FLOAT))
+            p.flush()
+            p.queueInput(input())
+            val first = p.output
+            val size = first.remaining()
+            p.queueInput(first)
+            assertEquals(size, p.output.remaining())
+        }
+    }
 }
