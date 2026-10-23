@@ -1364,6 +1364,12 @@ fun SyncedLyricsList(
 ) {
     val density = LocalDensity.current
     val animationsEnabled = rememberScenaAnimationsEnabled()
+    // Duets (.mblrc singers): the first voice keeps the user's side, the second takes the other
+    // one, lines sung together are centred.
+    val singers = remember(lines) { duetVoices(lines) }
+    val duetAlignment: (SyncedLine) -> String = remember(singers, lyricsAlignment) {
+        { line -> duetLineAlignment(singers, line.singer, lyricsAlignment) }
+    }
 
     // The playback position stays a State on purpose: nothing at list level reads its value in
     // composition. Only the derived line indexes (they change once per line) and the words of the
@@ -1557,7 +1563,7 @@ fun SyncedLyricsList(
                             animatedLyricsBlurEnabled = animatedLyricsBlurEnabled,
                             animatedLyricsBlurStrength = animatedLyricsBlurStrength,
                             immersiveMode = immersiveMode,
-                            lyricsAlignment = lyricsAlignment,
+                            lyricsAlignment = duetAlignment(line),
                             showTranslation = showTranslation,
                             showRomanization = showRomanization,
                             accentColor = accentColor,
@@ -2116,6 +2122,29 @@ fun PlainLyricsLine(
 }
 
 private val LeadingTagRegex = Regex("^v\\d+:\\s*", RegexOption.IGNORE_CASE)
+
+/**
+ * The two lead voices of a duet, in order of appearance: the two singers with most lines, so a
+ * joint label such as "AB" (sung together) never takes a side.
+ */
+internal fun duetVoices(lines: List<SyncedLine>): List<String> {
+    val counts = lines.mapNotNull { it.singer }.groupingBy { it }.eachCount()
+    if (counts.size < 2) return emptyList()
+    val leads = counts.entries.sortedByDescending { it.value }.take(2).map { it.key }.toSet()
+    return lines.mapNotNull { it.singer }.distinct().filter { it in leads }
+}
+
+/** Alignment of a duet line; with fewer than two singers it is just [userAlignment]. */
+internal fun duetLineAlignment(singers: List<String>, singer: String?, userAlignment: String): String {
+    if (singers.size < 2) return userAlignment
+    val first = if (userAlignment == "right") "right" else "left"
+    val second = if (first == "left") "right" else "left"
+    return when (singer) {
+        singers[0] -> first
+        singers[1] -> second
+        else -> "center"
+    }
+}
 
 internal fun sanitizeLyricLineText(raw: String): String =
     LyricsUtils.stripLrcTimestamps(raw).replace(LeadingTagRegex, "").trimStart()

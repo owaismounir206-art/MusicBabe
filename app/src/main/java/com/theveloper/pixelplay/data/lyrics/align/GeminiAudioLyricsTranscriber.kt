@@ -10,6 +10,7 @@ import com.theveloper.pixelplay.data.model.SyncedLine
 import com.theveloper.pixelplay.data.network.enforceCleartextPolicy
 import com.theveloper.pixelplay.data.preferences.AiPreferencesRepository
 import com.theveloper.pixelplay.utils.LyricsUtils
+import com.theveloper.pixelplay.utils.MbLrcFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -84,6 +85,7 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
                 }
                 putJsonObject("generationConfig") {
                     put("temperature", 0.1)
+                    put("responseMimeType", "application/json")
                     put("maxOutputTokens", 16_384)
                 }
             }
@@ -101,8 +103,7 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
                 answerText(raw)
             }
 
-            val lines = LyricsUtils.parseLyrics(text.removeSurrounding("```").removePrefix("lrc").trim()).synced
-                ?.filter { it.line.isNotBlank() }
+            val lines = parseAnswer(text)
             if (lines.isNullOrEmpty()) throw AudioAlignmentException.NoSpeech()
             lines
         }
@@ -144,13 +145,28 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
         json.parseToJsonElement(raw).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
     }.getOrNull()
 
+    /** The answer is an .mblrc document; an LRC answer (older models ignoring the format) also works. */
+    private fun parseAnswer(text: String): List<SyncedLine>? {
+        val cleaned = text.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        val document = if (cleaned.startsWith("{") && !MbLrcFormat.looksLikeMbLrc(cleaned)) {
+            "{\"format\":\"mblrc\",\"version\":1," + cleaned.removePrefix("{")
+        } else cleaned
+        return LyricsUtils.parseLyrics(document).synced?.filter { it.line.isNotBlank() }
+    }
+
     private fun prompt(song: Song) = """
         Listen to the attached song and transcribe the sung vocals exactly as you hear them.
         Song: "${song.title}" by ${song.displayArtist}.
-        Output ONLY enhanced LRC, one sung line per row, every word with the time it starts:
-        [mm:ss.xx]<mm:ss.xx>word <mm:ss.xx>word <mm:ss.xx>word
-        Times are measured on the attached audio and strictly ascending. No headers, no markdown,
-        no comments, no instrumental markers.
+        Answer with JSON only, in this shape:
+        {"format":"mblrc","version":1,"lines":[
+          {"start":12340,"text":"first sung line","singer":"A",
+           "words":[{"start":12340,"text":"first"},{"start":12800,"text":"sung"},{"start":13100,"text":"line"}]}
+        ]}
+        - One entry per sung line; "start" values are milliseconds measured on the attached audio,
+          strictly ascending, and every word has its own start.
+        - "singer": "A" for the main voice, "B" for a second lead voice in duets, "AB" when they sing
+          together. Omit it for songs with a single voice.
+        - No instrumental markers, no comments.
     """.trimIndent()
 
     private companion object {
