@@ -36,6 +36,24 @@ data class YouTubeTrack(
     val thumbnailUrl: String?
 )
 
+/** As a [Song] that streams through `YouTubeStreamProxy`. */
+fun YouTubeTrack.toSong(): com.theveloper.pixelplay.data.model.Song = com.theveloper.pixelplay.data.model.Song(
+    id = "online_yt_$videoId",
+    title = title,
+    artist = uploader.ifBlank { "YouTube" },
+    artistId = kotlin.math.abs(uploader.hashCode().toLong()).coerceAtLeast(1000L),
+    album = "YouTube",
+    albumId = kotlin.math.abs("YouTube".hashCode().toLong()).coerceAtLeast(1000L),
+    path = "https://music.youtube.com/watch?v=$videoId",
+    contentUriString = YouTubeStreamProxy.videoUri(videoId),
+    albumArtUriString = thumbnailUrl,
+    duration = durationSeconds * 1000L,
+    genre = "Online",
+    mimeType = "audio/mp4",
+    bitrate = 128_000,
+    sampleRate = 44_100
+)
+
 /** A playable stream URL plus the User-Agent googlevideo ties it to. */
 data class YouTubeStream(val url: String, val userAgent: String?, val mimeType: String?)
 
@@ -111,6 +129,26 @@ class YouTubeExtractor @Inject constructor() {
         if (expectedDurationMs <= 0 || musicVideo) return hits.first().videoId
         val expected = expectedDurationMs / 1000
         return hits.take(3).minByOrNull { abs(it.durationSeconds - expected) }?.videoId
+    }
+
+    /** Songs YouTube suggests after [videoId] (its "up next"), songs only: 1 to 15 minutes long. */
+    suspend fun relatedSongs(videoId: String, limit: Int = 10): List<YouTubeTrack> = withContext(Dispatchers.IO) {
+        val service = ServiceList.YouTube
+        streamInfo(videoId).relatedStreams
+            .filterIsInstance<StreamInfoItem>()
+            .filter { it.duration in 60..900 }
+            .mapNotNull { item ->
+                val id = runCatching { service.streamLHFactory.getId(item.url) }.getOrNull() ?: return@mapNotNull null
+                YouTubeTrack(
+                    videoId = id,
+                    title = item.name,
+                    uploader = item.uploaderName.orEmpty().removeSuffix(" - Topic"),
+                    durationSeconds = item.duration,
+                    thumbnailUrl = item.thumbnails.maxByOrNull { it.width }?.url
+                )
+            }
+            .filter { it.videoId != videoId }
+            .take(limit)
     }
 
     /** Best progressive audio stream: AAC/M4A first (plays everywhere), then highest bitrate. */

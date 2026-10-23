@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.viewmodel
 
+import com.theveloper.pixelplay.data.youtube.toSong
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.net.Uri
@@ -97,6 +98,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -202,6 +204,7 @@ private data class SortOptionsSnapshot(
 class PlayerViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
+    private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -1000,6 +1003,7 @@ class PlayerViewModel @Inject constructor(
     val trackVolume: StateFlow<Float> = _trackVolume.asStateFlow()
 
     init {
+        observeOnlineRadio()
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
         dailyMixStateHolder.initialize(viewModelScope)
@@ -3244,6 +3248,44 @@ class PlayerViewModel @Inject constructor(
     /** The player shows the song's music video in place of the cover. */
     val isMusicVideoVisible: StateFlow<Boolean> = _isMusicVideoVisible.asStateFlow()
 
+    /**
+     * Online radio: when an online song is the last one in the queue, YouTube's "up next" songs
+     * are appended, so listening goes on instead of stopping after a single search result.
+     */
+    private fun observeOnlineRadio() {
+        val extended = mutableSetOf<String>()
+        combine(
+            stablePlayerState.map { it.currentSong to it.currentMediaItemIndex }.distinctUntilChanged(),
+            queueFlow
+        ) { (song, index), queue -> Triple(song, index, queue.size) }
+            .filter { (song, index, size) ->
+                song != null &&
+                    com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString) &&
+                    size > 0 && index >= size - 1 &&
+                    song.id !in extended
+            }
+            .mapLatest { (song, _, _) ->
+                kotlinx.coroutines.delay(ONLINE_RADIO_DELAY_MS)
+                song!!
+            }
+            .onEach { song ->
+                extended += song.id
+                val related = runCatching {
+                    val videoId = song.contentUriString
+                        .removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+                        .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)
+                        ?: youTubeExtractor.findVideoId(song.title, song.artist, song.duration)
+                        ?: return@runCatching emptyList()
+                    youTubeExtractor.relatedSongs(videoId)
+                }.onFailure { Timber.w(it, "Online radio lookup failed") }.getOrDefault(emptyList())
+                val queued = queueFlow.value.map { it.id }.toSet()
+                related.map { it.toSong() }
+                    .filter { it.id !in queued }
+                    .forEach(::addSongToQueue)
+            }
+            .launchIn(viewModelScope)
+    }
+
     /** Karaoke: the lead vocal is taken out of the mix (see KaraokeAudioProcessor). */
     val isKaraokeEnabled: StateFlow<Boolean> = com.theveloper.pixelplay.data.service.player.KaraokeMode.enabled
 
@@ -3447,3 +3489,5 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
         !it.synced.isNullOrEmpty() || !it.plain.isNullOrEmpty()
     }
 }
+
+private const val ONLINE_RADIO_DELAY_MS = 3_000L
