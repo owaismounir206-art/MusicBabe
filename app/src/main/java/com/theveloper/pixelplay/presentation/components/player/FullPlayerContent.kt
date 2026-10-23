@@ -429,7 +429,9 @@ fun FullPlayerContent(
             albumTitle = song.album,
             albumCoverUrl = song.albumArtUriString,
             durationSeconds = (song.duration / 1000).toInt(),
-            previewUrl = song.contentUriString,
+            // Online songs stream from youtube://, which is not a downloadable URL: the
+            // preview link lives in path.
+            previewUrl = if (com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString)) song.path else song.contentUriString,
             shareLink = song.path
         )
         YtdlnisDownloadDialog(

@@ -14,10 +14,15 @@ data class OnlineTrack(
     val shareLink: String? = null
 )
 
+/**
+ * The full song, streamed from YouTube Music on first play (see `YouTubeStreamProxy`).
+ * [Song.path] keeps the 30-second preview/share link, which the download dialog still uses.
+ */
 fun OnlineTrack.toPlayableSong(): Song {
-    val playUri = previewUrl?.takeIf { it.isNotBlank() }
+    val previewOrLink = previewUrl?.takeIf { it.isNotBlank() }
         ?: shareLink?.takeIf { it.isNotBlank() }
         ?: ""
+    val playUri = com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.searchUri(title, artistName)
     val durationMs = if (durationSeconds > 0) durationSeconds * 1000L else 30_000L
     return Song(
         id = "online_${id}",
@@ -33,8 +38,8 @@ fun OnlineTrack.toPlayableSong(): Song {
         year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
         genre = "Online",
         dateAdded = System.currentTimeMillis() / 1000L,
-        path = playUri,
-        mimeType = "audio/mpeg",
+        path = previewOrLink,
+        mimeType = "audio/mp4",
         bitrate = 128000,
         sampleRate = 44100
     )

@@ -388,6 +388,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
+    // YouTube streaming and music videos (GPL-3.0, see THIRD_PARTY_NOTICES.md)
+    implementation(libs.newpipe.extractor)
     implementation(libs.logging.interceptor)
     implementation(libs.gson)
     implementation(libs.kotlinx.serialization.json)

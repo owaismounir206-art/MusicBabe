@@ -158,6 +158,9 @@ abstract class CloudStreamProxy<K : Any>(
     /** Extract the raw ID string from a parsed URI. Override for custom URI layouts. */
     protected open fun extractIdFromUri(uri: Uri): String? = uri.host
 
+    /** Extra headers sent upstream for [streamUrl], e.g. the User-Agent a CDN ties its URLs to. */
+    protected open fun upstreamHeaders(streamUrl: String): Map<String, String> = emptyMap()
+
     // ─── Internal ──────────────────────────────────────────────────────
 
     protected suspend fun getOrFetchStreamUrl(id: K): String? {
@@ -212,6 +215,9 @@ abstract class CloudStreamProxy<K : Any>(
                         val requestBuilder = Request.Builder()
                             .url(streamUrl)
                             .tag(CleartextAllowListedRequest::class.java, CleartextAllowListedRequest)
+                        upstreamHeaders(streamUrl).forEach { (name, value) ->
+                            requestBuilder.header(name, value)
+                        }
                         rangeValidation.normalizedHeader?.let {
                             requestBuilder.header("Range", it)
                         }

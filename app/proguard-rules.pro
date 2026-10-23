@@ -213,3 +213,14 @@
     public static int d(...);
     public static int i(...);
 }
+
+# --- NewPipeExtractor (YouTube streaming) ---
+# Rhino runs YouTube's player JavaScript (signature/n-param deobfuscation) through reflection.
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-keep class org.schabi.newpipe.extractor.timeago.patterns.** { *; }
+-keep class org.schabi.newpipe.extractor.services.youtube.protos.** { *; }
+-dontwarn org.mozilla.javascript.tools.**
+-dontwarn javax.script.**
+-dontwarn java.beans.**
+-dontwarn jdk.dynalink.**
