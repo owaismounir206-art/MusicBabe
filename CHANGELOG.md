@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-23
+
+### Added
+- **Canzoni online complete**: i risultati della ricerca online ora suonano per intero in streaming da YouTube Music (con NewPipeExtractor), non più l'anteprima di 30 secondi. Solo streaming: nessun nuovo tasto di download.
+- **Radio online**: quando un brano online è l'ultimo della coda, l'app aggiunge i brani che YouTube propone dopo, così l'ascolto continua.
+- **Video musicale**: nel player il tasto "Video" accanto a "Testo" sostituisce la copertina con il video ufficiale del brano, muto e sincronizzato con l'audio (che continua in background e sulla schermata di blocco).
+- **Testo scritto dall'audio**: per le canzoni senza testo, Whisper ascolta il brano sul telefono e scrive il testo con i tempi di ogni parola. Anche il pulsante della finestra "nessun testo trovato" ora fa questo.
+- **Gemini che ascolta la canzone** (opzionale, con la tua chiave): scrive il testo parola per parola e riconosce chi canta nei duetti. Invia l'audio a Google; file fino a 14 MB.
+- **Formato `.mblrc`**: file JSON dei testi con i tempi di ogni parola, traduzione, romanizzazione e cantante di ogni riga. Si importa, si salva accanto al brano dal menu dei testi, e nei tag del file resta una copia LRC leggibile dagli altri player.
+- **Duetti**: le righe dei due cantanti stanno ai due lati dello schermo, quelle cantate insieme al centro.
+- **Modalità karaoke**: toglie la voce principale dal brano mantenendo i bassi. Interruttore nel menu dei testi. Mentre è attiva, l'audio offload hardware è sospeso (consuma un po' più di batteria).
+- **Condividi un verso**: tieni premuta una riga del testo per condividerla come immagine con copertina, titolo e artista.
+- **Stile copertina "Disco"** (Impostazioni → stile carosello): la copertina a forma di disco gira mentre il brano suona, dentro un anello che mostra l'avanzamento.
+
+### Changed
+- Sezioni della Home (Ascoltati di recente, Daily Mix, Statistiche) con titoli e colori Scena.
+- L'APK include NewPipeExtractor, che è GPL-3.0: l'APK distribuito ricade quindi sotto la GPL-3.0 (vedi THIRD_PARTY_NOTICES.md).
+
 ## [1.6.0] - 2026-10-23
 
 ### Added

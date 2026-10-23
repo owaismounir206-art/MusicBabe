@@ -56,8 +56,10 @@ class YouTubeStreamProxy @Inject constructor(
         return stream.url
     }
 
+    // googlevideo throttles requests without a Range to about real time; an open range is served
+    // at full speed. ExoPlayer's own Range (seeks) replaces this one.
     override fun upstreamHeaders(streamUrl: String): Map<String, String> =
-        userAgents[streamUrl]?.let { mapOf("User-Agent" to it) }.orEmpty()
+        mapOf("Range" to "bytes=0-") + userAgents[streamUrl]?.let { mapOf("User-Agent" to it) }.orEmpty()
 
     private suspend fun videoIdFor(key: String): String? {
         if (!key.startsWith(SEARCH_KEY_PREFIX)) return key

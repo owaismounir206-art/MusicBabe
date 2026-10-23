@@ -156,6 +156,8 @@ private fun SyncedVideoPlayer(
         val dataSource = DefaultHttpDataSource.Factory()
             .setUserAgent(stream.userAgent ?: YouTubeExtractor.WEB_USER_AGENT)
             .setAllowCrossProtocolRedirects(false)
+            // Without a Range googlevideo throttles to about real time; seeks set their own.
+            .setDefaultRequestProperties(mapOf("Range" to "bytes=0-"))
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(ProgressiveMediaSource.Factory(dataSource))
             .build()

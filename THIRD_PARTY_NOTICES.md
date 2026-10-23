@@ -87,3 +87,13 @@ OpenAI Whisper "base" weights converted and quantized for ggml, from
 https://huggingface.co/ggerganov/whisper.cpp (SHA-256
 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898). The Whisper code and model
 weights are released by OpenAI under the MIT License.
+
+## NewPipe Extractor
+
+Used to search YouTube and stream online songs and music videos (streaming only, nothing is
+saved). https://github.com/TeamNewPipe/NewPipeExtractor v0.26.5, **GNU General Public License
+v3.0 or later**, Copyright (c) Team NewPipe. Because this library is GPL-3.0, the APK that
+includes it is distributed under the terms of the GPL-3.0 as a whole; the MusicBabe source code
+itself stays MIT and is compatible with that. Its dependencies: Mozilla Rhino 1.8.1 (MPL 2.0),
+jsoup 1.22.2 (MIT), nanojson (MIT / Apache 2.0, TeamNewPipe fork), protobuf-javalite (BSD-3-Clause),
+jsr305 (Apache 2.0).
