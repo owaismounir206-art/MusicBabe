@@ -140,6 +140,8 @@ import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayCircleOutline
 import com.theveloper.pixelplay.ui.theme.ExpTitleTypography
+import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.scenaWide
 
 private const val PULL_TO_REFRESH_MIN_DURATION_MS = 3500L
 
@@ -298,7 +300,8 @@ fun StatsScreen(
                     item(key = "wrapped_banner_stats") {
                         Card(
                             onClick = { navController.navigateSafely(Screen.Wrapped.route) },
-                            shape = RoundedCornerShape(24.dp),
+                            // Same Scena tile as the Home banner.
+                            shape = Scena.TileShape,
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer
                             ),
@@ -314,8 +317,8 @@ fun StatsScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
+                                        .size(48.dp)
+                                        .clip(Scena.ArtShape)
                                         .background(MaterialTheme.colorScheme.primary),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -323,16 +326,15 @@ fun StatsScreen(
                                         painter = painterResource(R.drawable.musicbabe_icon),
                                         contentDescription = null,
                                         modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(CircleShape)
+                                            .size(36.dp)
+                                            .clip(Scena.ArtShape)
                                     )
                                 }
                                 Spacer(Modifier.width(14.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = stringResource(R.string.home_wrapped_banner_title),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
+                                        style = scenaWide(17.sp),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
