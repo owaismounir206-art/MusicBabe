@@ -552,11 +552,13 @@ class PlaybackDispatchStateHolder @Inject constructor(
 
             // If shuffle is persistent and currently ON, we shuffle the new songs immediately
             val finalSongsToPlay = if (isPersistent && isShuffleOn) {
-                // Shuffle the list but make sure the song you clicked stays at its current index or starts first
+                // The song you tapped plays first and every other song follows in random order.
+                // Keeping it at its index instead would put the songs shuffled before it out of reach.
                 withContext(Dispatchers.Default) {
                     QueueUtils.buildAnchoredShuffleQueueSuspending(
                         validSongs,
-                        validSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0)
+                        validSongs.indexOfFirst { it.id == validStartSong.id }.coerceAtLeast(0),
+                        startAtZero = true
                     )
                 }
             } else {
