@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-26
+
 ### Changed
 - **Wrapped rifatto da zero**: ora racconta davvero il tuo ascolto, solo con dati reali.
   - Scegli il periodo: quest'anno, questo mese o da sempre (prima diceva "quest'anno" ma mostrava tutto lo storico).
