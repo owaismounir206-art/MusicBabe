@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-26
+
+### Added
+- **Ricerca online su YouTube Music**: i risultati vengono direttamente da YouTube Music e ogni brano suona per intero, esattamente quello che vedi (prima la ricerca era su Deezer e il brano veniva "indovinato" su YouTube al momento di suonare, a volte sbagliando). Deezer resta come riserva se YouTube non risponde.
+- **Parole che si illuminano come nel karaoke**: il colore riempie ogni parola mentre viene cantata, e le parole non ancora cantate della riga attiva sono più tenui, così si legge bene dove sei.
+
 ### Changed
+- **Sincronizzazione dall'audio più affidabile**: i tempi delle righe del testo restano quelli originali; dei tempi sentiti da Whisper si tengono solo quelli vicini alla stima, altrimenti si usa la stima. Serve riconoscere almeno il 60% delle parole (prima il 35%), altrimenti il testo non viene toccato.
 - **Statistiche in stile Scena**: l'ultima schermata ancora nel vecchio stile ora è coerente con Home, Libreria e Wrapped (sfondo dal tema dinamico, card con le forme Scena, titoli larghi, un solo accento, chip che si invertono, pulsante di aggiornamento semplice).
 
 ### Fixed
