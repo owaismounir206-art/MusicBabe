@@ -1666,13 +1666,13 @@ fun SearchResultsList(
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Non trovi quello che cerchi?",
+                                text = stringResource(R.string.search_online_hint_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                text = "Cerca brani online, ascoltali e scaricali direttamente in MusicBabe",
+                                text = stringResource(R.string.search_online_hint_body),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                             )

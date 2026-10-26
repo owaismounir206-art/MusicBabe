@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.components
 
+import com.theveloper.pixelplay.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -131,7 +133,7 @@ fun NewSongNotificationBar(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Riproduci ora",
+                            text = stringResource(R.string.new_song_play_now),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold
                             ),
@@ -151,7 +153,7 @@ fun NewSongNotificationBar(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Chiudi",
+                        contentDescription = stringResource(R.string.common_close),
                         modifier = Modifier.size(16.dp)
                     )
                 }

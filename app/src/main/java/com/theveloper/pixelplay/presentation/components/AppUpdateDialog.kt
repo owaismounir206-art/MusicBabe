@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -99,7 +100,7 @@ fun AppUpdateDialog(
                 ) {
                     Image(
                         painter = painterResource(R.drawable.musicbabe_icon),
-                        contentDescription = "MusicBabe Logo",
+                        contentDescription = null,
                         modifier = Modifier.size(54.dp)
                     )
                 }
@@ -108,7 +109,7 @@ fun AppUpdateDialog(
 
                 // Title & Version Badge
                 Text(
-                    text = "Nuovo Aggiornamento!",
+                    text = stringResource(R.string.update_dialog_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -147,7 +148,7 @@ fun AppUpdateDialog(
                                 .padding(12.dp)
                         ) {
                             Text(
-                                text = "Novità:",
+                                text = stringResource(R.string.update_dialog_whats_new),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -183,7 +184,7 @@ fun AppUpdateDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Aggiorna ora",
+                                text = stringResource(R.string.update_dialog_update_now),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -206,7 +207,7 @@ fun AppUpdateDialog(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Download in corso: ${(downloadState.progress * 100).toInt()}%",
+                                text = stringResource(R.string.update_dialog_downloading, (downloadState.progress * 100).toInt()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary
@@ -232,7 +233,7 @@ fun AppUpdateDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Installa aggiornamento",
+                                text = stringResource(R.string.update_dialog_install),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -266,7 +267,7 @@ fun AppUpdateDialog(
                                     .fillMaxWidth()
                                     .height(48.dp)
                             ) {
-                                Text("Riprova il download")
+                                Text(stringResource(R.string.update_dialog_retry))
                             }
                         }
                     }
@@ -295,7 +296,7 @@ fun AppUpdateDialog(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "Vedi su GitHub",
+                            text = stringResource(R.string.update_dialog_view_on_github),
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -303,7 +304,7 @@ fun AppUpdateDialog(
                     if (downloadState !is UpdateDownloadState.Downloading) {
                         TextButton(onClick = onDismiss) {
                             Text(
-                                text = "Più tardi",
+                                text = stringResource(R.string.update_dialog_later),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

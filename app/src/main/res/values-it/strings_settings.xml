@@ -649,4 +649,13 @@
     <string name="settings_volume_section">Volume</string>
     <string name="settings_pause_on_volume_zero">Metti in pausa quando il volume raggiunge zero</string>
     <string name="settings_pause_on_volume_zero_desc">Metti automaticamente in pausa la riproduzione quando il volume è 0</string>
+    <string name="about_licenses_title">Licenze e note</string>
+    <string name="about_licenses_subtitle">Attribuzioni per le dipendenze e i contributi precedenti.</string>
+    <string name="about_open_source_licenses">Licenze open source</string>
+    <string name="about_open_source_licenses_subtitle">Licenze delle dipendenze e note di terze parti</string>
+    <string name="open_source_licenses_screen_title">Licenze open source</string>
+    <string name="third_party_notices_action">Nota dell\'epoca MIT</string>
+    <string name="third_party_notices_title">Note di terze parti</string>
+    <string name="third_party_notices_close">Chiudi</string>
+    <string name="third_party_notices_load_error">Impossibile caricare la nota di terze parti inclusa nell\'app.</string>
 </resources>
