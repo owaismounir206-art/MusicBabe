@@ -766,6 +766,7 @@ class PlaybackStateHolder @Inject constructor(
     )
 
     private data class PreparedQueueSegments(
+        val currentMediaId: String,
         val beforeCurrent: List<MediaItem>,
         val afterCurrent: List<MediaItem>
     )
@@ -866,34 +867,35 @@ class PlaybackStateHolder @Inject constructor(
         }
 
         PreparedQueueSegments(
+            currentMediaId = currentQueueSong.id,
             beforeCurrent = beforeCurrent,
             afterCurrent = afterCurrent
         )
     }
 
+    /**
+     * Swaps what is around the playing item without touching the item itself, so playback goes on
+     * without a gap. The playing item may move (unshuffle puts it back at its original index): the
+     * segments are replaced around the index it has in the player now, never a guessed one.
+     */
     private fun replacePlayerQueuePreservingCurrent(
-        currentIndex: Int,
         preparedSegments: PreparedQueueSegments
     ): Boolean {
         val masterPlayer = dualPlayerEngine.masterPlayer
         val mediaItemCount = masterPlayer.mediaItemCount
-        if (currentIndex !in 0 until mediaItemCount) {
+        val playingIndex = masterPlayer.currentMediaItemIndex
+        if (playingIndex !in 0 until mediaItemCount) {
+            return false
+        }
+        if (masterPlayer.getMediaItemAt(playingIndex).mediaId != preparedSegments.currentMediaId) {
             return false
         }
 
-        val afterStartIndex = currentIndex + 1
-        if (preparedSegments.beforeCurrent.size != currentIndex) {
-            return false
-        }
-        if (preparedSegments.afterCurrent.size != (mediaItemCount - afterStartIndex)) {
-            return false
-        }
-
-        if (currentIndex > 0) {
-            masterPlayer.replaceMediaItems(0, currentIndex, preparedSegments.beforeCurrent)
-        }
-        masterPlayer.replaceMediaItems(afterStartIndex, mediaItemCount, preparedSegments.afterCurrent)
-        return masterPlayer.currentMediaItemIndex == currentIndex
+        // After the playing item first: the indexes before it stay valid.
+        masterPlayer.replaceMediaItems(playingIndex + 1, mediaItemCount, preparedSegments.afterCurrent)
+        masterPlayer.replaceMediaItems(0, playingIndex, preparedSegments.beforeCurrent)
+        return masterPlayer.currentMediaItemIndex == preparedSegments.beforeCurrent.size &&
+            masterPlayer.mediaItemCount == preparedSegments.beforeCurrent.size + 1 + preparedSegments.afterCurrent.size
     }
 
     private fun replacePlayerQueue(
@@ -957,11 +959,10 @@ class PlaybackStateHolder @Inject constructor(
                     val isCurrentlyShuffled = _stablePlayerState.value.isShuffleEnabled
 
                     if (!isCurrentlyShuffled) {
-                        // Enable Shuffle
-                        if (!queueStateHolder.hasOriginalQueue()) {
-                            queueStateHolder.setOriginalQueueOrder(currentSongs)
-                            queueStateHolder.saveOriginalQueueState(currentSongs, currentQueueSourceName)
-                        }
+                        // Enable Shuffle. The queue is in its unshuffled order right now, edits
+                        // included: that is the order to come back to (an older snapshot would
+                        // drop the songs queued since).
+                        queueStateHolder.saveOriginalQueueState(currentSongs, currentQueueSourceName)
 
                         val currentMediaId = player.currentMediaItem?.mediaId ?: currentSong?.id
                         val playerCurrentIndex = player.currentMediaItemIndex
@@ -979,8 +980,9 @@ class PlaybackStateHolder @Inject constructor(
                         val currentMediaItem = player.currentMediaItem
 
                         // Run heavy shuffle work off main to keep UI and playback responsive.
+                        // History stays as it is; only what comes next is shuffled.
                         val shuffledQueue = withContext(Dispatchers.Default) {
-                            QueueUtils.buildAnchoredShuffleQueueSuspending(currentSongs, currentIndex)
+                            QueueUtils.shuffleUpcomingSuspending(currentSongs, currentIndex)
                         }
 
                         // For large queues, use bulk replace (1 IPC call) instead of
@@ -992,7 +994,7 @@ class PlaybackStateHolder @Inject constructor(
                                 currentMediaItem = currentMediaItem
                             )
                             val replacedInPlace = preservedReplacement?.let { preparedSegments ->
-                                replacePlayerQueuePreservingCurrent(currentIndex, preparedSegments)
+                                replacePlayerQueuePreservingCurrent(preparedSegments)
                             } == true
 
                             if (!replacedInPlace) {
@@ -1012,7 +1014,7 @@ class PlaybackStateHolder @Inject constructor(
                                     currentMediaItem = currentMediaItem
                                 )
                                 val replacedInPlace = preservedReplacement?.let { preparedSegments ->
-                                    replacePlayerQueuePreservingCurrent(currentIndex, preparedSegments)
+                                    replacePlayerQueuePreservingCurrent(preparedSegments)
                                 } == true
 
                                 if (!replacedInPlace) {
@@ -1050,11 +1052,16 @@ class PlaybackStateHolder @Inject constructor(
                             return@launch
                         }
 
-                        val originalQueue = queueStateHolder.originalQueueOrder
                         val wasPlaying = player.isPlaying
                         val currentPosition = player.currentPosition
                         val currentSongId = currentSong?.id ?: player.currentMediaItem?.mediaId
                         val currentMediaItem = player.currentMediaItem
+                        // Songs queued or removed while shuffled are carried over, not lost.
+                        val originalQueue = QueueUtils.restoreUnshuffledOrder(
+                            original = queueStateHolder.originalQueueOrder,
+                            current = currentSongs,
+                            currentSongId = currentSongId
+                        )
                         val originalIndex = originalQueue.indexOfFirst { it.id == currentSongId }.takeIf { it >= 0 }
 
                         if (originalIndex == null) {
@@ -1070,7 +1077,7 @@ class PlaybackStateHolder @Inject constructor(
                                 currentMediaItem = currentMediaItem
                             )
                             val replacedInPlace = preservedReplacement?.let { preparedSegments ->
-                                replacePlayerQueuePreservingCurrent(originalIndex, preparedSegments)
+                                replacePlayerQueuePreservingCurrent(preparedSegments)
                             } == true
 
                             if (!replacedInPlace) {
@@ -1090,7 +1097,7 @@ class PlaybackStateHolder @Inject constructor(
                                     currentMediaItem = currentMediaItem
                                 )
                                 val replacedInPlace = preservedReplacement?.let { preparedSegments ->
-                                    replacePlayerQueuePreservingCurrent(originalIndex, preparedSegments)
+                                    replacePlayerQueuePreservingCurrent(preparedSegments)
                                 } == true
 
                                 if (!replacedInPlace) {
