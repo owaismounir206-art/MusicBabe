@@ -8,6 +8,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import android.widget.Toast
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.Lyrics
+import com.theveloper.pixelplay.data.model.LyricsProvider
 import com.theveloper.pixelplay.R
 import androidx.activity.compose.BackHandler
 import com.theveloper.pixelplay.presentation.components.scoped.LyricsPredictiveBackHandler
@@ -889,11 +890,14 @@ fun LyricsSheet(
                                 showTranslation = showLyricsTranslation,
                                 showRomanization = showLyricsRomanization,
                                 footer = {
-                                    if (lyrics?.areFromRemote == true) {
+                                    // Credit the provider the lyrics really came from; none when unknown.
+                                    val provider = lyricsProviderCredit(lyrics?.source)
+                                    if (lyrics?.areFromRemote == true && provider != null) {
                                         item(key = "provider_text") {
                                             ProviderText(
                                                 providerText = stringResource(R.string.lyrics_provided_by),
-                                                uri = stringResource(R.string.lyrics_lrclib_uri),
+                                                uri = provider.second,
+                                                providerName = provider.first,
                                                 textAlign = TextAlign.Center,
                                                 accentColor = lyricHighlightColor,
                                                 modifier = Modifier
@@ -932,6 +936,21 @@ fun LyricsSheet(
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
+                                }
+                                val plainProvider = lyricsProviderCredit(lyrics?.source)
+                                if (lyrics?.areFromRemote == true && plainProvider != null) {
+                                    item(key = "provider_text") {
+                                        ProviderText(
+                                            providerText = stringResource(R.string.lyrics_provided_by),
+                                            uri = plainProvider.second,
+                                            providerName = plainProvider.first,
+                                            textAlign = TextAlign.Center,
+                                            accentColor = lyricHighlightColor,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2230,6 +2249,14 @@ internal fun duetLineAlignment(singers: List<String>, singer: String?, userAlign
         singers[1] -> second
         else -> "center"
     }
+}
+
+/** Display name and home page of an online lyrics provider ([Lyrics.source]), null when unknown. */
+internal fun lyricsProviderCredit(source: String?): Pair<String, String>? = when (source) {
+    LyricsProvider.LRCLIB -> "LRCLIB" to "https://lrclib.net/"
+    LyricsProvider.NETEASE -> "NetEase Cloud Music" to "https://music.163.com/"
+    LyricsProvider.AMLL -> "AMLL TTML DB" to "https://github.com/Steve-xmh/amll-ttml-db"
+    else -> null
 }
 
 internal fun sanitizeLyricLineText(raw: String): String =
