@@ -235,4 +235,12 @@ class LyricsSheetLogicTest {
         assertEquals(20_000L, resolveLineEndTimeMs(pause, nextLineStartMs = 20_000))
         assertEquals(0, resolveCurrentLineIndex(listOf(pause, SyncedLine(time = 20_000, line = "Hi")), position = 15_000L))
     }
+
+    @Test
+    fun lyricsProviderCredit_namesTheRealSourceAndNothingWhenUnknown() {
+        assertEquals("LRCLIB", lyricsProviderCredit(com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)?.first)
+        assertEquals("NetEase Cloud Music", lyricsProviderCredit(com.theveloper.pixelplay.data.model.LyricsProvider.NETEASE)?.first)
+        assertEquals(null, lyricsProviderCredit(null))
+        assertEquals(null, lyricsProviderCredit("something-else"))
+    }
 }

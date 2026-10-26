@@ -1,0 +1,90 @@
+name: Publish Release
+
+# Builds the signed release APKs of a commit and publishes them as a GitHub Release (tag + assets).
+# Signing: the KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD secrets when set;
+# otherwise a CI release key kept in the Actions cache (created on the first run).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, e.g. 1.8.0 (the tag is v<version>)'
+        required: true
+      commit:
+        description: 'Commit or branch to release'
+        required: true
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit }}
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Restore CI release key
+        id: ci-key
+        uses: actions/cache@v5
+        with:
+          path: ci-release-key.jks
+          key: musicbabe-ci-release-key-v1
+
+      - name: Prepare signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > vz-pixelplay.jks
+            printf 'storePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+          else
+            if [ ! -f ci-release-key.jks ]; then
+              keytool -genkey -noprompt -keystore ci-release-key.jks -alias musicbabe -keyalg RSA -keysize 4096 -validity 10000 \
+                -storepass musicbabe-ci -keypass musicbabe-ci -dname "CN=MusicBabe, O=MusicBabe, C=IT"
+            fi
+            cp ci-release-key.jks vz-pixelplay.jks
+            printf 'storePassword=musicbabe-ci\nkeyAlias=musicbabe\nkeyPassword=musicbabe-ci\n' > keystore.properties
+          fi
+
+      - name: Build release APKs
+        run: gradle :app:assembleRelease -Ppixelplay.enableAbiSplits=true
+
+      - name: Verify and rename APKs
+        run: |
+          BT="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          mkdir -p dist
+          for abi in arm64-v8a armeabi-v7a; do
+            apk="app/build/outputs/apk/release/app-$abi-release.apk"
+            "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$apk"
+            cp "$apk" "dist/MusicBabe-${{ inputs.version }}-$abi.apk"
+          done
+
+      - name: Release notes from CHANGELOG
+        run: |
+          awk -v v="${{ inputs.version }}" '
+            $0 ~ "^## \\[" v "\\]" {on=1; print; next}
+            on && /^## \[/ {exit}
+            on {print}' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "MusicBabe ${{ inputs.version }}" > notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" dist/*.apk \
+            --target "$(git rev-parse HEAD)" \
+            --title "MusicBabe ${{ inputs.version }}" \
+            --notes-file notes.md

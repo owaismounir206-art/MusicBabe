@@ -136,11 +136,13 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.presentation.stats.displayNameRes
 import androidx.compose.material.icons.outlined.Album
-import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayCircleOutline
-import com.theveloper.pixelplay.ui.theme.ExpTitleTypography
+import com.theveloper.pixelplay.ui.theme.CookieShape
 import com.theveloper.pixelplay.ui.theme.Scena
+import com.theveloper.pixelplay.ui.theme.Sleeve
+import com.theveloper.pixelplay.ui.theme.scena
+import com.theveloper.pixelplay.ui.theme.scenaDisplay
 import com.theveloper.pixelplay.ui.theme.scenaWide
 
 private const val PULL_TO_REFRESH_MIN_DURATION_MS = 3500L
@@ -271,7 +273,7 @@ fun StatsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(MaterialTheme.scena.bg)
                 .nestedScroll(nestedScrollConnection)
         ) {
             if (uiState.isLoading && summary == null) {
@@ -409,7 +411,7 @@ fun StatsScreen(
                     .zIndex(5f)
             ) {
                 val solidAlpha = (collapseFraction * 2f).coerceIn(0f, 1f)
-                val backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = solidAlpha)
+                val backgroundColor = MaterialTheme.scena.bg.copy(alpha = solidAlpha)
 
                 Column(
                     modifier = Modifier
@@ -428,8 +430,9 @@ fun StatsScreen(
                                     .padding(end = 12.dp),
                                 onClick = statsViewModel::requestStatsRefresh,
                                 enabled = !uiState.isLoading && !uiState.isRefreshing && !isPullRefreshAnimating,
+                                // Scena top bars use plain icon buttons.
                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    containerColor = Color.Transparent,
                                     contentColor = MaterialTheme.colorScheme.onSurface
                                 )
                             ) {
@@ -474,8 +477,8 @@ private fun StatsHeroSection(
         HeroCard(
             title = stringResource(R.string.stats_hero_listening),
             value = if (hasData) formatListeningDurationCompact(summary?.totalDurationMs ?: 0L) else "--",
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = MaterialTheme.scena.acc,
+            contentColor = MaterialTheme.scena.onAcc,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
@@ -485,8 +488,8 @@ private fun StatsHeroSection(
         HeroCard(
             title = stringResource(R.string.stats_hero_plays),
             value = if (hasData) "${summary?.totalPlayCount ?: 0}" else "--",
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            containerColor = MaterialTheme.scena.bg2,
+            contentColor = MaterialTheme.scena.ink,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
@@ -504,7 +507,7 @@ private fun HeroCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
+            .clip(Scena.TileShape)
             .background(containerColor)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -517,9 +520,10 @@ private fun HeroCard(
         )
         Text(
             text = value,
-            style = ExpTitleTypography.displayMedium.copy(fontSize = 32.sp),
-            fontWeight = FontWeight.Bold,
-            color = contentColor
+            // Half-width tile: "123h 45m" may take two lines rather than overflow.
+            style = scenaDisplay(26.sp).merge(Sleeve.TabularFigures),
+            color = contentColor,
+            maxLines = 2
         )
     }
 }
@@ -535,8 +539,8 @@ private fun StatsEmptyState(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer),
+            .clip(Scena.TileShape)
+            .background(MaterialTheme.scena.bg),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -547,8 +551,8 @@ private fun StatsEmptyState(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(RoundedStarShape(sides = 8, curve = 0.1, rotation = 0f))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .clip(CookieShape)
+                    .background(MaterialTheme.scena.bg2),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -588,8 +592,8 @@ private fun SummaryPill(
 ) {
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.85f))
+            .clip(Scena.ControlShape)
+            .background(MaterialTheme.scena.bg)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
@@ -660,8 +664,8 @@ private fun SummaryProgressRow(
     val progressValue = progress.coerceIn(0f, 1f)
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.9f))
+            .clip(Scena.TileShape)
+            .background(MaterialTheme.scena.bg)
             .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -762,8 +766,8 @@ private fun ListeningHabitsCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp), // Consistent with Hero
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        shape = Scena.TileShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.scena.bg2)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
@@ -771,7 +775,7 @@ private fun ListeningHabitsCard(
         ) {
             Text(
                 text = stringResource(R.string.stats_section_listening_habits),
-                style = MaterialTheme.typography.titleLargeEmphasized,
+                style = scenaWide(22.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (summary == null) {
@@ -846,8 +850,8 @@ private fun HabitMetric(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .clip(Scena.ControlShape)
+            .background(MaterialTheme.scena.bg)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -901,7 +905,7 @@ private fun HighlightRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(CircleShape)
+                .clip(Scena.ArtShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
@@ -1024,24 +1028,7 @@ private data class TrackShareSlice(
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
-private fun rememberStatsSectionTitleStyle(): TextStyle {
-    return remember {
-        androidx.compose.ui.text.TextStyle(
-            fontFamily = FontFamily(
-                Font(
-                    resId = R.font.gflex_variable,
-                    variationSettings = FontVariation.Settings(
-                        FontVariation.weight(570)
-                    )
-                )
-            ),
-            fontWeight = FontWeight(570),
-            fontSize = 24.sp,
-            lineHeight = 28.sp,
-            letterSpacing = (-0.2).sp
-        )
-    }
-}
+private fun rememberStatsSectionTitleStyle(): TextStyle = remember { scenaWide(24.sp) }
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
@@ -1142,11 +1129,11 @@ private fun ListeningTimelineSection(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     },
-                    shape = CircleShape, // Fully rounded
+                    shape = Scena.ControlShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        selectedContainerColor = MaterialTheme.scena.ink,
+                        selectedLabelColor = MaterialTheme.scena.bg,
+                        containerColor = MaterialTheme.scena.bg2,
                         labelColor = MaterialTheme.colorScheme.onSurface
                     ),
                     border = FilterChipDefaults.filterChipBorder(
@@ -1166,13 +1153,9 @@ private fun ListeningTimelineSection(
                 subtitle = stringResource(R.string.stats_empty_no_timeline_subtitle)
             )
         } else {
-            val cardColor = when (range) {
-                StatsTimeRange.DAY, StatsTimeRange.WEEK -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                StatsTimeRange.MONTH, StatsTimeRange.YEAR -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f)
-                StatsTimeRange.ALL -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.40f)
-            }
+            val cardColor = MaterialTheme.scena.bg2
             Card(
-                shape = RoundedCornerShape(28.dp),
+                shape = Scena.TileShape,
                 colors = CardDefaults.cardColors(containerColor = cardColor)
             ) {
                 Column(
@@ -1283,7 +1266,6 @@ private fun CategoryMetricsSection(
         ) {
             CategoryDimension.entries.reversed().forEach { dimension ->
                 val isSelected = dimension == selectedDimension
-                val chipPalette = categoryPaletteFor(dimension)
                 FilterChip(
                     selected = isSelected,
                     onClick = { onDimensionSelected(dimension) },
@@ -1294,11 +1276,11 @@ private fun CategoryMetricsSection(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     },
-                    shape = CircleShape,
+                    shape = Scena.ControlShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = chipPalette.accentColor,
-                        selectedLabelColor = chipPalette.accentOnColor,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        selectedContainerColor = MaterialTheme.scena.ink,
+                        selectedLabelColor = MaterialTheme.scena.bg,
+                        containerColor = MaterialTheme.scena.bg2,
                         labelColor = MaterialTheme.colorScheme.onSurface
                     ),
                     border = FilterChipDefaults.filterChipBorder(
@@ -1371,7 +1353,7 @@ private fun CategoryMetricsSection(
             )
         } else {
             Card(
-                shape = RoundedCornerShape(28.dp),
+                shape = Scena.TileShape,
                 colors = CardDefaults.cardColors(containerColor = palette.containerColor)
             ) {
                 Column(
@@ -1380,7 +1362,7 @@ private fun CategoryMetricsSection(
                 ) {
                     Text(
                         text = stringResource(selectedDimension.cardTitleRes),
-                        style = MaterialTheme.typography.titleLargeEmphasized,
+                        style = scenaWide(22.sp),
                         color = palette.contentColor
                     )
                     CategoryHorizontalBarChart(entries = entries, palette = palette)
@@ -1413,7 +1395,7 @@ private fun CategoryHorizontalBarChart(
                 palette.contentColor.copy(alpha = 0.06f)
             }
             Surface(
-                shape = RoundedCornerShape(22.dp),
+                shape = Scena.ControlShape,
                 color = rowColor
             ) {
                 Column(
@@ -1914,36 +1896,14 @@ private fun timelineChartSpecFor(
 }
 
 @Composable
-private fun categoryPaletteFor(dimension: CategoryDimension): CategoryChartPalette {
-    return when (dimension) {
-        CategoryDimension.Genre -> CategoryChartPalette(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            accentColor = MaterialTheme.colorScheme.tertiary,
-            accentOnColor = MaterialTheme.colorScheme.onTertiary
-        )
-
-        CategoryDimension.Artist -> CategoryChartPalette(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            accentColor = MaterialTheme.colorScheme.primary,
-            accentOnColor = MaterialTheme.colorScheme.onPrimary
-        )
-
-        CategoryDimension.Album -> CategoryChartPalette(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            accentColor = MaterialTheme.colorScheme.secondary,
-            accentOnColor = MaterialTheme.colorScheme.onSecondary
-        )
-
-        CategoryDimension.Song -> CategoryChartPalette(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            accentColor = MaterialTheme.colorScheme.primary,
-            accentOnColor = MaterialTheme.colorScheme.onPrimary
-        )
-    }
+private fun categoryPaletteFor(@Suppress("UNUSED_PARAMETER") dimension: CategoryDimension): CategoryChartPalette {
+    val scena = MaterialTheme.scena
+    return CategoryChartPalette(
+        containerColor = scena.bg2,
+        contentColor = scena.ink,
+        accentColor = scena.acc,
+        accentOnColor = scena.onAcc
+    )
 }
 
 @Composable
@@ -1951,12 +1911,12 @@ private fun TopArtistsCard(
     summary: PlaybackStatsRepository.PlaybackStatsSummary?,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = MaterialTheme.colorScheme.secondaryContainer
-    val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-    val supportingColor = contentColor.copy(alpha = 0.76f)
+    val containerColor = MaterialTheme.scena.bg2
+    val contentColor = MaterialTheme.scena.ink
+    val supportingColor = MaterialTheme.scena.ink2
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp), // Consistent with Hero
+        shape = Scena.TileShape,
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
@@ -1965,7 +1925,7 @@ private fun TopArtistsCard(
         ) {
             Text(
                 text = stringResource(R.string.stats_section_top_artists),
-                style = MaterialTheme.typography.titleLargeEmphasized,
+                style = scenaWide(22.sp),
                 color = contentColor
             )
             val artists = summary?.topArtists.orEmpty()
@@ -2068,12 +2028,12 @@ private fun TopAlbumsCard(
     summary: PlaybackStatsRepository.PlaybackStatsSummary?,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = MaterialTheme.colorScheme.tertiaryContainer
-    val contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-    val supportingColor = contentColor.copy(alpha = 0.76f)
+    val containerColor = MaterialTheme.scena.bg2
+    val contentColor = MaterialTheme.scena.ink
+    val supportingColor = MaterialTheme.scena.ink2
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp), // Consistent with Hero
+        shape = Scena.TileShape,
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
@@ -2082,7 +2042,7 @@ private fun TopAlbumsCard(
         ) {
             Text(
                 text = stringResource(R.string.stats_section_top_albums),
-                style = MaterialTheme.typography.titleLargeEmphasized,
+                style = scenaWide(22.sp),
                 color = contentColor
             )
             val albums = summary?.topAlbums.orEmpty()
@@ -2158,12 +2118,12 @@ private fun SongStatsCard(
     summary: PlaybackStatsRepository.PlaybackStatsSummary?,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val contentColor = MaterialTheme.colorScheme.onSurface
-    val supportingColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val containerColor = MaterialTheme.scena.bg2
+    val contentColor = MaterialTheme.scena.ink
+    val supportingColor = MaterialTheme.scena.ink2
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = Scena.TileShape,
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
@@ -2183,7 +2143,7 @@ private fun SongStatsCard(
             ) {
                 Text(
                     text = stringResource(R.string.stats_tracks_in_range_title),
-                    style = MaterialTheme.typography.titleLargeEmphasized,
+                    style = scenaWide(22.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor
                 )
@@ -2217,14 +2177,14 @@ private fun SongStatsCard(
                             position < 3 -> MaterialTheme.colorScheme.onSecondary
                             else -> MaterialTheme.colorScheme.onTertiary
                         }
-                        val rowContainerColor = when {
-                            position == 0 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                            position < 3 -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.36f)
-                            else -> MaterialTheme.colorScheme.surfaceContainerLow
+                        // Scena: the first row is tinted with the accent, the others sit a step back.
+                        val rowContainerColor = when (position) {
+                            0 -> MaterialTheme.scena.acc.copy(alpha = 0.16f)
+                            else -> MaterialTheme.scena.bg
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
+                            shape = Scena.ControlShape,
                             color = rowContainerColor
                         ) {
                             Column(
@@ -2300,7 +2260,7 @@ private fun SongStatsCard(
                             .fillMaxWidth()
                             .background(
                                 shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerLow
+                                color = MaterialTheme.scena.bg
                             )
                             .clip(RoundedCornerShape(16.dp))
                     ) {
@@ -2329,8 +2289,8 @@ private fun TrackConcentrationCard(
     val songs = summary?.songs.orEmpty()
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        shape = Scena.TileShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.scena.bg2)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -2342,7 +2302,7 @@ private fun TrackConcentrationCard(
                 Text(
                     modifier = Modifier.padding(start = 6.dp),
                     text = stringResource(R.string.stats_track_concentration_title),
-                    style = MaterialTheme.typography.titleLargeEmphasized,
+                    style = scenaWide(22.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -2433,8 +2393,8 @@ private fun TrackDistributionOverview(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Surface(
-            shape = RoundedCornerShape(26.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLowest
+            shape = Scena.TileShape,
+            color = MaterialTheme.scena.bg
         ) {
             BoxWithConstraints(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)
@@ -2484,7 +2444,7 @@ private fun TrackDistributionOverview(
                     val share = (slice.durationMs.toFloat() / totalDurationMs.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest
+                        color = MaterialTheme.scena.bg
                     ) {
                         Row(
                             modifier = Modifier

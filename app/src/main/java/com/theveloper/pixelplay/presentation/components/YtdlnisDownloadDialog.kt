@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.downloader.DownloadState
 import com.theveloper.pixelplay.data.downloader.YtdlnisInstallState
 import com.theveloper.pixelplay.data.model.OnlineTrack
@@ -91,6 +93,7 @@ fun YtdlnisDownloadDialog(
     var isDirectDownloading by remember { mutableStateOf(false) }
     var directDownloadSuccess by remember { mutableStateOf(false) }
     var directDownloadError by remember { mutableStateOf<String?>(null) }
+    val trackInfoUnavailable = stringResource(R.string.ytdlnis_direct_no_track)
 
     // YTDLnis In-App Install State
     val ytdlnisInstallState = playerViewModel?.ytdlnisInstallState?.collectAsStateWithLifecycle()?.value
@@ -134,7 +137,7 @@ fun YtdlnisDownloadDialog(
                 Spacer(Modifier.height(14.dp))
 
                 Text(
-                    text = "Download Brano",
+                    text = stringResource(R.string.ytdlnis_dialog_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
@@ -208,7 +211,7 @@ fun YtdlnisDownloadDialog(
                             }
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Scarica in MusicBabe",
+                                text = stringResource(R.string.ytdlnis_direct_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -217,7 +220,7 @@ fun YtdlnisDownloadDialog(
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            text = "Scarica direttamente il file audio MP3 nella memoria del telefono e salvalo nella tua libreria. Zero app esterne!",
+                            text = stringResource(R.string.ytdlnis_direct_body),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -244,7 +247,7 @@ fun YtdlnisDownloadDialog(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = "Salvato nella tua musica! 🎵",
+                                        text = stringResource(R.string.ytdlnis_direct_saved),
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -265,7 +268,7 @@ fun YtdlnisDownloadDialog(
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "Download audio in corso... ${(directDownloadProgress * 100).toInt()}%",
+                                    text = stringResource(R.string.ytdlnis_direct_progress, (directDownloadProgress * 100).toInt()),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
@@ -301,7 +304,7 @@ fun YtdlnisDownloadDialog(
                                             }
                                         )
                                     } else {
-                                        directDownloadError = "Informazioni traccia non disponibili"
+                                        directDownloadError = trackInfoUnavailable
                                     }
                                 },
                                 modifier = Modifier
@@ -311,7 +314,7 @@ fun YtdlnisDownloadDialog(
                             ) {
                                 Icon(Icons.Rounded.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Scarica subito in MusicBabe")
+                                Text(stringResource(R.string.ytdlnis_direct_action))
                             }
                         }
                     }
@@ -330,7 +333,7 @@ fun YtdlnisDownloadDialog(
                 // OPZIONE 2: YTDLnis (OPZIONALE / YT-DLP / COMPANION APP)
                 // ==============================================================
                 Text(
-                    text = "Opzione Avanzata: YTDLnis",
+                    text = stringResource(R.string.ytdlnis_advanced_title),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -340,7 +343,7 @@ fun YtdlnisDownloadDialog(
 
                 if (isInstalled) {
                     Text(
-                        text = "YTDLnis è installato. Puoi utilizzarlo per scaricare la traccia ad altissimo bitrate da YouTube.",
+                        text = stringResource(R.string.ytdlnis_installed_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -360,11 +363,11 @@ fun YtdlnisDownloadDialog(
                     ) {
                         Icon(Icons.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Avvia in YTDLnis")
+                        Text(stringResource(R.string.ytdlnis_open_action))
                     }
                 } else {
                     Text(
-                        text = "Non hai YTDLnis? Puoi scaricare e installare l'app direttamente qui dentro MusicBabe, senza andare su GitHub!",
+                        text = stringResource(R.string.ytdlnis_not_installed_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -385,12 +388,12 @@ fun YtdlnisDownloadDialog(
                             ) {
                                 Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Installa YTDLnis in-app")
+                                Text(stringResource(R.string.ytdlnis_install_action))
                             }
                         }
                         is YtdlnisInstallState.Checking -> {
                             Text(
-                                text = "Verifica ultima versione APK su GitHub...",
+                                text = stringResource(R.string.ytdlnis_checking_release),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -409,7 +412,7 @@ fun YtdlnisDownloadDialog(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Download APK YTDLnis: ${(ytdlnisInstallState.progress * 100).toInt()}%",
+                                    text = stringResource(R.string.ytdlnis_apk_progress, (ytdlnisInstallState.progress * 100).toInt()),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -430,7 +433,7 @@ fun YtdlnisDownloadDialog(
                             ) {
                                 Icon(Icons.Rounded.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Tocca per installare APK")
+                                Text(stringResource(R.string.ytdlnis_apk_install))
                             }
                         }
                         is YtdlnisInstallState.Error -> {
@@ -442,7 +445,7 @@ fun YtdlnisDownloadDialog(
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 TextButton(onClick = { playerViewModel?.startInAppYtdlnisInstall() }) {
-                                    Text("Riprova download APK")
+                                    Text(stringResource(R.string.ytdlnis_apk_retry))
                                 }
                             }
                         }
@@ -463,7 +466,7 @@ fun YtdlnisDownloadDialog(
                 ) {
                     Icon(Icons.Rounded.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Altre app del dispositivo", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ytdlnis_other_apps), style = MaterialTheme.typography.labelLarge)
                 }
 
                 Spacer(Modifier.height(10.dp))
@@ -475,7 +478,7 @@ fun YtdlnisDownloadDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Chiudi")
+                    Text(stringResource(R.string.common_close))
                 }
             }
         }

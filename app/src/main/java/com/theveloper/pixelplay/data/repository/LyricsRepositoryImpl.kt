@@ -86,7 +86,9 @@ internal fun parseBestEmbeddedLyricsField(propertyMap: Map<String, Array<String>
 private data class LyricsData(
     val plainLyrics: String?,
     val syncedLyrics: String?,
-    val wordByWordLyrics: String? = null
+    val wordByWordLyrics: String? = null,
+    /** [Lyrics.source]; missing in caches written before it existed. */
+    val source: String? = null
 ) {
     fun hasLyrics(): Boolean =
         !plainLyrics.isNullOrBlank() ||
@@ -658,7 +660,8 @@ class LyricsRepositoryImpl @Inject constructor(
             if (matchedResponse != null) {
                 val rawLyrics = matchedResponse.syncedLyrics ?: matchedResponse.plainLyrics
                 if (!rawLyrics.isNullOrBlank()) {
-                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
+                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics)
+                        .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)
                     if (parsedLyrics.isValid()) {
                         Log.d(TAG, "LRCLIB lyrics found - Synced: ${!matchedResponse.syncedLyrics.isNullOrBlank()}, Plain: ${!matchedResponse.plainLyrics.isNullOrBlank()}")
 
@@ -749,7 +752,8 @@ class LyricsRepositoryImpl @Inject constructor(
             if (lrc.isBlank()) return@withContext null
 
             val combined = if (translatedLrc.isNotBlank()) "$lrc\n$translatedLrc" else lrc
-            var parsed = LyricsUtils.parseLyrics(combined).copy(areFromRemote = true)
+            var parsed = LyricsUtils.parseLyrics(combined)
+                .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.NETEASE)
             if (!parsed.isValid()) return@withContext null
 
             // Real per-word timings ("yrc"), already requested by getLyrics: prefer them when present,
@@ -1085,7 +1089,7 @@ class LyricsRepositoryImpl @Inject constructor(
             val lrc = convertAmlTtmlToLrc(ttml) ?: return@withContext null
             val parsed = LyricsUtils.parseLyrics(lrc)
             if (!parsed.isValid()) return@withContext null
-            return@withContext parsed.copy(areFromRemote = true)
+            return@withContext parsed.copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.AMLL)
         } catch (e: Exception) {
             Log.w(TAG, "AMLLDB fetch failed for $neteaseSongId: ${e.message}")
             return@withContext null
@@ -1245,7 +1249,8 @@ class LyricsRepositoryImpl @Inject constructor(
             val lyricsData = LyricsData(
                 plainLyrics = lyrics.plain?.joinToString("\n"),
                 syncedLyrics = lyrics.synced?.joinToString("\n") { "[${formatTimestamp(it.time)}]${it.line}" },
-                wordByWordLyrics = wordByWordLyrics
+                wordByWordLyrics = wordByWordLyrics,
+                source = lyrics.source
             )
 
             val file = File(lyricsDir, fileName)
@@ -1288,7 +1293,8 @@ class LyricsRepositoryImpl @Inject constructor(
                             return null
                         }
                     }
-                    return parsed
+                    // The provider survives the cache, so the lyrics screen can still credit it.
+                    return if (data.source != null) parsed.copy(areFromRemote = true, source = data.source) else parsed
                 }
             }
         } catch (e: Exception) {
@@ -1520,7 +1526,8 @@ class LyricsRepositoryImpl @Inject constructor(
                 val rawLyricsToSave = exactMatch.syncedLyrics ?: exactMatch.plainLyrics
                     ?: return@withContext Result.failure(NoLyricsFoundException())
 
-                val parsedLyrics = LyricsUtils.parseLyrics(rawLyricsToSave).copy(areFromRemote = true)
+                val parsedLyrics = LyricsUtils.parseLyrics(rawLyricsToSave)
+                    .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)
                 if (!parsedLyrics.isValid()) {
                     return@withContext Result.failure(LyricsException("Parsed lyrics are empty"))
                 }
@@ -1638,7 +1645,8 @@ class LyricsRepositoryImpl @Inject constructor(
                 val results = rankedMatches.mapNotNull { match ->
                     val response = match.response
                     val rawLyrics = response.syncedLyrics ?: response.plainLyrics ?: return@mapNotNull null
-                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
+                    val parsedLyrics = LyricsUtils.parseLyrics(rawLyrics)
+                        .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)
                     if (!parsedLyrics.isValid()) {
                         LogUtils.w(this@LyricsRepositoryImpl, "Parsed lyrics are empty for: ${song.title}")
                         return@mapNotNull null
@@ -1732,7 +1740,8 @@ class LyricsRepositoryImpl @Inject constructor(
 
             val results = responses.mapNotNull { response ->
                 val rawLyrics = response.syncedLyrics ?: response.plainLyrics ?: return@mapNotNull null
-                val parsed = LyricsUtils.parseLyrics(rawLyrics).copy(areFromRemote = true)
+                val parsed = LyricsUtils.parseLyrics(rawLyrics)
+                    .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)
                 if (!parsed.isValid()) return@mapNotNull null
 
                 LyricsSearchResult(response, parsed, rawLyrics)

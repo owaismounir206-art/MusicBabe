@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Statistiche in stile Scena**: l'ultima schermata ancora nel vecchio stile ora è coerente con Home, Libreria e Wrapped (sfondo dal tema dinamico, card con le forme Scena, titoli larghi, un solo accento, chip che si invertono, pulsante di aggiornamento semplice).
+
+### Fixed
+- **Testi**: "Testi forniti da LRCLIB" compariva anche per i testi presi da NetEase o da AMLL TTML DB. Ora viene indicata la fonte vera (anche per i testi in cache e per quelli non sincronizzati), e nessuna se la fonte non è nota.
+- Il dialogo di download (YTDLnis) era solo in italiano; i parametri di generazione AI e i dati dei brani nelle impostazioni, "Ultima sincronizzazione" di Navidrome e il sottotitolo della schermata Informazioni erano solo in inglese. Ora sono tradotti in inglese e italiano.
+
 ## [1.8.0] - 2026-10-26
 
 ### Changed

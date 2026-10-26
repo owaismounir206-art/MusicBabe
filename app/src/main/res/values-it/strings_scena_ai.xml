@@ -41,4 +41,31 @@
         <item quantity="one">%d modello disponibile</item>
         <item quantity="other">%d modelli disponibili</item>
     </plurals>
+    <!-- AI generation parameters -->
+    <string name="settings_ai_generation_section">Parametri di generazione</string>
+    <string name="settings_ai_temperature">Temperatura</string>
+    <string name="settings_ai_temperature_hint">Regola la casualità. Più bassa = più prevedibile, più alta = più creativa.</string>
+    <string name="settings_ai_top_p">Top P</string>
+    <string name="settings_ai_top_p_hint">Campionamento nucleus. Più alto = più varietà di parole considerate.</string>
+    <string name="settings_ai_top_k">Top K</string>
+    <string name="settings_ai_top_k_hint">Limita ogni scelta alle K parole più probabili.</string>
+    <string name="settings_ai_max_tokens">Token massimi in uscita</string>
+    <string name="settings_ai_max_tokens_hint">Lunghezza massima della risposta dell\'AI. Più alta = più lunga ma più costosa.</string>
+    <string name="settings_ai_presence_penalty">Penalità di presenza</string>
+    <string name="settings_ai_presence_penalty_hint">Penalizza gli argomenti già citati. Positiva = argomenti più vari.</string>
+    <string name="settings_ai_frequency_penalty">Penalità di frequenza</string>
+    <string name="settings_ai_frequency_penalty_hint">Penalizza le frasi ripetute. Positiva = linguaggio più naturale.</string>
+    <string name="settings_ai_song_data_section">Dati dei brani</string>
+    <string name="settings_ai_sample_size">Dimensione del campione</string>
+    <plurals name="settings_ai_sample_size_value">
+        <item quantity="one">%1$d brano</item>
+        <item quantity="other">%1$d brani</item>
+    </plurals>
+    <string name="settings_ai_sample_size_hint">Brani inviati all\'AI per creare una playlist. Di più = contesto migliore ma costo più alto.</string>
+    <string name="settings_ai_digest_detail">Dettaglio del riepilogo</string>
+    <string name="settings_ai_digest_detail_desc">Quanta cronologia di ascolto viene inclusa</string>
+    <string name="settings_ai_digest_safe">Sintetico (più veloce)</string>
+    <string name="settings_ai_digest_full">Completo (qualità migliore)</string>
+    <string name="settings_ai_extended_fields">Campi estesi dei brani</string>
+    <string name="settings_ai_extended_fields_desc">Includi album, anno e genere nei dati dei brani inviati all\'AI</string>
 </resources>

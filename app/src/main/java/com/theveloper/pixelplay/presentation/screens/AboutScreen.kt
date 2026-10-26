@@ -627,7 +627,7 @@ private fun AboutHeroCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "Your expressive audio player with pure 120 FPS motion",
+                            text = stringResource(R.string.about_header_tagline),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,

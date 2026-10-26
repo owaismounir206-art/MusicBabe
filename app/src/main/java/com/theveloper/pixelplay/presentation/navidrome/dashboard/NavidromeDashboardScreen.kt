@@ -247,7 +247,7 @@ private fun DashboardContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Last synced: ${formatTimeAgo(lastSyncTime)}",
+                            text = stringResource(R.string.cloud_last_synced, formatTimeAgo(lastSyncTime)),
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = GoogleSansRounded,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)

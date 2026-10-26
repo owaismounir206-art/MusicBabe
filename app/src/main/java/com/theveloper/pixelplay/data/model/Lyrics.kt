@@ -13,8 +13,17 @@ import kotlinx.serialization.Serializable
 data class Lyrics(
     val plain: List<String>? = null,
     val synced: List<SyncedLine>? = null,
-    val areFromRemote: Boolean = false
+    val areFromRemote: Boolean = false,
+    /** Online provider the lyrics came from (see [LyricsProvider]), null when unknown or local. */
+    val source: String? = null
 )
+
+/** Online lyrics providers, as stored in [Lyrics.source]. */
+object LyricsProvider {
+    const val LRCLIB = "lrclib"
+    const val NETEASE = "netease"
+    const val AMLL = "amll"
+}
 
 @Serializable
 data class SyncedLine(
