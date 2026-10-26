@@ -330,13 +330,13 @@ fun StatsScreen(
                                 Spacer(Modifier.width(14.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Turn up the volume babe!",
+                                        text = stringResource(R.string.home_wrapped_banner_title),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        text = "Scopri il tuo MusicBabe Wrapped ✨",
+                                        text = stringResource(R.string.home_wrapped_banner_subtitle),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     )

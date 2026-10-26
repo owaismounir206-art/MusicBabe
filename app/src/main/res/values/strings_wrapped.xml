@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MusicBabe Wrapped: a recap of the listening of a period, built only from real playback stats. -->
+<resources>
+    <string name="wrapped_cd_close">Close Wrapped</string>
+    <string name="wrapped_cd_next_story">Next story</string>
+    <string name="wrapped_cd_previous_story">Previous story</string>
+    <string name="wrapped_loading">Putting your story together…</string>
+    <string name="wrapped_empty_title">Nothing to unwrap yet</string>
+    <string name="wrapped_empty_body">Your Wrapped is built from what you play in MusicBabe. Listen for a while and come back.</string>
+    <string name="wrapped_empty_action">Back to the music</string>
+
+    <string name="wrapped_period_year">This year</string>
+    <string name="wrapped_period_month">This month</string>
+    <string name="wrapped_period_all">All time</string>
+
+    <string name="wrapped_brand">MusicBabe Wrapped</string>
+    <string name="wrapped_intro_title_year">Your %1$s in music</string>
+    <string name="wrapped_intro_title_month">Your %1$s in music</string>
+    <string name="wrapped_intro_title_all">Your music, so far</string>
+    <string name="wrapped_intro_hint">Tap to go on · hold to pause</string>
+
+    <string name="wrapped_minutes_eyebrow">Time listening</string>
+    <string name="wrapped_minutes_unit">minutes of music</string>
+    <plurals name="wrapped_minutes_hours">
+        <item quantity="one">That is %1$s hour of sound.</item>
+        <item quantity="other">That is %1$s hours of sound.</item>
+    </plurals>
+    <string name="wrapped_minutes_per_day">About %1$s minutes on each day you listened.</string>
+    <string name="wrapped_stat_plays">Plays</string>
+    <string name="wrapped_stat_songs">Songs</string>
+    <string name="wrapped_stat_days">Days with music</string>
+    <string name="wrapped_stat_streak">Longest streak</string>
+    <plurals name="wrapped_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+
+    <plurals name="wrapped_plays">
+        <item quantity="one">%1$d play</item>
+        <item quantity="other">%1$d plays</item>
+    </plurals>
+    <plurals name="wrapped_songs">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <string name="wrapped_minutes_short">%1$s min</string>
+
+    <string name="wrapped_top_song_eyebrow">Your song</string>
+    <string name="wrapped_runner_ups">Also on repeat</string>
+    <string name="wrapped_top_artist_eyebrow">Your artist</string>
+    <string name="wrapped_top_artist_share">%1$d%% of your listening time</string>
+    <string name="wrapped_top_album_eyebrow">Your album</string>
+
+    <string name="wrapped_clock_eyebrow">When you listen</string>
+    <string name="wrapped_daypart_night">You come alive at night</string>
+    <string name="wrapped_daypart_morning">Music opens your day</string>
+    <string name="wrapped_daypart_afternoon">Afternoons have a soundtrack</string>
+    <string name="wrapped_daypart_evening">Your evenings sound better</string>
+    <string name="wrapped_peak_hour">Peak hour: %1$s</string>
+    <string name="wrapped_peak_day">Day with the most music: %1$s</string>
+    <string name="wrapped_longest_session">Longest session: %1$s min</string>
+
+    <string name="wrapped_profile_eyebrow">Your listening profile</string>
+    <string name="wrapped_profile_superfan">The Superfan</string>
+    <string name="wrapped_profile_superfan_body">%1$s took %2$d%% of your listening time. That is devotion.</string>
+    <string name="wrapped_profile_night_owl">The Night Owl</string>
+    <string name="wrapped_profile_night_owl_body">%1$d%% of your music played between 10 pm and 5 am.</string>
+    <string name="wrapped_profile_early_bird">The Early Bird</string>
+    <string name="wrapped_profile_early_bird_body">%1$d%% of your music played between 5 and 10 am.</string>
+    <string name="wrapped_profile_loyalist">The Loyalist</string>
+    <string name="wrapped_profile_loyalist_body">You played each song %1$s times on average: when you love one, you keep it close.</string>
+    <string name="wrapped_profile_explorer">The Explorer</string>
+    <string name="wrapped_profile_explorer_body">%1$d different songs, and hardly ever the same one twice.</string>
+    <string name="wrapped_profile_marathoner">The Marathoner</string>
+    <string name="wrapped_profile_marathoner_body">Your longest session went on for %1$s minutes without a break.</string>
+    <string name="wrapped_profile_all_rounder">The All-Rounder</string>
+    <string name="wrapped_profile_all_rounder_body">A bit of everything, at any hour: your listening follows no single pattern.</string>
+    <string name="wrapped_fact_plays_per_song">Plays per song</string>
+    <string name="wrapped_fact_top_artist_share">With your top artist</string>
+    <string name="wrapped_fact_peak_hour">Peak hour</string>
+    <string name="wrapped_top_genres">Top genres</string>
+
+    <string name="wrapped_summary_eyebrow">Your Wrapped</string>
+    <string name="wrapped_summary_minutes">Minutes</string>
+    <string name="wrapped_summary_top_artist">Top artist</string>
+    <string name="wrapped_summary_top_song">Top song</string>
+    <string name="wrapped_summary_top_genre">Top genre</string>
+    <string name="wrapped_summary_profile">Profile</string>
+    <string name="wrapped_share">Share</string>
+    <string name="wrapped_share_chooser">Share your Wrapped</string>
+    <string name="wrapped_share_text">My %1$s on MusicBabe: %2$s minutes of music, mostly %3$s.</string>
+    <string name="wrapped_share_text_all">My music on MusicBabe so far: %1$s minutes, mostly %2$s.</string>
+    <string name="wrapped_play_top">Play your top songs</string>
+    <string name="wrapped_queue_name">Your Wrapped</string>
+</resources>

@@ -645,7 +645,8 @@ class MainActivity : ComponentActivity() {
                 Screen.RecentlyPlayed.route,
                 Screen.DeviceCapabilities.route,
                 Screen.EasterEgg.route,
-                Screen.WordDelimiterConfig.route
+                Screen.WordDelimiterConfig.route,
+                Screen.Wrapped.route
             )
         }
         val shouldHideNavigationBar by remember(currentRoute, isSearchBarActive) {
@@ -923,7 +924,8 @@ class MainActivity : ComponentActivity() {
                                 .map { it.currentSong?.id != null }
                                 .distinctUntilChanged()
                         }.collectAsStateWithLifecycle(initialValue = false)
-                        val routesWithHiddenMiniPlayer = remember { setOf(Screen.NavBarCrRad.route) }
+                        // Wrapped is a full-screen story: nothing may cover its bottom actions.
+                        val routesWithHiddenMiniPlayer = remember { setOf(Screen.NavBarCrRad.route, Screen.Wrapped.route) }
                         val shouldHideMiniPlayer by remember(currentRoute) {
                             derivedStateOf { currentRoute in routesWithHiddenMiniPlayer }
                         }
