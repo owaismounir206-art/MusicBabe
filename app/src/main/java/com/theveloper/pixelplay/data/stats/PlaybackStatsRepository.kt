@@ -19,6 +19,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -160,7 +161,9 @@ class PlaybackStatsRepository @Inject constructor(
         val dayListeningDistribution: DayListeningDistribution?,
         val peakTimeline: TimelineEntry?,
         val peakDayLabel: String?,
-        val peakDayDurationMs: Long
+        val peakDayDurationMs: Long,
+        /** Listened time per hour of the day (24 entries, local time); empty when nothing was played. */
+        val hourOfDayDurationsMs: List<Long> = emptyList()
     )
 
     suspend fun recordPlayback(
@@ -454,7 +457,8 @@ class PlaybackStatsRepository @Inject constructor(
             dayListeningDistribution = dayListeningDistribution,
             peakTimeline = peakTimeline,
             peakDayLabel = peakDayLabel,
-            peakDayDurationMs = peakDayDuration
+            peakDayDurationMs = peakDayDuration,
+            hourOfDayDurationsMs = computeHourOfDayDurations(overallSpans, zoneId)
         )
     }
 
@@ -664,6 +668,23 @@ class PlaybackStatsRepository @Inject constructor(
             cursor = sliceEnd
         }
         return slices
+    }
+
+    /** Splits every span at the hour boundaries and adds each piece to the hour of the day it falls in. */
+    private fun computeHourOfDayDurations(spans: List<PlaybackSpan>, zoneId: ZoneId): List<Long> {
+        if (spans.isEmpty()) return emptyList()
+        val totals = LongArray(24)
+        spans.forEach { span ->
+            var cursor = span.startMillis
+            while (cursor < span.endMillis) {
+                val zoned = Instant.ofEpochMilli(cursor).atZone(zoneId)
+                val nextHourStart = zoned.truncatedTo(ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli()
+                val sliceEnd = min(span.endMillis, nextHourStart)
+                totals[zoned.hour] += (sliceEnd - cursor).coerceAtLeast(0L)
+                cursor = sliceEnd
+            }
+        }
+        return totals.toList()
     }
 
     private fun computeDayListeningDistribution(
