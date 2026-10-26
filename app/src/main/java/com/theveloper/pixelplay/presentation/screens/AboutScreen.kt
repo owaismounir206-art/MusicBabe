@@ -627,7 +627,7 @@ private fun AboutHeroCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = stringResource(R.string.about_tagline),
+                            text = stringResource(R.string.about_header_tagline),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,

@@ -61,5 +61,5 @@
     <string name="search_online_hint_body">Cerca brani online, ascoltali e scaricali direttamente in MusicBabe</string>
     <string name="search_browse_all">Sfoglia tutto</string>
     <string name="cloud_last_synced">Ultima sincronizzazione: %1$s</string>
-    <string name="about_tagline">Il tuo lettore audio espressivo, con animazioni fluide a 120 FPS</string>
+    <string name="about_header_tagline">Il tuo lettore audio espressivo, con animazioni fluide a 120 FPS</string>
 </resources>
