@@ -17,6 +17,7 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.withLink
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1803,9 +1804,19 @@ fun BubblesLine(
     color: Color,
     nextTime: Int,
     modifier: Modifier = Modifier,
+    positionProvider: (() -> Long)? = null,
 ) {
-    val position by positionFlow.collectAsStateWithLifecycle(initialValue = 0L)
-    val isCurrent = position in time until nextTime
+    // With a provider (the lyrics list passes the position with the sync offset applied) only the
+    // start and end of the pause recompose this line; the raw flow is the fallback.
+    val isCurrent = if (positionProvider != null) {
+        val current by remember(time, nextTime, positionProvider) {
+            derivedStateOf { positionProvider() in time until nextTime }
+        }
+        current
+    } else {
+        val position by positionFlow.collectAsStateWithLifecycle(initialValue = 0L)
+        position in time until nextTime
+    }
     val transition = rememberInfiniteTransition(label = "bubbles_transition")
 
     // Animación ralentizada para apreciar mejor el efecto.

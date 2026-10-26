@@ -199,4 +199,40 @@ class LyricsSheetLogicTest {
 
         assertEquals(0L, seekPosition)
     }
+
+    @Test
+    fun withInstrumentalBreaks_addsIntroAndLongGapPauses() {
+        val lines = listOf(
+            SyncedLine(time = 12_000, line = "First line"),
+            SyncedLine(time = 15_000, line = "Second line"),
+            // 30 s solo after the second line.
+            SyncedLine(time = 45_000, line = "After the solo")
+        )
+
+        val withBreaks = withInstrumentalBreaks(lines)
+
+        assertEquals(listOf(0, 12_000, 15_000, 23_000, 45_000), withBreaks.map { it.time })
+        assertTrue(withBreaks[0].line.isBlank())
+        assertTrue(withBreaks[3].line.isBlank())
+    }
+
+    @Test
+    fun withInstrumentalBreaks_leavesTightLyricsAlone() {
+        val lines = listOf(
+            SyncedLine(time = 1_000, line = "One"),
+            SyncedLine(time = 4_000, line = "Two"),
+            SyncedLine(time = 7_000, line = ""),
+            SyncedLine(time = 30_000, line = "Three")
+        )
+
+        assertEquals(lines, withInstrumentalBreaks(lines))
+    }
+
+    @Test
+    fun blankLine_lastsUntilTheNextLine() {
+        val pause = SyncedLine(time = 0, line = "")
+
+        assertEquals(20_000L, resolveLineEndTimeMs(pause, nextLineStartMs = 20_000))
+        assertEquals(0, resolveCurrentLineIndex(listOf(pause, SyncedLine(time = 20_000, line = "Hi")), position = 15_000L))
+    }
 }

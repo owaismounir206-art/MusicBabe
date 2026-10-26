@@ -9,4 +9,6 @@
     <string name="lyrics_scena_cd_show_controls">Mostra i controlli</string>
     <string name="lyrics_scena_cd_seek_line">Vai a questa riga</string>
     <string name="lyrics_scena_timing_estimated">Parola per parola · stimato</string>
+    <!-- Shown after the user scrolled the synced lyrics away from the line being sung -->
+    <string name="lyrics_resume_sync">Torna alla riga attuale</string>
 </resources>

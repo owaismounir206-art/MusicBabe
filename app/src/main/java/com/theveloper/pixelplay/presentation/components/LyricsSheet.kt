@@ -64,6 +64,8 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.VerticalAlignCenter
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -419,29 +421,6 @@ fun LyricsSheet(
         }
     }
 
-    DisposableEffect(keepScreenOn, lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && keepScreenOn) {
-                keepScreenOn = false
-                coroutineScope.launch {
-                    context.dataStore.edit { prefs ->
-                        prefs[booleanPreferencesKey("keep_screen_on_lyrics")] = false
-                    }
-                }
-            }
-        }
-        
-        if (keepScreenOn) {
-            view.keepScreenOn = true
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            view.keepScreenOn = false
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
     val resolvedAutoscrollSpec = autoscrollAnimationSpec ?: if (useAnimatedLyrics) {
         spring(
             stiffness = Spring.StiffnessMediumLow,
@@ -661,7 +640,9 @@ fun LyricsSheet(
     // Lines without real word timings get estimated ones (shared in proportion to word length),
     // so every song lights word by word; the chip says when the timings are an estimate.
     val displaySyncedLines = remember(lyrics) {
-        lyrics?.synced?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.estimate(it) }
+        lyrics?.synced
+            ?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.estimate(it) }
+            ?.let(::withInstrumentalBreaks)
     }
     val hasEstimatedWordTimings = remember(lyrics) {
         lyrics?.synced?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.canEstimate(it) } == true
@@ -748,9 +729,9 @@ fun LyricsSheet(
                     resetImmersiveTimer()
                 }
         ) {
-            val initialSyncedLineIndex = remember(lyrics, playbackPositionFlow, lyricsSyncOffset) {
+            val initialSyncedLineIndex = remember(displaySyncedLines, playbackPositionFlow, lyricsSyncOffset) {
                 resolveCurrentLineIndex(
-                    lines = lyrics?.synced.orEmpty(),
+                    lines = displaySyncedLines.orEmpty(),
                     position = (playbackPositionFlow.value + lyricsSyncOffset).coerceAtLeast(0L)
                 ).coerceAtLeast(0)
             }
@@ -1419,6 +1400,32 @@ fun SyncedLyricsList(
     var hasAlignedInitialLine by remember(lines) { mutableStateOf(false) }
     var lastAutoScrolledLineIndex by remember(lines) { mutableIntStateOf(-1) }
 
+    // The user reading ahead (or back) must not be yanked to the current line at the next line
+    // change: autoscroll waits while they browse, comes back by itself after a few quiet seconds,
+    // and right away from the "back to the current line" button, a tap on a line or a seek.
+    var isUserBrowsing by remember(lines) { mutableStateOf(false) }
+    var browseEndedAt by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> {
+                    isUserBrowsing = true
+                    browseEndedAt = 0L
+                }
+                is DragInteraction.Stop, is DragInteraction.Cancel -> browseEndedAt = System.currentTimeMillis()
+            }
+        }
+    }
+    LaunchedEffect(isUserBrowsing, browseEndedAt) {
+        if (!isUserBrowsing || browseEndedAt == 0L) return@LaunchedEffect
+        delay(UserBrowseResumeMillis)
+        snapshotFlow { listState.isScrollInProgress }.first { !it }
+        isUserBrowsing = false
+    }
+    LaunchedEffect(isPreviewSeeking) {
+        if (isPreviewSeeking) isUserBrowsing = false
+    }
+
     BoxWithConstraints(modifier = modifier) {
         val metrics = remember(maxHeight, highlightZoneFraction, highlightOffsetDp) {
             calculateHighlightMetrics(maxHeight, highlightZoneFraction, highlightOffsetDp)
@@ -1437,9 +1444,10 @@ fun SyncedLyricsList(
         // Snapshot of the active line for the effect below: it must not see the index change under its feet.
         val activeLineIndex = currentLineIndex
 
-        LaunchedEffect(activeLineIndex, lines.size, metrics, isPreviewSeeking) {
+        LaunchedEffect(activeLineIndex, lines.size, metrics, isPreviewSeeking, isUserBrowsing) {
             if (lines.isEmpty()) return@LaunchedEffect
             if (activeLineIndex !in lines.indices) return@LaunchedEffect
+            if (isUserBrowsing && !isPreviewSeeking) return@LaunchedEffect
 
             if (listState.layoutInfo.totalItemsCount == 0) {
                 snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
@@ -1458,6 +1466,11 @@ fun SyncedLyricsList(
             }
 
             if (listState.isScrollInProgress && !isPreviewSeeking) return@LaunchedEffect
+
+            // Back from browsing, the current line can be far off screen: jump close, then glide.
+            if (listState.layoutInfo.visibleItemsInfo.none { it.index == activeLineIndex }) {
+                listState.scrollToItem(activeLineIndex)
+            }
 
             val lineJumpDistance = if (lastAutoScrolledLineIndex >= 0) {
                 abs(activeLineIndex - lastAutoScrolledLineIndex)
@@ -1592,12 +1605,16 @@ fun SyncedLyricsList(
                             modifier = parallaxModifier
                                 .fillMaxWidth()
                                 .testTag("synced_line_${line.time}"),
-                            onClick = { onLineClick(line) },
+                            onClick = {
+                                isUserBrowsing = false
+                                onLineClick(line)
+                            },
                             onLongClick = onLineLongClick?.let { longClick -> { longClick(line) } }
                         )
                     } else {
                         BubblesLine(
                             positionFlow = playbackPositionFlow,
+                            positionProvider = positionProvider,
                             time = line.time,
                             color = MaterialTheme.scena.ink2.copy(alpha = 0.6f),
                             nextTime = nextTime,
@@ -1609,6 +1626,17 @@ fun SyncedLyricsList(
 // 16 dp Spacer removed to allow dynamic padding in LyricLineRow
                 }
                 footer()
+            }
+
+            AnimatedVisibility(
+                visible = isUserBrowsing && currentLineIndex >= 0,
+                enter = fadeIn(tween(180)) + slideInVertically { it / 2 },
+                exit = fadeOut(tween(180)) + slideOutVertically { it / 2 },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = contentPadding.calculateBottomPadding() / 2)
+            ) {
+                ResumeLyricsSyncButton(onClick = { isUserBrowsing = false })
             }
 
 //            if (metrics.zoneHeight > 0.dp) {
@@ -1955,6 +1983,37 @@ fun LyricLineRow(
     }
 }
 
+/** How long autoscroll waits after the user stops scrolling the lyrics. */
+private const val UserBrowseResumeMillis = 4_000L
+
+/** Brings the list back to the line being sung after the user scrolled away from it. */
+@Composable
+private fun ResumeLyricsSyncButton(onClick: () -> Unit) {
+    val scena = MaterialTheme.scena
+    Row(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .clip(Scena.ControlShape)
+            .background(scena.bg2)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.VerticalAlignCenter,
+            contentDescription = null,
+            tint = scena.ink,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.lyrics_resume_sync),
+            style = MaterialTheme.typography.labelLarge,
+            color = scena.ink
+        )
+    }
+}
+
 /** Romanization and translation under a synced line (null or blank = not shown). */
 @Composable
 private fun LyricSecondaryLines(
@@ -2234,6 +2293,10 @@ internal fun normalizeWordEndTime(
 }
 
 internal fun resolveLineEndTimeMs(line: SyncedLine, nextLineStartMs: Int): Long {
+    // A blank line is a pause (an intro, a solo): it lasts until the singing starts again.
+    if (line.line.isBlank() && nextLineStartMs != Int.MAX_VALUE && nextLineStartMs > line.time) {
+        return nextLineStartMs.toLong()
+    }
     val lastWordStart = line.words?.maxOfOrNull { it.time.toLong() } ?: line.time.toLong()
     val minEnd = lastWordStart + 1L
     val baseEnd = if (nextLineStartMs == Int.MAX_VALUE) {
@@ -2247,6 +2310,36 @@ internal fun resolveLineEndTimeMs(line: SyncedLine, nextLineStartMs: Int): Long 
         }
     }
     return maxOf(baseEnd, minEnd)
+}
+
+/** Silence before the first line long enough to show the "pause" dots. */
+private const val IntroBreakMs = 5_000
+
+/** Gap between the end of a line and the next one long enough to show the "pause" dots. */
+private const val InstrumentalBreakMs = 6_000L
+
+/**
+ * Adds a blank line (drawn as animated dots) where nothing is sung for a while: before the first
+ * line and in long instrumental gaps, so the screen never looks stuck. Lines already blank count as
+ * a pause of their own.
+ */
+internal fun withInstrumentalBreaks(lines: List<SyncedLine>): List<SyncedLine> {
+    if (lines.isEmpty()) return lines
+    val result = ArrayList<SyncedLine>(lines.size + 4)
+    val first = lines.first()
+    if (first.line.isNotBlank() && first.time >= IntroBreakMs) {
+        result += SyncedLine(time = 0, line = "")
+    }
+    lines.forEachIndexed { index, line ->
+        result += line
+        val next = lines.getOrNull(index + 1) ?: return@forEachIndexed
+        if (line.line.isBlank() || next.line.isBlank()) return@forEachIndexed
+        val end = resolveLineEndTimeMs(line, next.time)
+        if (next.time - end >= InstrumentalBreakMs) {
+            result += SyncedLine(time = end.toInt(), line = "")
+        }
+    }
+    return result
 }
 
 internal fun resolveHighlightedWordIndex(

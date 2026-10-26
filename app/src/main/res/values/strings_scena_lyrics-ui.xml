@@ -10,4 +10,6 @@
     <string name="lyrics_scena_cd_show_controls">Show controls</string>
     <string name="lyrics_scena_cd_seek_line">Jump to this line</string>
     <string name="lyrics_scena_timing_estimated">Word by word · estimated</string>
+    <!-- Shown after the user scrolled the synced lyrics away from the line being sung -->
+    <string name="lyrics_resume_sync">Back to the current line</string>
 </resources>
