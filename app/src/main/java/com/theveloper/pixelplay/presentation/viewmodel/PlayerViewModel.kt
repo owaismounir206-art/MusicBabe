@@ -3297,6 +3297,16 @@ class PlayerViewModel @Inject constructor(
         _isMusicVideoVisible.value = !_isMusicVideoVisible.value
     }
 
+    /**
+     * Position of the audio right now, for followers that need more precision than the UI ticks
+     * of [currentPlaybackPosition] (the music video). Main thread only, like the controller.
+     */
+    fun livePlaybackPositionMs(): Long =
+        mediaController?.takeIf { it.mediaItemCount > 0 }?.currentPosition ?: currentPlaybackPosition.value
+
+    /** Speed the audio is playing at (1 = normal). */
+    fun livePlaybackSpeed(): Float = mediaController?.playbackParameters?.speed ?: 1f
+
     fun alignLyricsToAudio() {
         val currentSong = stablePlayerState.value.currentSong ?: return
         lyricsStateHolder.alignLyricsToAudio(

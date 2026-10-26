@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +19,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
+import com.theveloper.pixelplay.presentation.components.SmartImage
+import com.theveloper.pixelplay.ui.theme.Scena
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,7 +97,12 @@ class MusicVideoViewModel @Inject constructor(
         job = viewModelScope.launch {
             _state.value = MusicVideoState.Loading
             _state.value = try {
-                val videoId = extractor.findVideoId(song.title, song.displayArtist, musicVideo = true)
+                val videoId = extractor.findVideoId(
+                    title = song.title,
+                    artist = song.displayArtist,
+                    expectedDurationMs = song.duration,
+                    musicVideo = true
+                )
                 val stream = videoId?.let { extractor.resolveVideo(it) }
                 if (stream == null) MusicVideoState.NotFound else MusicVideoState.Ready(song.id, stream)
             } catch (e: Exception) {
@@ -92,11 +112,18 @@ class MusicVideoViewModel @Inject constructor(
             }
         }
     }
+
+    /** The stream resolved but would not play (expired link, refused by the server). */
+    fun onPlaybackFailed(songId: String) {
+        val current = _state.value
+        if (current is MusicVideoState.Ready && current.songId == songId) _state.value = MusicVideoState.Failed
+    }
 }
 
 /**
  * The official music video of the current song, streamed muted from YouTube and kept in step
  * with the audio player (which keeps playing in background, queue and lock screen as before).
+ * While it loads, the cover stands in for it; the video only plays while it can be seen.
  */
 @kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -108,21 +135,48 @@ fun MusicVideoPanel(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(song.id) { viewModel.load(song) }
+    var firstFrameShown by remember(song.id, state) { mutableStateOf(false) }
+    val coverAlpha by animateFloatAsState(
+        targetValue = if (firstFrameShown) 0f else 1f,
+        animationSpec = tween(durationMillis = 350),
+        label = "videoCoverAlpha"
+    )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(Scena.CoverShape)
             .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        when (val current = state) {
-            is MusicVideoState.Ready -> if (current.songId == song.id) {
-                SyncedVideoPlayer(current.stream, playerViewModel)
-            } else {
-                LoadingIndicator(color = Color.White)
-            }
+        val current = state
+        if (current is MusicVideoState.Ready && current.songId == song.id) {
+            SyncedVideoPlayer(
+                stream = current.stream,
+                playerViewModel = playerViewModel,
+                onFirstFrame = { firstFrameShown = true },
+                onError = { viewModel.onPlaybackFailed(song.id) }
+            )
+        }
+        if (coverAlpha > 0f) {
+            SmartImage(
+                model = song.albumArtUriString,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = coverAlpha }
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = coverAlpha }
+                    .background(Color.Black.copy(alpha = 0.45f))
+            )
+        }
+        when (current) {
+            is MusicVideoState.Ready -> if (!firstFrameShown) LoadingIndicator(color = Color.White)
             MusicVideoState.Idle, MusicVideoState.Loading -> LoadingIndicator(color = Color.White)
             MusicVideoState.NotFound, MusicVideoState.Failed -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -149,7 +203,9 @@ fun MusicVideoPanel(
 @Composable
 private fun SyncedVideoPlayer(
     stream: YouTubeStream,
-    playerViewModel: PlayerViewModel
+    playerViewModel: PlayerViewModel,
+    onFirstFrame: () -> Unit,
+    onError: () -> Unit
 ) {
     val context = LocalContext.current
     val videoPlayer = remember(stream.url) {
@@ -168,18 +224,73 @@ private fun SyncedVideoPlayer(
                 prepare()
             }
     }
-    DisposableEffect(videoPlayer) { onDispose { videoPlayer.release() } }
+    val latestOnFirstFrame by rememberUpdatedState(onFirstFrame)
+    val latestOnError by rememberUpdatedState(onError)
+    DisposableEffect(videoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() = latestOnFirstFrame()
+            override fun onPlayerError(error: PlaybackException) {
+                Timber.w(error, "Music video playback failed")
+                latestOnError()
+            }
+        }
+        videoPlayer.addListener(listener)
+        onDispose {
+            videoPlayer.removeListener(listener)
+            videoPlayer.release()
+        }
+    }
+
+    // The video plays only while someone can see it: never with the app in background (it would
+    // keep decoding and downloading for nothing) nor with the player sheet collapsed.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isStarted by remember { mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> isStarted = true
+                Lifecycle.Event.ON_STOP -> isStarted = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val isSheetOpen by remember {
+        derivedStateOf { playerViewModel.playerContentExpansionFraction.value > 0.05f }
+    }
 
     val stableState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val isPlaying = stableState.isPlaying
-    LaunchedEffect(videoPlayer, isPlaying) {
+    LaunchedEffect(videoPlayer, isPlaying, isStarted, isSheetOpen) {
+        if (!isStarted || !isSheetOpen) {
+            videoPlayer.playWhenReady = false
+            return@LaunchedEffect
+        }
         videoPlayer.playWhenReady = isPlaying
-        // Follow the audio: small drift is corrected by a seek, never the other way round.
-        while (true) {
-            val audioMs = playerViewModel.currentPlaybackPosition.value
+        // Follow the audio, never the other way round: small drift is absorbed by a slightly
+        // faster or slower video, which is invisible; only a real jump (a seek, a stall) seeks.
+        while (isActive) {
+            val audioMs = playerViewModel.livePlaybackPositionMs()
+            val audioSpeed = playerViewModel.livePlaybackSpeed()
             val duration = videoPlayer.duration
-            if (duration > 0 && audioMs < duration && abs(videoPlayer.currentPosition - audioMs) > MAX_DRIFT_MS) {
-                videoPlayer.seekTo(audioMs)
+            val videoOver = duration != C.TIME_UNSET && duration > 0 && audioMs >= duration
+            if (videoOver) {
+                // A video shorter than the song holds its last frame.
+                videoPlayer.playWhenReady = false
+            } else if (videoPlayer.playbackState != Player.STATE_IDLE) {
+                videoPlayer.playWhenReady = isPlaying
+                val drift = videoPlayer.currentPosition - audioMs
+                when {
+                    !isPlaying -> if (abs(drift) > PAUSED_TOLERANCE_MS) videoPlayer.seekTo(audioMs)
+                    abs(drift) > MAX_DRIFT_MS || videoPlayer.playbackState == Player.STATE_ENDED -> {
+                        videoPlayer.seekTo(audioMs)
+                        videoPlayer.setPlaybackSpeed(audioSpeed)
+                    }
+                    abs(drift) > NUDGE_DRIFT_MS ->
+                        videoPlayer.setPlaybackSpeed(audioSpeed * if (drift > 0) 1f - NUDGE_SPEED else 1f + NUDGE_SPEED)
+                    else -> videoPlayer.setPlaybackSpeed(audioSpeed)
+                }
             }
             delay(SYNC_INTERVAL_MS)
         }
@@ -200,5 +311,16 @@ private fun SyncedVideoPlayer(
     )
 }
 
-private const val MAX_DRIFT_MS = 450L
-private const val SYNC_INTERVAL_MS = 1_000L
+/** Beyond this the video seeks to the audio. */
+private const val MAX_DRIFT_MS = 1_500L
+
+/** Beyond this the video speeds up or slows down a little to catch up. */
+private const val NUDGE_DRIFT_MS = 120L
+
+/** How much faster or slower, as a fraction of the audio speed. */
+private const val NUDGE_SPEED = 0.05f
+
+/** While paused the frame follows the audio exactly, so scrubbing shows the right picture. */
+private const val PAUSED_TOLERANCE_MS = 150L
+
+private const val SYNC_INTERVAL_MS = 500L
