@@ -11,7 +11,9 @@ data class OnlineTrack(
     val albumCoverUrl: String? = null,
     val durationSeconds: Int = 0,
     val previewUrl: String? = null,
-    val shareLink: String? = null
+    val shareLink: String? = null,
+    /** YouTube Music video of the song when the result came from there: it plays that exact video. */
+    val youtubeVideoId: String? = null
 )
 
 /**
@@ -22,10 +24,11 @@ fun OnlineTrack.toPlayableSong(): Song {
     val previewOrLink = previewUrl?.takeIf { it.isNotBlank() }
         ?: shareLink?.takeIf { it.isNotBlank() }
         ?: ""
-    val playUri = com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.searchUri(title, artistName)
+    val playUri = youtubeVideoId?.let(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy::videoUri)
+        ?: com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.searchUri(title, artistName)
     val durationMs = if (durationSeconds > 0) durationSeconds * 1000L else 30_000L
     return Song(
-        id = "online_${id}",
+        id = youtubeVideoId?.let { "online_yt_$it" } ?: "online_${id}",
         title = title,
         artist = artistName,
         album = if (albumTitle.isNotBlank()) albumTitle else "Online",

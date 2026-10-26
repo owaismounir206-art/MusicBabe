@@ -101,3 +101,41 @@ object WordTimingEstimator {
     private fun isCjk(c: Char): Boolean =
         c in '一'..'鿿' || c in '぀'..'ヿ' || c in '가'..'힣'
 }
+
+/**
+ * Keeps audio-derived word timings (Whisper) only where they agree with the line timing that the
+ * lyrics already have. On sung music the recogniser often hears a word early, late or not at all;
+ * the line timestamps from the lyrics file are far more reliable. So: the line keeps its own start,
+ * and each word keeps the heard time only if it falls inside the line and near the estimate,
+ * otherwise the estimate is used. A line where most words disagree falls back to the estimate.
+ */
+object AudioWordTimingMerge {
+    private const val MAX_DRIFT_MS = 700L
+    private const val MIN_ACCEPTED_SHARE = 0.5
+
+    fun merge(source: List<SyncedLine>, aligned: List<SyncedLine>): List<SyncedLine> {
+        if (source.size != aligned.size) return WordTimingEstimator.estimate(source)
+        val estimated = WordTimingEstimator.estimate(source.map { it.copy(words = null) })
+        return source.mapIndexed { index, line ->
+            val estimate = estimated[index].words
+            val heard = aligned[index].words
+            if (estimate.isNullOrEmpty() || heard.isNullOrEmpty() || estimate.size != heard.size) {
+                return@mapIndexed estimated[index]
+            }
+            val lineStart = line.time.toLong()
+            val lineEnd = source.getOrNull(index + 1)?.time?.toLong() ?: (lineStart + 10_000L)
+            var previous = lineStart - 1
+            var accepted = 0
+            val words = estimate.mapIndexed { i, est ->
+                val candidate = heard[i].time.toLong()
+                val ok = candidate in lineStart until lineEnd &&
+                    kotlin.math.abs(candidate - est.time) <= MAX_DRIFT_MS &&
+                    candidate > previous
+                val time = if (ok) candidate.also { accepted++ } else maxOf(est.time.toLong(), previous + 1)
+                previous = time
+                est.copy(time = time.toInt())
+            }
+            if (accepted < estimate.size * MIN_ACCEPTED_SHARE) estimated[index] else line.copy(words = words)
+        }
+    }
+}

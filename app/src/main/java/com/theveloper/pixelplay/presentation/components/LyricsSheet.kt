@@ -75,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -1761,7 +1762,7 @@ fun LyricLineRow(
 
     // ─── Colour: ink2 (dim) until the line, or the word, is reached; then the single accent ──────
     val restingAlpha = when (resolvedPhase) {
-        LyricLinePhase.Active -> 0.62f
+        LyricLinePhase.Active -> 0.42f
         LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.74f
         LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.52f
     }
@@ -1977,6 +1978,8 @@ fun LyricLineRow(
                                         word = word,
                                         isHighlighted = wordIndex <= litUpTo,
                                         isCurrentWord = wordIndex == litUpTo,
+                                        endTimeMs = sanitizedWords?.getOrNull(wordIndex + 1)?.time?.toLong()
+                                            ?.coerceAtMost(lineEndTime) ?: lineEndTime,
                                         useAnimatedLyrics = useAnimatedLyrics,
                                         style = lineTextStyle,
                                         highlightedColor = accentColor,
@@ -2083,9 +2086,11 @@ fun LyricWordSpan(
     unhighlightedColor: Color,
     modifier: Modifier = Modifier,
     isCurrentWord: Boolean = isHighlighted,
-    positionProvider: (() -> Long)? = null
+    positionProvider: (() -> Long)? = null,
+    endTimeMs: Long? = null
 ) {
     val animationsEnabled = rememberScenaAnimationsEnabled()
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     val color by animateColorAsState(
         targetValue = if (isHighlighted) highlightedColor else unhighlightedColor,
@@ -2120,16 +2125,40 @@ fun LyricWordSpan(
         pop.animateTo(1f, Scena.Springy)
     }
 
-    Text(
-        text = word.word,
-        style = style,
-        color = color,
-        // Scale applied at draw phase — zero layout impact per frame.
+    // Karaoke fill: while the word is sung its colour sweeps across it, from the start edge, in
+    // step with the audio. Read in the draw phase only, so the sweep never recomposes the line.
+    val sweep = isCurrentWord && positionProvider != null && endTimeMs != null && endTimeMs > word.time
+    Box(
         modifier = modifier.graphicsLayer {
             scaleX = pop.value
             scaleY = pop.value
         }
-    )
+    ) {
+        Text(
+            text = word.word,
+            style = style,
+            color = if (sweep) unhighlightedColor else color
+        )
+        if (sweep) {
+            Text(
+                text = word.word,
+                style = style,
+                color = highlightedColor,
+                modifier = Modifier.drawWithContent {
+                    val start = word.time.toLong()
+                    val end = requireNotNull(endTimeMs)
+                    val position = requireNotNull(positionProvider).invoke()
+                    val fraction = ((position - start).toFloat() / (end - start)).coerceIn(0f, 1f)
+                    val width = size.width * fraction
+                    if (isRtl) {
+                        clipRect(left = size.width - width) { this@drawWithContent.drawContent() }
+                    } else {
+                        clipRect(right = width) { this@drawWithContent.drawContent() }
+                    }
+                }
+            )
+        }
+    }
 }
 
 @Composable
