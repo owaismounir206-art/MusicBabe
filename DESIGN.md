@@ -86,6 +86,17 @@ Confirmed rejection: the previous "Expressive" look (a card per row, pills, circ
 - One sans (Google Sans Flex, crisp), tight Material scale, tabular figures.
 - One filled element per area: the primary action.
 
+## Scena layer (v1.5+)
+
+The redesigned screens (Home, Library, player, lyrics, settings, Wrapped) use the **Scena** layer in `ui/theme/Scena.kt` on top of the rules below. Where the two differ, Scena wins on those screens:
+
+- **Colour roles** (`MaterialTheme.scena`): `bg` (ground drenched with the primary container), `bg2` / `bg3` (raised surfaces), `ink` / `ink2`, and the single accent `acc` / `onAcc`. Still only dynamic roles, never hex.
+- **Shapes**: `Scena.ArtShape` (34% corners) for thumbnails, `CoverShape` (28 dp) for large covers, `ControlShape` (26 dp) for buttons and chips, `TileShape` (32 dp) for groups and banners. The `CookieDisc` is the record motif.
+- **Type**: `scenaDisplay` (heavy, expanded by a horizontal scale) for screen titles and big figures, `scenaWide` for section titles and names. Size expanded type by its longest word, or a long word breaks in the middle.
+- **Motion**: `Scena.Springy` and `Scena.EaseEmphasised`; `scenaRise` for a handful of entrances (never on lazy rows); everything checks `rememberScenaAnimationsEnabled()`.
+
+**Wrapped** is the one full-screen story surface: each story has its own ground (`bg`, `bg2`, or inverted onto `acc` for the two "loud" stories), the progress bar draws in the draw phase, one filled action per story, and nothing auto-advances with TalkBack or animations off. Every figure comes from `PlaybackStatsRepository`; a profile or headline is shown only with the measured fact behind it.
+
 ## Colors
 
 The palette is not fixed: every colour comes from the dynamic scheme's roles, used flat.
