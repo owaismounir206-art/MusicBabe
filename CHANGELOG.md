@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Wrapped rifatto da zero**: ora racconta davvero il tuo ascolto, solo con dati reali.
+  - Scegli il periodo: quest'anno, questo mese o da sempre (prima diceva "quest'anno" ma mostrava tutto lo storico).
+  - Storie: minuti di ascolto, il tuo brano, artista e album, **quando ascolti** (grafico per ora del giorno e giorno con più musica), il tuo **profilo d'ascolto** (Superfan, Anima notturna, Spirito esploratore… scelto dai numeri, non dal genere, e con il dato che lo giustifica) e un riepilogo finale.
+  - Il riepilogo si **condivide come immagine** formato storia, e "Ascolta i tuoi top" fa partire i brani più ascoltati del periodo.
+  - Colori dal tema dinamico (stile Scena) al posto dei gradienti fissi; testi in inglese e italiano; barra di avanzamento che si riempie col tempo, tocca per avanzare, tieni premuto per fermare, scorri per cambiare storia. Niente avanzamento automatico con TalkBack o con le animazioni disattivate.
+- **Shuffle bilanciato**: i brani dello stesso artista vengono distanziati invece di capitare di fila.
+- **Testi**: se scorri il testo per leggere, lo scorrimento automatico aspetta invece di riportarti indietro alla riga successiva; riprende da solo dopo 4 secondi, oppure subito con "Torna alla riga attuale", toccando una riga o spostando la barra.
+- **Testi**: puntini animati durante l'intro e le lunghe parti strumentali, così lo schermo non sembra bloccato.
+- **Video musicale**: si sincronizza in modo fluido (piccole differenze corrette accelerando o rallentando di poco il video, salti solo quando serve), segue la velocità di riproduzione e, a musica in pausa, segue la barra mentre la sposti. Mentre carica mostra la copertina.
+- **Video musicale**: sceglie meglio il video ufficiale (titolo, artista, durata; scarta video con il testo, live, cover… se non li hai chiesti).
+- La CI di debug esegue anche i test unitari.
+
+### Fixed
+- **Shuffle**: attivandolo a metà coda alcuni brani finivano "alle spalle" del brano corrente e non venivano mai suonati. Ora resta la cronologia e si mescolano solo i brani in arrivo.
+- **Shuffle persistente**: toccando un brano, quelli mescolati prima di lui venivano saltati. Ora il brano toccato parte per primo, poi tutti gli altri.
+- **Shuffle**: disattivandolo sparivano i brani aggiunti alla coda nel frattempo (e tornavano quelli rimossi).
+- **Shuffle**: disattivandolo su code lunghe la canzone poteva ripartire con un salto.
+- **Video musicale**: continuava a riprodursi (e a scaricare dati) con l'app in background o con il player chiuso.
+- **Video musicale**: in caso di errore restava un riquadro nero; ora compare "Riprova".
+- **Testi**: i puntini delle pause ignoravano la correzione di sincronizzazione; le righe vuote sparivano dopo 8 secondi anche se la pausa continuava.
+- **Wrapped**: la barra di navigazione e il mini player coprivano il fondo delle storie.
+- Dialogo degli aggiornamenti, barra "nuovo brano", suggerimenti della ricerca e banner del Wrapped nelle statistiche mostravano testi in italiano in tutte le lingue; aggiunte le traduzioni italiane mancanti di licenze e note.
+
 ## [1.7.1] - 2026-10-23
 
 ### Fixed
