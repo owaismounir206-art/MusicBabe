@@ -607,9 +607,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideOnlineSearchRepository(
-        deezerApiService: DeezerApiService
+        deezerApiService: DeezerApiService,
+        youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor
     ): com.theveloper.pixelplay.data.repository.OnlineSearchRepository {
-        return com.theveloper.pixelplay.data.repository.OnlineSearchRepositoryImpl(deezerApiService)
+        return com.theveloper.pixelplay.data.repository.OnlineSearchRepositoryImpl(deezerApiService, youTubeExtractor)
     }
 }
 

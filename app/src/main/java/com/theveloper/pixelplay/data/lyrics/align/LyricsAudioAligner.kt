@@ -22,7 +22,7 @@ data class AudioAlignment(val lines: List<SyncedLine>, val matchedRatio: Double)
 object LyricsAudioAligner {
 
     /** Below this share of matched lyric words the alignment is not trusted. */
-    const val MIN_MATCHED_RATIO = 0.35
+    const val MIN_MATCHED_RATIO = 0.6
 
     private const val SIMILARITY_THRESHOLD = 0.72
     private const val GAP = -0.6f

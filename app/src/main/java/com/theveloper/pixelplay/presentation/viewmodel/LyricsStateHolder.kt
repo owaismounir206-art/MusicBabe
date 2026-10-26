@@ -357,15 +357,10 @@ class LyricsStateHolder @Inject constructor(
                 aligner.transcribe(currentSong)
             } else {
                 aligner.align(currentSong, lines).map { alignment ->
-                    // Keep translations/romanizations: lines map 1:1 with the synced source lines.
+                    // Lyrics that already have line times keep them: the heard word times are kept
+                    // only where they agree (on sung music the line timing is the reliable part).
                     if (sourceLines != null && sourceLines.size == alignment.lines.size) {
-                        alignment.lines.mapIndexed { i, line ->
-                            line.copy(
-                                translation = sourceLines[i].translation,
-                                romanization = sourceLines[i].romanization,
-                                singer = sourceLines[i].singer
-                            )
-                        }
+                        com.theveloper.pixelplay.utils.AudioWordTimingMerge.merge(sourceLines, alignment.lines)
                     } else alignment.lines
                 }
             }
