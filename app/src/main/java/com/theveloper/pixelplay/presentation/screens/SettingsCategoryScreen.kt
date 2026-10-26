@@ -1062,9 +1062,9 @@ fun SettingsCategoryScreen(
                             }
 
                             // Generation Parameters Section
-                            SettingsSubsection(title = "Generation Parameters") {
+                            SettingsSubsection(title = stringResource(R.string.settings_ai_generation_section)) {
                                 SliderSettingsItem(
-                                    label = "Temperature",
+                                    label = stringResource(R.string.settings_ai_temperature),
                                     value = settingsViewModel.aiTemperature.collectAsStateWithLifecycle().value,
                                     valueRange = 0.0f..2.0f,
                                     steps = 20,
@@ -1072,13 +1072,13 @@ fun SettingsCategoryScreen(
                                     valueText = { String.format(Locale.US, "%.2f", it) }
                                 )
                                 Text(
-                                    text = "Controls randomness. Lower = more deterministic, higher = more creative.",
+                                    text = stringResource(R.string.settings_ai_temperature_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 SliderSettingsItem(
-                                    label = "Top P",
+                                    label = stringResource(R.string.settings_ai_top_p),
                                     value = settingsViewModel.aiTopP.collectAsStateWithLifecycle().value,
                                     valueRange = 0.0f..1.0f,
                                     steps = 20,
@@ -1086,13 +1086,13 @@ fun SettingsCategoryScreen(
                                     valueText = { String.format(Locale.US, "%.2f", it) }
                                 )
                                 Text(
-                                    text = "Nucleus sampling. Higher = more diverse tokens considered.",
+                                    text = stringResource(R.string.settings_ai_top_p_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 SliderSettingsItem(
-                                    label = "Top K",
+                                    label = stringResource(R.string.settings_ai_top_k),
                                     value = settingsViewModel.aiTopK.collectAsStateWithLifecycle().value.toFloat(),
                                     valueRange = 1f..100f,
                                     steps = 99,
@@ -1100,13 +1100,13 @@ fun SettingsCategoryScreen(
                                     valueText = { it.toInt().toString() }
                                 )
                                 Text(
-                                    text = "Limits token selection to the K most likely candidates.",
+                                    text = stringResource(R.string.settings_ai_top_k_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 SliderSettingsItem(
-                                    label = "Max Output Tokens",
+                                    label = stringResource(R.string.settings_ai_max_tokens),
                                     value = settingsViewModel.aiMaxTokens.collectAsStateWithLifecycle().value.toFloat(),
                                     valueRange = 128f..8192f,
                                     steps = 63,
@@ -1114,13 +1114,13 @@ fun SettingsCategoryScreen(
                                     valueText = { it.toInt().toString() }
                                 )
                                 Text(
-                                    text = "Maximum length of the AI response. Higher = longer but more expensive.",
+                                    text = stringResource(R.string.settings_ai_max_tokens_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 SliderSettingsItem(
-                                    label = "Presence Penalty",
+                                    label = stringResource(R.string.settings_ai_presence_penalty),
                                     value = settingsViewModel.aiPresencePenalty.collectAsStateWithLifecycle().value,
                                     valueRange = -2.0f..2.0f,
                                     steps = 40,
@@ -1128,13 +1128,13 @@ fun SettingsCategoryScreen(
                                     valueText = { String.format(Locale.US, "%.1f", it) }
                                 )
                                 Text(
-                                    text = "Penalizes repeated topics. Positive = more diverse topics.",
+                                    text = stringResource(R.string.settings_ai_presence_penalty_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 SliderSettingsItem(
-                                    label = "Frequency Penalty",
+                                    label = stringResource(R.string.settings_ai_frequency_penalty),
                                     value = settingsViewModel.aiFrequencyPenalty.collectAsStateWithLifecycle().value,
                                     valueRange = -2.0f..2.0f,
                                     steps = 40,
@@ -1142,7 +1142,7 @@ fun SettingsCategoryScreen(
                                     valueText = { String.format(Locale.US, "%.1f", it) }
                                 )
                                 Text(
-                                    text = "Penalizes repeated phrases. Positive = more natural language.",
+                                    text = stringResource(R.string.settings_ai_frequency_penalty_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
@@ -1150,26 +1150,30 @@ fun SettingsCategoryScreen(
                             }
 
                             // Song Data Configuration Section
-                            SettingsSubsection(title = "Song Data Configuration") {
+                            SettingsSubsection(title = stringResource(R.string.settings_ai_song_data_section)) {
                                 val aiSampleSize by settingsViewModel.aiSampleSize.collectAsStateWithLifecycle()
+                                val sampleSizeResources = LocalContext.current.resources
                                 SliderSettingsItem(
-                                    label = "Sample Size",
+                                    label = stringResource(R.string.settings_ai_sample_size),
                                     value = aiSampleSize.toFloat(),
                                     valueRange = 10f..120f,
                                     steps = 11,
                                     onValueChange = { settingsViewModel.onAiSampleSizeChange(it.toInt()) },
-                                    valueText = { "${it.toInt()} songs" }
+                                    valueText = { sampleSizeResources.getQuantityString(R.plurals.settings_ai_sample_size_value, it.toInt(), it.toInt()) }
                                 )
                                 Text(
-                                    text = "Number of songs sent to the AI for playlist generation. More = better context but higher cost.",
+                                    text = stringResource(R.string.settings_ai_sample_size_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                 )
                                 ThemeSelectorItem(
-                                    label = "Digest Detail",
-                                    description = "Controls how much listening history data is included",
-                                    options = mapOf("safe" to "Concise (faster)", "full" to "Full (better quality)"),
+                                    label = stringResource(R.string.settings_ai_digest_detail),
+                                    description = stringResource(R.string.settings_ai_digest_detail_desc),
+                                    options = mapOf(
+                                        "safe" to stringResource(R.string.settings_ai_digest_safe),
+                                        "full" to stringResource(R.string.settings_ai_digest_full)
+                                    ),
                                     selectedKey = settingsViewModel.aiDigestMode.collectAsStateWithLifecycle().value,
                                     onSelectionChanged = { settingsViewModel.onAiDigestModeChange(it) },
                                     leadingIcon = {
@@ -1181,8 +1185,8 @@ fun SettingsCategoryScreen(
                                     }
                                 )
                                 SwitchSettingItem(
-                                    title = "Extended Song Fields",
-                                    subtitle = "Include album, year, and genre info in song data sent to AI",
+                                    title = stringResource(R.string.settings_ai_extended_fields),
+                                    subtitle = stringResource(R.string.settings_ai_extended_fields_desc),
                                     checked = settingsViewModel.aiIncludeExtendedFields.collectAsStateWithLifecycle().value,
                                     onCheckedChange = { settingsViewModel.onAiIncludeExtendedFieldsChange(it) },
                                     leadingIcon = {

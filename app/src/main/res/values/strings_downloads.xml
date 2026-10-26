@@ -64,4 +64,22 @@
     <string name="settings_download_quality_high">High</string>
     <string name="settings_download_quality_standard">Standard</string>
     <string name="settings_download_open_hub">Open download hub</string>
+    <!-- YTDLnis / direct download dialog -->
+    <string name="ytdlnis_dialog_title">Download track</string>
+    <string name="ytdlnis_direct_title">Download in MusicBabe</string>
+    <string name="ytdlnis_direct_body">Saves the audio file straight to your phone and adds it to your library. No other app needed.</string>
+    <string name="ytdlnis_direct_saved">Saved to your music!</string>
+    <string name="ytdlnis_direct_progress">Downloading audio… %1$d%%</string>
+    <string name="ytdlnis_direct_no_track">Track details are not available</string>
+    <string name="ytdlnis_direct_action">Download now in MusicBabe</string>
+    <string name="ytdlnis_advanced_title">Advanced option: YTDLnis</string>
+    <string name="ytdlnis_installed_body">YTDLnis is installed. You can use it to download the track from YouTube at the highest bitrate.</string>
+    <string name="ytdlnis_open_action">Open in YTDLnis</string>
+    <string name="ytdlnis_not_installed_body">No YTDLnis? You can download and install it right here in MusicBabe, without going to GitHub.</string>
+    <string name="ytdlnis_install_action">Install YTDLnis in the app</string>
+    <string name="ytdlnis_checking_release">Checking the latest APK on GitHub…</string>
+    <string name="ytdlnis_apk_progress">Downloading the YTDLnis APK: %1$d%%</string>
+    <string name="ytdlnis_apk_install">Tap to install the APK</string>
+    <string name="ytdlnis_apk_retry">Retry the APK download</string>
+    <string name="ytdlnis_other_apps">Other apps on this device</string>
 </resources>

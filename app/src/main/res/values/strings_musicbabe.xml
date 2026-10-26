@@ -61,4 +61,6 @@
     <string name="search_online_hint_title">Can\'t find what you\'re looking for?</string>
     <string name="search_online_hint_body">Search songs online, play them and download them right in MusicBabe</string>
     <string name="search_browse_all">Browse all</string>
+    <string name="cloud_last_synced">Last synced: %1$s</string>
+    <string name="about_tagline">Your expressive audio player with pure 120 FPS motion</string>
 </resources>

@@ -42,4 +42,31 @@
         <item quantity="one">%d model available</item>
         <item quantity="other">%d models available</item>
     </plurals>
+    <!-- AI generation parameters -->
+    <string name="settings_ai_generation_section">Generation parameters</string>
+    <string name="settings_ai_temperature">Temperature</string>
+    <string name="settings_ai_temperature_hint">Controls randomness. Lower = more predictable, higher = more creative.</string>
+    <string name="settings_ai_top_p">Top P</string>
+    <string name="settings_ai_top_p_hint">Nucleus sampling. Higher = more varied words considered.</string>
+    <string name="settings_ai_top_k">Top K</string>
+    <string name="settings_ai_top_k_hint">Limits each choice to the K most likely words.</string>
+    <string name="settings_ai_max_tokens">Max output tokens</string>
+    <string name="settings_ai_max_tokens_hint">Maximum length of the AI answer. Higher = longer but more expensive.</string>
+    <string name="settings_ai_presence_penalty">Presence penalty</string>
+    <string name="settings_ai_presence_penalty_hint">Penalizes topics already mentioned. Positive = more varied topics.</string>
+    <string name="settings_ai_frequency_penalty">Frequency penalty</string>
+    <string name="settings_ai_frequency_penalty_hint">Penalizes repeated phrases. Positive = more natural language.</string>
+    <string name="settings_ai_song_data_section">Song data</string>
+    <string name="settings_ai_sample_size">Sample size</string>
+    <plurals name="settings_ai_sample_size_value">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <string name="settings_ai_sample_size_hint">Songs sent to the AI to build a playlist. More = better context but higher cost.</string>
+    <string name="settings_ai_digest_detail">Digest detail</string>
+    <string name="settings_ai_digest_detail_desc">How much listening history is included</string>
+    <string name="settings_ai_digest_safe">Concise (faster)</string>
+    <string name="settings_ai_digest_full">Full (better quality)</string>
+    <string name="settings_ai_extended_fields">Extended song fields</string>
+    <string name="settings_ai_extended_fields_desc">Include album, year and genre in the song data sent to the AI</string>
 </resources>
