@@ -126,7 +126,8 @@ class YouTubeExtractor @Inject constructor() {
             searchSongs(query, 5).ifEmpty { search(query, YoutubeSearchQueryHandlerFactory.VIDEOS, 5) }
         }
         if (hits.isEmpty()) return null
-        if (expectedDurationMs <= 0 || musicVideo) return hits.first().videoId
+        if (musicVideo) return pickMusicVideo(hits, title, artist, expectedDurationMs / 1000)?.videoId
+        if (expectedDurationMs <= 0) return hits.first().videoId
         val expected = expectedDurationMs / 1000
         return hits.take(3).minByOrNull { abs(it.durationSeconds - expected) }?.videoId
     }
@@ -189,6 +190,52 @@ class YouTubeExtractor @Inject constructor() {
     }
 
     companion object {
+        /** Versions that are not the official video, matched at the start of a word ("lyrics", not "alive"). */
+        private val VERSION_WORDS = listOf("lyric", "live", "cover", "karaoke", "reaction", "instrumental", "remix", "sped up", "slowed")
+            .map { Regex("(^| )" + Regex.escape(it)) }
+
+        /**
+         * The official video among search hits: the title must name the song, the artist counts,
+         * versions the song does not ask for (lyric video, live, cover…) lose, and with a known
+         * length the closest one wins. Search order breaks ties.
+         */
+        internal fun pickMusicVideo(
+            hits: List<YouTubeTrack>,
+            title: String,
+            artist: String,
+            expectedSeconds: Long
+        ): YouTubeTrack? {
+            val wantedTitle = normalizeForMatch(title, keepBrackets = false)
+            val wantedFull = normalizeForMatch(title, keepBrackets = true)
+            val wantedArtist = normalizeForMatch(artist, keepBrackets = false)
+            return hits.take(5).withIndex().maxByOrNull { (rank, hit) ->
+                val hitTitle = normalizeForMatch(hit.title, keepBrackets = false)
+                val hitFull = normalizeForMatch(hit.title, keepBrackets = true)
+                val hitText = "$hitFull ${normalizeForMatch(hit.uploader, keepBrackets = true)}"
+                var score = -rank * 0.1
+                if (wantedTitle.isNotEmpty() && hitTitle.contains(wantedTitle)) score += 3.0
+                // The song names a version itself ("… (Live at Wembley)"): that exact version wins.
+                if (wantedFull != wantedTitle && hitFull.contains(wantedFull)) score += 1.0
+                if (wantedArtist.isNotEmpty() && hitText.contains(wantedArtist)) score += 1.5
+                VERSION_WORDS.forEach { word ->
+                    if (word.containsMatchIn(hitFull) && !word.containsMatchIn(wantedFull)) score -= 2.0
+                }
+                if (expectedSeconds > 0 && hit.durationSeconds > 0) {
+                    // Official videos often add an intro or an outro: being longer costs less than being shorter.
+                    val delta = hit.durationSeconds - expectedSeconds
+                    score -= if (delta >= 0) delta / 60.0 else -delta / 20.0
+                }
+                score
+            }?.value
+        }
+
+        /** Lowercase words only; without [keepBrackets] "(feat. …)", "[Official Video]" and the like go. */
+        private fun normalizeForMatch(text: String, keepBrackets: Boolean): String =
+            text.lowercase(Locale.ROOT)
+                .let { if (keepBrackets) it else it.replace(Regex("\\(.*?\\)|\\[.*?]"), " ") }
+                .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+                .trim()
+
         const val WEB_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
         private val VIDEO_ID = Regex("^[A-Za-z0-9_-]{11}$")
