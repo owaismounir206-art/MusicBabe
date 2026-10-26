@@ -96,13 +96,16 @@ object WrappedStoryBuilder {
     private const val EXPLORER_MIN_SONGS = 30
     private val MARATHON_SESSION_MS = TimeUnit.HOURS.toMillis(3)
     private val MIN_PROFILE_LISTENING_MS = TimeUnit.MINUTES.toMillis(60)
+    /** 10 pm to 5 am and 5 to 10 am, as the profile texts say. */
+    internal val NIGHT_HOURS = listOf(22, 23, 0, 1, 2, 3, 4)
+    internal val MORNING_HOURS = (5..9).toList()
 
     fun build(period: WrappedPeriod, summary: PlaybackStatsRepository.PlaybackStatsSummary): WrappedStory {
         val total = summary.totalDurationMs.coerceAtLeast(0L)
         val hourTotals = summary.hourOfDayDurationsMs.takeIf { it.size == 24 && it.sum() > 0L }
         val hourSum = hourTotals?.sum()?.toDouble() ?: 0.0
         val hourShares = hourTotals?.map { (it / hourSum).toFloat() }.orEmpty()
-        val peakHour = hourTotals?.indices?.maxByOrNull { hourTotals[it] }
+        val peakHour = hourTotals?.let { totals -> totals.indices.maxByOrNull { totals[it] } }
 
         val topArtists = summary.topArtists
             .filter { it.artist.isNotBlank() && it.artist != UNKNOWN_ARTIST }
@@ -187,9 +190,10 @@ object WrappedStoryBuilder {
         longestSessionMs: Long
     ): ListeningPersonality {
         if (totalMs < MIN_PROFILE_LISTENING_MS) return ListeningPersonality.ALL_ROUNDER
-        val hourSum = hourTotals?.sum()?.takeIf { it > 0L }?.toDouble()
-        val nightShare = hourSum?.let { sum -> (listOf(22, 23) + (0..4)).sumOf { hourTotals[it] } / sum } ?: 0.0
-        val morningShare = hourSum?.let { sum -> (5..9).sumOf { hourTotals[it] } / sum } ?: 0.0
+        val totals = hourTotals?.takeIf { it.size == 24 && it.sum() > 0L }
+        val hourSum = totals?.sum()?.toDouble()
+        val nightShare = if (totals != null && hourSum != null) NIGHT_HOURS.sumOf { totals[it] } / hourSum else 0.0
+        val morningShare = if (totals != null && hourSum != null) MORNING_HOURS.sumOf { totals[it] } / hourSum else 0.0
         return when {
             topArtistShare >= SUPERFAN_SHARE -> ListeningPersonality.SUPERFAN
             nightShare >= NIGHT_SHARE -> ListeningPersonality.NIGHT_OWL

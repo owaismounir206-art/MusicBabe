@@ -86,6 +86,7 @@ import com.theveloper.pixelplay.data.stats.DayPart
 import com.theveloper.pixelplay.data.stats.ListeningPersonality
 import com.theveloper.pixelplay.data.stats.WrappedPeriod
 import com.theveloper.pixelplay.data.stats.WrappedStory
+import com.theveloper.pixelplay.data.stats.WrappedStoryBuilder
 import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.WrappedViewModel
@@ -1072,7 +1073,7 @@ private fun SummarySlide(
     val songLabel = stringResource(R.string.wrapped_summary_top_song)
     val genreLabel = stringResource(R.string.wrapped_summary_top_genre)
     val profileLabel = stringResource(R.string.wrapped_summary_profile)
-    val rows = buildList {
+    val rows = buildList<Pair<String, String>> {
         add(minutesLabel to formatter.format(story.totalMinutes))
         topArtist?.let { add(artistLabel to it) }
         topSong?.let { add(songLabel to "${it.title} · ${it.artist}") }
@@ -1357,11 +1358,11 @@ private fun personalityBody(story: WrappedStory): String = when (story.personali
     }
     ListeningPersonality.NIGHT_OWL -> stringResource(
         R.string.wrapped_profile_night_owl_body,
-        hoursSharePercent(story, listOf(22, 23, 0, 1, 2, 3, 4))
+        hoursSharePercent(story, WrappedStoryBuilder.NIGHT_HOURS)
     )
     ListeningPersonality.EARLY_BIRD -> stringResource(
         R.string.wrapped_profile_early_bird_body,
-        hoursSharePercent(story, (5..9).toList())
+        hoursSharePercent(story, WrappedStoryBuilder.MORNING_HOURS)
     )
     ListeningPersonality.LOYALIST -> stringResource(
         R.string.wrapped_profile_loyalist_body,
