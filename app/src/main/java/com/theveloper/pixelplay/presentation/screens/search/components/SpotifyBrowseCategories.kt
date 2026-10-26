@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.screens.search.components
 
+import com.theveloper.pixelplay.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -149,7 +151,7 @@ fun SpotifyBrowseCategoriesGrid(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
-                text = "Sfoglia tutto",
+                text = stringResource(R.string.search_browse_all),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)

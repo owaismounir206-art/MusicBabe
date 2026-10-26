@@ -46,4 +46,18 @@
     <string name="karaoke_mode_desc">Toglie la voce principale dal brano. Funziona meglio sui mix in studio.</string>
     <string name="lyrics_share_line">Condividi questo verso</string>
     <string name="settings_carousel_disc">Disco</string>
+    <!-- App update dialog -->
+    <string name="update_dialog_title">Nuovo aggiornamento!</string>
+    <string name="update_dialog_whats_new">Novità:</string>
+    <string name="update_dialog_update_now">Aggiorna ora</string>
+    <string name="update_dialog_downloading">Download in corso: %1$d%%</string>
+    <string name="update_dialog_install">Installa aggiornamento</string>
+    <string name="update_dialog_retry">Riprova il download</string>
+    <string name="update_dialog_view_on_github">Vedi su GitHub</string>
+    <string name="update_dialog_later">Più tardi</string>
+    <!-- New song bar, search -->
+    <string name="new_song_play_now">Riproduci ora</string>
+    <string name="search_online_hint_title">Non trovi quello che cerchi?</string>
+    <string name="search_online_hint_body">Cerca brani online, ascoltali e scaricali direttamente in MusicBabe</string>
+    <string name="search_browse_all">Sfoglia tutto</string>
 </resources>

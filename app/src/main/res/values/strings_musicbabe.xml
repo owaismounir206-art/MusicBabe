@@ -47,4 +47,18 @@
     <string name="karaoke_mode_desc">Takes the lead vocal out of the song. Works best on studio mixes.</string>
     <string name="lyrics_share_line">Share this line</string>
     <string name="settings_carousel_disc">Disc</string>
+    <!-- App update dialog -->
+    <string name="update_dialog_title">New update!</string>
+    <string name="update_dialog_whats_new">What\'s new:</string>
+    <string name="update_dialog_update_now">Update now</string>
+    <string name="update_dialog_downloading">Downloading: %1$d%%</string>
+    <string name="update_dialog_install">Install update</string>
+    <string name="update_dialog_retry">Retry the download</string>
+    <string name="update_dialog_view_on_github">View on GitHub</string>
+    <string name="update_dialog_later">Later</string>
+    <!-- New song bar, search -->
+    <string name="new_song_play_now">Play now</string>
+    <string name="search_online_hint_title">Can\'t find what you\'re looking for?</string>
+    <string name="search_online_hint_body">Search songs online, play them and download them right in MusicBabe</string>
+    <string name="search_browse_all">Browse all</string>
 </resources>
