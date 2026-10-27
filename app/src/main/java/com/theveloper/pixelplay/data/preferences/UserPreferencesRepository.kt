@@ -41,6 +41,12 @@ object ThemePreference {
     const val GLOBAL = "global"
 }
 
+/** Colours of the app outside the player. */
+object AppPalette {
+    const val FLUIDO = "fluido"
+    const val DYNAMIC = "dynamic"
+}
+
 object AppThemeMode {
     const val FOLLOW_SYSTEM = "follow_system"
     const val LIGHT = "light"

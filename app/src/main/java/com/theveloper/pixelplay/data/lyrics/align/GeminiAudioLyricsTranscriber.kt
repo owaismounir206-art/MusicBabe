@@ -63,8 +63,20 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
 
             val uri = Uri.parse(song.contentUriString)
             if (uri.scheme != "content" && uri.scheme != "file") throw AudioAlignmentException.NotLocal()
-            val audio = readAudio(uri)
-            val mimeType = song.mimeType?.takeIf { it.startsWith("audio/") }
+            val isVideo = song.mimeType?.startsWith("video/") == true ||
+                context.contentResolver.getType(uri)?.startsWith("video/") == true
+            // A music video: only its audio track is sent (copied out without re-encoding).
+            val extracted = if (isVideo) {
+                java.io.File(context.cacheDir, "lyrics_video_audio.m4a").takeIf { out ->
+                    com.theveloper.pixelplay.data.videos.VideoAudioExtractor.extractAudio(context, uri, out)
+                } ?: throw AudioAlignmentException.Unsupported()
+            } else null
+            val audio = try {
+                readAudio(extracted?.let { Uri.fromFile(it) } ?: uri)
+            } finally {
+                extracted?.delete()
+            }
+            val mimeType = if (extracted != null) "audio/mp4" else song.mimeType?.takeIf { it.startsWith("audio/") }
                 ?: context.contentResolver.getType(uri)?.takeIf { it.startsWith("audio/") }
                 ?: "audio/mpeg"
 

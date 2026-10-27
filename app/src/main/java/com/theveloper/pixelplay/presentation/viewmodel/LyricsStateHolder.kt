@@ -68,8 +68,19 @@ class LyricsStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val songMetadataEditor: SongMetadataEditor,
-    private val audioAligner: com.theveloper.pixelplay.data.lyrics.align.LyricsAudioAlignmentService? = null
+    private val audioAligner: com.theveloper.pixelplay.data.lyrics.align.LyricsAudioAlignmentService? = null,
+    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository? = null
 ) {
+    /** Library songs keep lyrics in the database; imported music videos keep them with the video. */
+    private suspend fun persistLyrics(song: Song, rawLyrics: String) {
+        val songId = song.id.toLongOrNull()
+        when {
+            songId != null -> musicRepository.updateLyrics(songId, rawLyrics)
+            song.id.startsWith(com.theveloper.pixelplay.data.videos.LocalMusicVideo.SONG_ID_PREFIX) ->
+                localMusicVideos?.saveLyrics(song.id, rawLyrics)
+        }
+    }
+
     private var scope: CoroutineScope? = null
     private var loadingJob: Job? = null
     private var loadCallback: LyricsLoadCallback? = null
@@ -239,10 +250,7 @@ class LyricsStateHolder @Inject constructor(
                         val lyrics = parsed.copy(areFromRemote = false)
                         _searchUiState.value = LyricsSearchUiState.Success(lyrics)
 
-                        val songId = song.id.toLongOrNull()
-                        if (songId != null) {
-                            musicRepository.updateLyrics(songId, rawLyrics)
-                        }
+                        persistLyrics(song, rawLyrics)
 
                         _songUpdates.emit(song.copy(lyrics = rawLyrics) to lyrics)
                         _messageEvents.emit(contextHelper(messageResId))
@@ -308,9 +316,7 @@ class LyricsStateHolder @Inject constructor(
             _searchUiState.value = LyricsSearchUiState.Success(result.lyrics)
 
             // 1. Update DB cache
-            currentSong.id.toLongOrNull()?.let { songId ->
-                musicRepository.updateLyrics(songId, result.rawLyrics)
-            }
+            persistLyrics(currentSong, result.rawLyrics)
 
             // 2. Attempt metadata write-back to the audio file
             val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, result.rawLyrics)
@@ -388,7 +394,9 @@ class LyricsStateHolder @Inject constructor(
         source: String,
         work: suspend () -> Result<List<SyncedLine>>
     ) {
-        val songId = currentSong.id.toLongOrNull() ?: return
+        if (currentSong.id.toLongOrNull() == null &&
+            !currentSong.id.startsWith(com.theveloper.pixelplay.data.videos.LocalMusicVideo.SONG_ID_PREFIX)
+        ) return
         if (audioAlignmentJob?.isActive == true) return
 
         audioAlignmentJob = scope?.launch {
@@ -397,7 +405,7 @@ class LyricsStateHolder @Inject constructor(
                 .onSuccess { syncedLines ->
                     val document = MbLrcFormat.encode(syncedLines, source = source)
                     val parsed = LyricsUtils.parseLyrics(document)
-                    musicRepository.updateLyrics(songId, document)
+                    persistLyrics(currentSong, document)
                     val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(currentSong, document)
                     val updatedSong = currentSong.withPersistedLyrics(document, refreshedAlbumArtUri)
                     _songUpdates.emit(updatedSong to parsed.takeIf(::hasValidLyrics))

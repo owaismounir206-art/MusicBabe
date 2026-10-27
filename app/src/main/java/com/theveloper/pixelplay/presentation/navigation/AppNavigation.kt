@@ -174,6 +174,69 @@ fun AppNavigation(
                 }
             }
             composable(
+                Screen.Online.route,
+                enterTransition = {
+                    mainRootEnterTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = enterTransition()
+                    )
+                },
+                exitTransition = {
+                    mainRootExitTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = exitTransition()
+                    )
+                },
+                popEnterTransition = {
+                    mainRootEnterTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = popEnterTransition()
+                    )
+                },
+                popExitTransition = {
+                    mainRootExitTransition(
+                        fromRoute = initialState.destination.route,
+                        toRoute = targetState.destination.route,
+                        fallback = popExitTransition()
+                    )
+                },
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.online.OnlineScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel,
+                        paddingValuesParent = paddingValues
+                    )
+                }
+            }
+            composable(
+                Screen.OnlineCollection.route,
+                arguments = Screen.OnlineCollection.argumentNames.map { name ->
+                    androidx.navigation.navArgument(name) {
+                        type = androidx.navigation.NavType.StringType
+                        defaultValue = ""
+                    }
+                }
+            ) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.online.OnlineCollectionScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
+                }
+            }
+            composable(Screen.MusicVideos.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.videos.MusicVideosScreen(
+                        navController = navController,
+                        playerViewModel = playerViewModel
+                    )
+                }
+            }
+            composable(
                 Screen.Library.route,
                 enterTransition = {
                     mainRootEnterTransition(

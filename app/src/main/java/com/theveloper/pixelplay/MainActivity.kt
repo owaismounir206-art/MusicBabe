@@ -107,6 +107,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.theveloper.pixelplay.data.github.GitHubAnnouncementPropertiesService
 import com.theveloper.pixelplay.data.github.PlayStoreAnnouncementRemoteConfig
 import com.theveloper.pixelplay.data.preferences.AppThemeMode
+import com.theveloper.pixelplay.data.preferences.AppPalette
 import com.theveloper.pixelplay.data.preferences.NavBarStyle
 import com.theveloper.pixelplay.data.preferences.sanitizeNavBarCornerRadius
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
@@ -243,6 +244,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val systemDarkTheme = isSystemInDarkTheme()
             val appThemeMode by themePreferencesRepository.appThemeModeFlow.collectAsStateWithLifecycle(initialValue = AppThemeMode.FOLLOW_SYSTEM)
+            val appPalette by themePreferencesRepository.appPaletteFlow.collectAsStateWithLifecycle(initialValue = AppPalette.FLUIDO)
             val showScrollbar by userPreferencesRepository.showScrollbarFlow.collectAsStateWithLifecycle(initialValue = true)
             val useDarkTheme = when (appThemeMode) {
                 AppThemeMode.DARK -> true
@@ -291,7 +293,8 @@ class MainActivity : ComponentActivity() {
 
             CompositionLocalProvider(LocalShowScrollbar provides showScrollbar) {
                 PixelPlayTheme(
-                    darkTheme = useDarkTheme
+                    darkTheme = useDarkTheme,
+                    useDynamicColor = appPalette == AppPalette.DYNAMIC
                 ) {
                     var contentVisible by remember { mutableStateOf(false) }
                     val contentAlpha by animateFloatAsState(
@@ -612,6 +615,7 @@ class MainActivity : ComponentActivity() {
         val commonNavItems = remember {
             persistentListOf(
                 BottomNavItem("Home", R.string.nav_bar_home, R.drawable.rounded_home_24, R.drawable.home_24_rounded_filled, Screen.Home),
+                BottomNavItem("Online", R.string.nav_bar_online, R.drawable.rounded_explore_24, R.drawable.rounded_explore_24_filled, Screen.Online),
                 BottomNavItem("Search", R.string.nav_bar_search, R.drawable.rounded_search_24, R.drawable.rounded_search_24, Screen.Search),
                 BottomNavItem("Library", R.string.nav_bar_library, R.drawable.rounded_library_music_24, R.drawable.round_library_music_24, Screen.Library)
             )
@@ -635,6 +639,8 @@ class MainActivity : ComponentActivity() {
                 Screen.About.route,
                 Screen.OpenSourceLicenses.route,
                 Screen.Stats.route,
+                Screen.OnlineCollection.route,
+                Screen.MusicVideos.route,
                 Screen.EditTransition.route,
                 Screen.Experimental.route,
                 Screen.ArtistSettings.route,

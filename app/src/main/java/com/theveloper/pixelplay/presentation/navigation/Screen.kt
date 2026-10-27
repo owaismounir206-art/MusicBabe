@@ -8,6 +8,19 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Search : Screen("search")
     object Library : Screen("library")
+    object Online : Screen("online")
+    object OnlineCollection : Screen(
+        "online_collection?kind={kind}&title={title}&subtitle={subtitle}&thumb={thumb}&browseId={browseId}&url={url}"
+    ) {
+        val argumentNames = listOf("kind", "title", "subtitle", "thumb", "browseId", "url")
+
+        fun createRoute(item: com.theveloper.pixelplay.data.online.OnlineCollectionItem): String {
+            fun enc(value: String?) = android.net.Uri.encode(value.orEmpty())
+            return "online_collection?kind=${item.kind.name}&title=${enc(item.title)}&subtitle=${enc(item.subtitle)}" +
+                "&thumb=${enc(item.thumbnailUrl)}&browseId=${enc(item.browseId)}&url=${enc(item.url)}"
+        }
+    }
+    object MusicVideos : Screen("music_videos")
     object Settings : Screen("settings")
     object Accounts : Screen("settings_accounts")
     object SettingsCategory : Screen("settings_category/{categoryId}") {

@@ -129,10 +129,11 @@ private fun PlayerInternalNavigationItemsRow(
         var lastSearchTapTimestamp by remember { mutableStateOf(0L) }
         navItems.forEach { item ->
             val isSelected = currentRoute != null && currentRoute == item.screen.route
-            // Scena: the active item is a pill filled with the accent (primary), ink on it is onPrimary.
-            val selectedColor = MaterialTheme.colorScheme.onPrimary
+            // Fluido: the active item sits on a secondary-container pill, as in Google apps.
+            val selectedColor = MaterialTheme.colorScheme.onSecondaryContainer
+            val selectedLabelColor = MaterialTheme.colorScheme.onSurface
             val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-            val indicatorColorFromTheme = MaterialTheme.colorScheme.primary
+            val indicatorColorFromTheme = MaterialTheme.colorScheme.secondaryContainer
 
             val iconPainterResId = if (isSelected && item.selectedIconResId != null && item.selectedIconResId != 0) {
                 item.selectedIconResId
@@ -225,7 +226,7 @@ private fun PlayerInternalNavigationItemsRow(
                 alwaysShowLabel = false,
                 selectedIconColor = selectedColor,
                 unselectedIconColor = unselectedColor,
-                selectedTextColor = selectedColor,
+                selectedTextColor = selectedLabelColor,
                 unselectedTextColor = unselectedColor,
                 indicatorColor = indicatorColorFromTheme
             )

@@ -3235,6 +3235,17 @@ class PlayerViewModel @Inject constructor(
     val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
 
     private val _isMusicVideoVisible = MutableStateFlow(false)
+
+    /** A music video from the phone opens on its picture, not on the cover. */
+    @Suppress("unused")
+    private val localVideoAutoShow = stablePlayerState.map { it.currentSong?.id }
+        .distinctUntilChanged()
+        .onEach { id ->
+            if (id?.startsWith(com.theveloper.pixelplay.data.videos.LocalMusicVideo.SONG_ID_PREFIX) == true) {
+                _isMusicVideoVisible.value = true
+            }
+        }
+        .launchIn(viewModelScope)
     /** The player shows the song's music video in place of the cover. */
     val isMusicVideoVisible: StateFlow<Boolean> = _isMusicVideoVisible.asStateFlow()
 
