@@ -109,6 +109,72 @@ class YouTubeExtractor @Inject constructor() {
     }
 
     /**
+     * Albums, playlists or artists for [query]: [filter] is one of the YouTube Music filters
+     * (`MUSIC_ALBUMS`, `MUSIC_PLAYLISTS`, `MUSIC_ARTISTS`).
+     */
+    suspend fun searchCollections(
+        query: String,
+        filter: String,
+        limit: Int = 12
+    ): List<com.theveloper.pixelplay.data.online.OnlineCollectionItem> = withContext(Dispatchers.IO) {
+        ensureInit()
+        val service = ServiceList.YouTube
+        val handler = service.searchQHFactory.fromQuery(query, listOf(filter), "")
+        SearchInfo.getInfo(service, handler).relatedItems
+            .mapNotNull { item ->
+                val thumb = item.thumbnails.maxByOrNull { it.width }?.url
+                when (item) {
+                    is org.schabi.newpipe.extractor.playlist.PlaylistInfoItem -> com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                        kind = if (filter == YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS) {
+                            com.theveloper.pixelplay.data.online.OnlineCollectionKind.ALBUM
+                        } else {
+                            com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST
+                        },
+                        title = item.name,
+                        subtitle = item.uploaderName.orEmpty().removeSuffix(" - Topic"),
+                        thumbnailUrl = thumb,
+                        url = item.url
+                    )
+                    is org.schabi.newpipe.extractor.channel.ChannelInfoItem -> com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                        kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.ARTIST,
+                        title = item.name.removeSuffix(" - Topic"),
+                        thumbnailUrl = thumb,
+                        browseId = item.url.substringAfter("/channel/", "").substringBefore('?').takeIf { it.startsWith("UC") },
+                        url = item.url
+                    )
+                    else -> null
+                }
+            }
+            .take(limit)
+    }
+
+    /** Name, uploader, art and songs of a YouTube playlist or album (OLAK…) by its URL. */
+    suspend fun playlist(url: String): com.theveloper.pixelplay.data.online.OnlineCollectionPage = withContext(Dispatchers.IO) {
+        ensureInit()
+        val service = ServiceList.YouTube
+        val info = org.schabi.newpipe.extractor.playlist.PlaylistInfo.getInfo(service, url)
+        val songs = info.relatedItems
+            .filterIsInstance<StreamInfoItem>()
+            .mapNotNull { item ->
+                val id = runCatching { service.streamLHFactory.getId(item.url) }.getOrNull() ?: return@mapNotNull null
+                com.theveloper.pixelplay.data.online.OnlineSongItem(
+                    videoId = id,
+                    title = item.name,
+                    artist = item.uploaderName.orEmpty().removeSuffix(" - Topic"),
+                    album = info.name.orEmpty(),
+                    durationSeconds = item.duration.coerceAtLeast(0),
+                    thumbnailUrl = item.thumbnails.maxByOrNull { it.width }?.url
+                )
+            }
+        com.theveloper.pixelplay.data.online.OnlineCollectionPage(
+            title = info.name.orEmpty(),
+            subtitle = info.uploaderName.orEmpty().removeSuffix(" - Topic"),
+            thumbnailUrl = info.thumbnails.maxByOrNull { it.width }?.url ?: songs.firstOrNull()?.thumbnailUrl,
+            songs = songs
+        )
+    }
+
+    /**
      * Best YouTube match for a song known by title and artist. With [expectedDurationMs] the hit
      * closest in length wins among the first few, so live or extended versions are skipped.
      */

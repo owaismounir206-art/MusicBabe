@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-27
+
+### Added
+- **Redesign "Fluido"**: tutta l'app nello stile delle app Google di oggi (Material 3 Expressive). Blu Google su superfici pulite, Google Sans Flex con titoli arrotondati, bottoni a pill che cambiano forma quando li tocchi. Le animazioni seguono due regole: gli elementi entrano veloci e rallentano dolcemente, ed escono con una dissolvenza rapida. Il titolo e l'artista nel player cambiano con un'animazione fluida. In Impostazioni > Aspetto puoi tornare ai colori Material You dello sfondo.
+- **Scheda Online**, sullo stile di YouTube Music e Spotify:
+  - "Selezione rapida" in griglia 3×3, costruita da ciò che ascolti.
+  - Le sezioni della home di YouTube Music.
+  - "Altro da" i tuoi artisti preferiti.
+  - "Cover e remix" delle canzoni che ascolti di più.
+  - I mood (Energia, Relax, Allenamento…).
+  - Ricerca di brani, album, playlist e artisti, con le loro pagine.
+  - Tutto si ascolta per intero, con "Riproduci dopo" e "Aggiungi alla coda".
+- **Video musicali dal telefono** (Online > Video musicali):
+  - Aggiungi i video che hai sul telefono; artista e titolo vengono letti dal nome del file ("Shiva - Dai Dai (Official Video)" → Shiva, Dai Dai).
+  - Il video si ascolta come un brano, con l'immagine nel player.
+  - I testi sincronizzati vengono cercati online; se non si trovano e hai una chiave Gemini, vengono scritti ascoltando l'audio del video.
+  - Se nella libreria hai la canzone con lo stesso titolo, il player mostra il tuo video anche quando ascolti quella.
+
+### Changed
+- **Testi "glowing"**: parole in maiuscolo e in grassetto. Le parole cantate si accendono con un bagliore bianco; le parole che contano sono più grandi e quelle di collegamento più piccole, come nei video lyric di CapCut. Ogni parola che si accende sale con una molla.
+
+### Fixed
+- Il crossfade smetteva di funzionare dopo la chiusura del player dalla notifica.
+- "Riproduci N volte" non si poteva annullare.
+- Il timer "fine brano" non fermava la musica con "ripeti uno" attivo.
+- Il timer a tempo restava indicato come attivo dopo essere scattato.
+- Le anteprime online potevano restare in riproduzione senza poterle fermare.
+- I testi .lrc con tempi senza centesimi ("[01:02]") venivano letti come testo semplice.
+- Le righe con parentesi ("Ooh baby [x2]") perdevano la parte iniziale.
+- Una cache dei testi danneggiata bloccava per sempre i testi di quel brano.
+- Le playlist con più di 999 brani non si aprivano su Android 11.
+- La verifica delle chiavi AI lasciava aperte le connessioni.
+
 ## [1.10.0] - 2026-10-27
 
 ### Changed

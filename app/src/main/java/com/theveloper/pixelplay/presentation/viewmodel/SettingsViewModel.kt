@@ -959,6 +959,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** Fluido palette or the wallpaper's Material You colours. */
+    val appPalette: StateFlow<String> = themePreferencesRepository.appPaletteFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.theveloper.pixelplay.data.preferences.AppPalette.FLUIDO)
+
+    fun setAppPalette(palette: String) {
+        viewModelScope.launch { themePreferencesRepository.setAppPalette(palette) }
+    }
+
     fun setAppThemeMode(mode: String) {
         viewModelScope.launch {
             themePreferencesRepository.setAppThemeMode(mode)

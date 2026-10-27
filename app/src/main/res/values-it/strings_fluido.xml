@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fluido_palette_title">Colori dell\'app</string>
+    <string name="fluido_palette_subtitle">Fluido usa il blu Google su superfici pulite; Material You prende i colori dello sfondo.</string>
+    <string name="fluido_palette_fluido">Fluido</string>
+    <string name="fluido_palette_dynamic">Material You</string>
+    <string name="nav_bar_online">Online</string>
+    <string name="online_overline">Online</string>
+    <string name="online_greeting_morning">Buongiorno</string>
+    <string name="online_greeting_afternoon">Buon pomeriggio</string>
+    <string name="online_greeting_evening">Buonasera</string>
+    <string name="online_greeting_night">Ascolti notturni</string>
+    <string name="online_search_hint">Brani, album, artisti, playlist</string>
+    <string name="online_search_clear">Cancella ricerca</string>
+    <string name="online_quick_picks">Selezione rapida</string>
+    <string name="online_quick_picks_overline">Avvia una radio da</string>
+    <string name="online_play_all">Riproduci tutti</string>
+    <string name="online_play">Riproduci</string>
+    <string name="online_shuffle">Casuale</string>
+    <string name="online_play_next">Riproduci dopo</string>
+    <string name="online_add_to_queue">Aggiungi alla coda</string>
+    <string name="online_more_options">Altre opzioni</string>
+    <string name="online_back">Indietro</string>
+    <string name="online_shelf_covers">Cover e remix</string>
+    <string name="online_shelf_albums">Album</string>
+    <string name="online_shelf_more_from">Altro da</string>
+    <string name="online_results_songs">Brani</string>
+    <string name="online_results_artists">Artisti</string>
+    <string name="online_results_albums">Album</string>
+    <string name="online_results_playlists">Playlist</string>
+    <string name="online_searching">Ricerca in corso…</string>
+    <string name="online_no_results">Nessun risultato. Prova con altre parole.</string>
+    <string name="online_unavailable">La musica online non è raggiungibile. Controlla la connessione e riprova.</string>
+    <string name="online_page_unavailable">Questa pagina ora non si apre.</string>
+    <string name="online_retry">Riprova</string>
+    <string-array name="online_moods">
+        <item>Energia|hit energiche</item>
+        <item>Relax|musica rilassante</item>
+        <item>Allenamento|musica per allenamento</item>
+        <item>Party|hit da festa</item>
+        <item>Concentrazione|musica per concentrarsi</item>
+        <item>Romantica|canzoni d\'amore</item>
+        <item>Triste|canzoni tristi</item>
+        <item>In viaggio|canzoni da viaggio</item>
+        <item>Dormire|musica per dormire</item>
+    </string-array>
+    <string name="videos_title">Video musicali</string>
+    <string name="videos_subtitle">I video del telefono si ascoltano come brani, con l\'immagine nel player e i testi sincronizzati.</string>
+    <string name="videos_empty">Aggiungi i video musicali che hai sul telefono. MusicBabe legge artista e titolo dal nome del file e trova i testi sincronizzati, oppure li scrive ascoltando.</string>
+    <string name="videos_add">Aggiungi video</string>
+    <string name="videos_importing">Aggiunta…</string>
+    <string name="videos_lyrics_searching">Cerco i testi sincronizzati…</string>
+    <string name="videos_lyrics_writing">Scrivo i testi ascoltando l\'audio…</string>
+    <string name="videos_lyrics_ready">Testi sincronizzati pronti</string>
+    <string name="videos_lyrics_none">Nessun testo trovato (aggiungi una chiave Gemini per scriverli dall\'audio)</string>
+    <string name="videos_find_lyrics">Cerca di nuovo i testi</string>
+    <string name="videos_edit">Modifica titolo e artista</string>
+    <string name="videos_remove">Rimuovi da MusicBabe</string>
+    <string name="videos_field_title">Titolo</string>
+    <string name="videos_field_artist">Artista</string>
+    <string name="videos_save">Salva</string>
+    <string name="videos_open">Video musicali</string>
+</resources>

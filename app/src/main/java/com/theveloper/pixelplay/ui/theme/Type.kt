@@ -62,160 +62,52 @@ val ExpTitleTypography = Typography(
     )
 )
 
-// Google Sans Flex variable font. The MusicBabe "sleeve" direction sets the ROND axis to 0 for a
-// crisp, typeset look; the family keeps its historical name to avoid touching every call site.
-private const val GoogleSansFlexRond = 0f
-
+// Google Sans Flex variable font, the Fluido typeface. Body text keeps the plain shapes (ROND 0);
+// titles and numbers use the rounded cut (ROND 100) for a friendlier tone.
 @OptIn(ExperimentalTextApi::class)
-val GoogleSansRounded = FontFamily(
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Light,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Light.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Normal.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Medium,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Medium.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.SemiBold.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-    androidx.compose.ui.text.font.Font(
-        resId = R.font.gflex_variable,
-        weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Bold.weight),
-            FontVariation.Setting("ROND", GoogleSansFlexRond)
-        )
-    ),
-)
-
-// Tipografía - Usar fuentes amigables y modernas.
-// Considerar añadir fuentes personalizadas en res/font para un look más único.
-val Typography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Bold,
-        fontSize = 48.sp,
-        lineHeight = 56.sp,
-        letterSpacing = 0.sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
-        letterSpacing = 0.sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Normal,
-        fontSize = 30.sp,
-        lineHeight = 38.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = 0.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = GoogleSansRounded,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+private fun gflex(weight: FontWeight, rond: Float) = androidx.compose.ui.text.font.Font(
+    resId = R.font.gflex_variable,
+    weight = weight,
+    variationSettings = FontVariation.Settings(
+        FontVariation.weight(weight.weight),
+        FontVariation.Setting("ROND", rond)
     )
 )
+
+private val FluidoWeights = listOf(
+    FontWeight.Light, FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold,
+    FontWeight.ExtraBold, FontWeight.Black
+)
+
+/** Google Sans Flex, plain: body, labels. The name is historical, kept for every call site. */
+val GoogleSansRounded = FontFamily(FluidoWeights.map { gflex(it, 0f) })
+
+/** Google Sans Flex, rounded: display, headline and large titles. */
+val FluidoRoundFamily = FontFamily(FluidoWeights.map { gflex(it, 100f) })
+
+/** The Fluido type scale (Material 3) on Google Sans Flex. */
+val Typography = Typography(
+    displayLarge = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
+    displayMedium = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 45.sp, lineHeight = 52.sp, letterSpacing = 0.sp),
+    displaySmall = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 36.sp, lineHeight = 44.sp, letterSpacing = 0.sp),
+    headlineLarge = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = 0.sp),
+    headlineMedium = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 36.sp, letterSpacing = 0.sp),
+    headlineSmall = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 24.sp, lineHeight = 32.sp, letterSpacing = 0.sp),
+    titleLarge = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.Normal, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
+    titleMedium = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp),
+    titleSmall = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    bodyLarge = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.sp),
+    bodyMedium = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    bodySmall = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.2.sp),
+    labelLarge = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    labelMedium = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
+    labelSmall = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp)
+)
+
+/** Material 3 Expressive "emphasized" styles: one hero moment per screen. */
+object FluidoEmphasized {
+    val DisplayLarge = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.SemiBold, fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.5).sp)
+    val HeadlineLarge = TextStyle(fontFamily = FluidoRoundFamily, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = (-0.2).sp)
+    val TitleMedium = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.1.sp)
+    val LabelLarge = TextStyle(fontFamily = GoogleSansRounded, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp)
+}

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fluido_palette_title">App colours</string>
+    <string name="fluido_palette_subtitle">Fluido uses Google blue on clean surfaces; Material You takes the colours of your wallpaper.</string>
+    <string name="fluido_palette_fluido">Fluido</string>
+    <string name="fluido_palette_dynamic">Material You</string>
+    <string name="nav_bar_online">Online</string>
+    <string name="online_overline">Online</string>
+    <string name="online_greeting_morning">Good morning</string>
+    <string name="online_greeting_afternoon">Good afternoon</string>
+    <string name="online_greeting_evening">Good evening</string>
+    <string name="online_greeting_night">Night listening</string>
+    <string name="online_search_hint">Songs, albums, artists, playlists</string>
+    <string name="online_search_clear">Clear search</string>
+    <string name="online_quick_picks">Quick picks</string>
+    <string name="online_quick_picks_overline">Start a radio from</string>
+    <string name="online_play_all">Play all</string>
+    <string name="online_play">Play</string>
+    <string name="online_shuffle">Shuffle</string>
+    <string name="online_play_next">Play next</string>
+    <string name="online_add_to_queue">Add to queue</string>
+    <string name="online_more_options">More options</string>
+    <string name="online_back">Back</string>
+    <string name="online_shelf_covers">Covers and remixes</string>
+    <string name="online_shelf_albums">Albums</string>
+    <string name="online_shelf_more_from">More from</string>
+    <string name="online_results_songs">Songs</string>
+    <string name="online_results_artists">Artists</string>
+    <string name="online_results_albums">Albums</string>
+    <string name="online_results_playlists">Playlists</string>
+    <string name="online_searching">Searching…</string>
+    <string name="online_no_results">Nothing found. Try other words.</string>
+    <string name="online_unavailable">Online music can\'t be reached. Check your connection and try again.</string>
+    <string name="online_page_unavailable">This page can\'t be opened right now.</string>
+    <string name="online_retry">Try again</string>
+    <string-array name="online_moods">
+        <item>Energy|energetic hits</item>
+        <item>Relax|relaxing music</item>
+        <item>Workout|workout music</item>
+        <item>Party|party hits</item>
+        <item>Focus|focus music</item>
+        <item>Romance|love songs</item>
+        <item>Sad|sad songs</item>
+        <item>Commute|road trip songs</item>
+        <item>Sleep|sleep music</item>
+    </string-array>
+    <string name="videos_title">Music videos</string>
+    <string name="videos_subtitle">Videos from your phone play like songs, with their picture in the player and synced lyrics.</string>
+    <string name="videos_empty">Add the music videos you have on your phone. MusicBabe reads artist and title from the file name and finds the synced lyrics, or writes them by listening.</string>
+    <string name="videos_add">Add videos</string>
+    <string name="videos_importing">Adding…</string>
+    <string name="videos_lyrics_searching">Looking for synced lyrics…</string>
+    <string name="videos_lyrics_writing">Writing lyrics from the audio…</string>
+    <string name="videos_lyrics_ready">Synced lyrics ready</string>
+    <string name="videos_lyrics_none">No lyrics found (add a Gemini key to write them from the audio)</string>
+    <string name="videos_find_lyrics">Find lyrics again</string>
+    <string name="videos_edit">Edit title and artist</string>
+    <string name="videos_remove">Remove from MusicBabe</string>
+    <string name="videos_field_title">Title</string>
+    <string name="videos_field_artist">Artist</string>
+    <string name="videos_save">Save</string>
+    <string name="videos_open">Music videos</string>
+</resources>

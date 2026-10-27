@@ -19,7 +19,18 @@ class ThemePreferencesRepository @Inject constructor(
         val ALBUM_ART_PALETTE_STYLE = stringPreferencesKey("album_art_palette_style_v1")
         val ALBUM_ART_COLOR_ACCURACY = intPreferencesKey("album_art_color_accuracy_v1")
         val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
+        val APP_PALETTE = stringPreferencesKey("app_palette_v1")
     }
+
+    /** [AppPalette.FLUIDO] (default) or [AppPalette.DYNAMIC] (wallpaper colours, Android 12+). */
+    val appPaletteFlow: Flow<String> = dataStore.data.map { preferences ->
+        preferences[Keys.APP_PALETTE] ?: AppPalette.FLUIDO
+    }
+
+    suspend fun setAppPalette(palette: String) =
+        dataStore.edit { preferences ->
+            preferences[Keys.APP_PALETTE] = palette
+        }
 
     val appThemeModeFlow: Flow<String> = dataStore.data.map { preferences ->
         preferences[Keys.APP_THEME_MODE] ?: AppThemeMode.FOLLOW_SYSTEM

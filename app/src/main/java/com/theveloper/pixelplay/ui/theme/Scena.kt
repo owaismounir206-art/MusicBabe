@@ -34,11 +34,9 @@ import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -49,41 +47,39 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.theveloper.pixelplay.R
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.coroutines.coroutineContext
 
 /**
- * MusicBabe "Scena" design layer.
+ * MusicBabe screen layer, drawn in the "Fluido" design system (see [Fluido]).
  *
- * Colour is always the dynamic Material You scheme (wallpaper, or the cover of the current track in
- * the player). Scena only decides how that colour is *used*: whole screens are drenched in a tonal
- * ground derived from the scheme's primary container, text is large and wide, covers become
- * squircles that morph into spinning records, and the disc is a 12-lobed "cookie".
+ * Hierarchy comes from surfaces, not shadows: the page is `surface`, cards and current rows are
+ * `surface-container`, raised parts `surface-container-high`; one accent (primary) for actions.
+ * Shapes follow the Material 3 Expressive scale: pills for controls, 12 dp art, 28 dp covers.
  */
 object Scena {
-    /** Cover thumbnails in lists. */
-    val ArtShape = RoundedCornerShape(percent = 34)
+    /** Cover thumbnails in lists (radius-md). */
+    val ArtShape = RoundedCornerShape(12.dp)
 
-    /** Large covers (player, album header). */
+    /** Large covers (player, album header): radius-xl. */
     val CoverShape = RoundedCornerShape(28.dp)
 
-    /** Round-ish controls: skip buttons, chips. */
-    val ControlShape = RoundedCornerShape(26.dp)
+    /** Controls: buttons, chips, search bar (pill). */
+    val ControlShape = RoundedCornerShape(percent = 50)
 
-    /** Groups and tiles (settings bento, mix deck). */
-    val TileShape = RoundedCornerShape(32.dp)
+    /** Groups and tiles (settings groups, mix deck): radius-lg-plus. */
+    val TileShape = RoundedCornerShape(20.dp)
 
     /** Arch: the tallest mix card shape. */
-    val ArchShape = RoundedCornerShape(topStart = 100.dp, topEnd = 100.dp, bottomStart = 36.dp, bottomEnd = 36.dp)
+    val ArchShape = RoundedCornerShape(topStart = 100.dp, topEnd = 100.dp, bottomStart = 32.dp, bottomEnd = 32.dp)
 
     /** Horizontal page margin. */
     val Gutter = 16.dp
 
-    /** Motion: springy, a little overshoot. */
-    val Springy: SpringSpec<Float> = spring(dampingRatio = 0.62f, stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+    /** Motion: the Material 3 Expressive default spatial spring. */
+    val Springy: SpringSpec<Float> = FluidoSpatialSpring
 
-    /** Motion: emphasised ease-out for entrances and colour changes. */
+    /** Motion: colour and state layers (ease-standard). */
     val EaseEmphasised = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 }
 
@@ -105,36 +101,23 @@ data class ScenaColors(
 )
 
 /**
- * The Scena palette for the current theme. Every value is a blend of Material scheme roles, so it
- * follows Material You and the cover-art scheme automatically, light or dark.
+ * The screen palette for the current theme. Every value is a Material scheme role, so it follows
+ * the Fluido palette, Material You or the cover-art scheme, light or dark.
  */
 val MaterialTheme.scena: ScenaColors
     @Composable
     get() {
         val c = colorScheme
-        val dark = LocalPixelPlayDarkTheme.current
-        return remember(c, dark) {
-            if (dark) {
-                ScenaColors(
-                    bg = lerp(c.surface, c.primaryContainer, 0.7f),
-                    bg2 = c.primaryContainer,
-                    bg3 = lerp(c.primaryContainer, c.primary, 0.22f),
-                    ink = c.onSurface,
-                    ink2 = c.onSurfaceVariant,
-                    acc = c.primary,
-                    onAcc = c.onPrimary,
-                )
-            } else {
-                ScenaColors(
-                    bg = lerp(c.surface, c.primaryContainer, 0.65f),
-                    bg2 = c.primaryContainer,
-                    bg3 = lerp(c.primaryContainer, c.primary, 0.18f),
-                    ink = c.onSurface,
-                    ink2 = c.onSurfaceVariant,
-                    acc = c.primary,
-                    onAcc = c.onPrimary,
-                )
-            }
+        return remember(c) {
+            ScenaColors(
+                bg = c.surface,
+                bg2 = c.surfaceContainer,
+                bg3 = c.surfaceContainerHigh,
+                ink = c.onSurface,
+                ink2 = c.onSurfaceVariant,
+                acc = c.primary,
+                onAcc = c.onPrimary,
+            )
         }
     }
 
@@ -159,38 +142,33 @@ private fun scenaFamily(weight: Int, width: Float): FontFamily = FontFamily(
         variationSettings = FontVariation.Settings(
             FontVariation.weight(weight),
             FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f)
+            FontVariation.Setting("ROND", 100f)
         )
     )
 )
 
-/** Expanded, heavy: screen titles ("Stasera", "Libreria"). */
-val ScenaDisplayFamily: FontFamily by lazy { scenaFamily(weight = 800, width = 130f) }
+/** Heavy, rounded: screen titles. */
+val ScenaDisplayFamily: FontFamily by lazy { scenaFamily(weight = 650, width = 100f) }
 
-/** Expanded, semibold: section titles, tabs, names on cards. */
-val ScenaWideFamily: FontFamily by lazy { scenaFamily(weight = 720, width = 122f) }
+/** Semibold, rounded: section titles, tabs, names on cards. */
+val ScenaWideFamily: FontFamily by lazy { scenaFamily(weight = 600, width = 100f) }
 
-/**
- * Screen title style. Expansion uses a horizontal text scale: on devices the variation axes of a
- * resource font are not reliably applied, while the scale is (the pre-Scena app used it too).
- */
+/** Screen title style: Google Sans Flex, rounded, emphasized weight (one hero per screen). */
 fun scenaDisplay(fontSize: TextUnit): TextStyle = TextStyle(
-    fontFamily = GoogleSansRounded,
-    fontWeight = FontWeight.Bold,
+    fontFamily = FluidoRoundFamily,
+    fontWeight = FontWeight.SemiBold,
     fontSize = fontSize,
-    lineHeight = fontSize * 1.0f,
-    letterSpacing = (-0.03).em,
-    textGeometricTransform = TextGeometricTransform(scaleX = 1.22f)
+    lineHeight = fontSize * 1.1f,
+    letterSpacing = (-0.01).em
 )
 
 /** Section title / tab style. */
 fun scenaWide(fontSize: TextUnit): TextStyle = TextStyle(
-    fontFamily = GoogleSansRounded,
-    fontWeight = FontWeight.Bold,
+    fontFamily = FluidoRoundFamily,
+    fontWeight = FontWeight.SemiBold,
     fontSize = fontSize,
-    lineHeight = fontSize * 1.15f,
-    letterSpacing = (-0.01).em,
-    textGeometricTransform = TextGeometricTransform(scaleX = 1.1f)
+    lineHeight = fontSize * 1.2f,
+    letterSpacing = 0.em
 )
 
 // ─── Shapes ──────────────────────────────────────────────────────────────────────────────────
@@ -258,20 +236,7 @@ fun CookieDisc(
 // ─── Motion ──────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Entrance: rises 24 dp and fades in, [index] * 55 ms after first composition. Use it on headers
- * and a handful of cards, never on lazy list rows (they would replay while scrolling).
+ * Entrance on the Fluido choreography (see [fluidEnter]). Use it on headers and a handful of
+ * cards, never on lazy list rows (they would replay while scrolling).
  */
-fun Modifier.scenaRise(index: Int = 0): Modifier = composed {
-    val enabled = rememberScenaAnimationsEnabled()
-    val progress = remember { Animatable(if (enabled) 0f else 1f) }
-    LaunchedEffect(Unit) {
-        if (enabled) {
-            delay(index * 55L)
-            progress.animateTo(1f, tween(650, easing = Scena.EaseEmphasised))
-        }
-    }
-    graphicsLayer {
-        alpha = progress.value
-        translationY = (1f - progress.value) * 24.dp.toPx()
-    }
-}
+fun Modifier.scenaRise(index: Int = 0): Modifier = fluidEnter(index)

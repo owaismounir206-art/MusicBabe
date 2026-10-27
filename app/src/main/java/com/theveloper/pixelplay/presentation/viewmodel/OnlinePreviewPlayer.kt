@@ -39,8 +39,11 @@ class OnlinePreviewPlayer @Inject constructor(
         _currentPlayingUrl.value = url
         _isLoading.value = true
 
+        // Assigned before setDataSource, so a failure there is still released by stopPreview().
+        val player = MediaPlayer()
+        mediaPlayer = player
         try {
-            mediaPlayer = MediaPlayer().apply {
+            player.apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -85,10 +88,12 @@ class OnlinePreviewPlayer @Inject constructor(
     }
 
     fun stopPreview() {
-        try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-        } catch (_: Exception) {}
+        // release() is valid in every state (stop() throws while preparing or after an error),
+        // and the prepared listener goes first so a preview still loading never starts.
+        mediaPlayer?.let { mp ->
+            mp.setOnPreparedListener(null)
+            runCatching { mp.release() }
+        }
         mediaPlayer = null
         _isPlaying.value = false
         _isLoading.value = false

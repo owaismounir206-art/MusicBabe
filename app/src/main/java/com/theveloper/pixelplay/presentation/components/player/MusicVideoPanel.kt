@@ -83,7 +83,8 @@ sealed interface MusicVideoState {
 
 @HiltViewModel
 class MusicVideoViewModel @Inject constructor(
-    private val extractor: YouTubeExtractor
+    private val extractor: YouTubeExtractor,
+    private val localVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository
 ) : ViewModel() {
     private val _state = MutableStateFlow<MusicVideoState>(MusicVideoState.Idle)
     val state: StateFlow<MusicVideoState> = _state.asStateFlow()
@@ -96,6 +97,12 @@ class MusicVideoViewModel @Inject constructor(
         job?.cancel()
         job = viewModelScope.launch {
             _state.value = MusicVideoState.Loading
+            // A video from the phone (the song itself, or one with the same title) wins: it is the
+            // exact video, plays offline and stays in perfect step.
+            localVideos.videoUriFor(song)?.let { uri ->
+                _state.value = MusicVideoState.Ready(song.id, YouTubeStream(uri, userAgent = null, mimeType = null))
+                return@launch
+            }
             _state.value = try {
                 val videoId = extractor.findVideoId(
                     title = song.title,
@@ -209,6 +216,17 @@ private fun SyncedVideoPlayer(
 ) {
     val context = LocalContext.current
     val videoPlayer = remember(stream.url) {
+        val isLocal = stream.url.startsWith("content://") || stream.url.startsWith("file://")
+        if (isLocal) {
+            return@remember ExoPlayer.Builder(context)
+                .build()
+                .apply {
+                    volume = 0f
+                    repeatMode = Player.REPEAT_MODE_OFF
+                    setMediaItem(MediaItem.fromUri(stream.url))
+                    prepare()
+                }
+        }
         val dataSource = DefaultHttpDataSource.Factory()
             .setUserAgent(stream.userAgent ?: YouTubeExtractor.WEB_USER_AGENT)
             .setAllowCrossProtocolRedirects(false)

@@ -29,6 +29,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Install CMake and NDK
+        run: |
+          SDKM="$(ls -d $ANDROID_HOME/cmdline-tools/*/bin | sort -V | tail -n 1)/sdkmanager"
+          yes | "$SDKM" --install "cmake;3.31.6" "ndk;29.0.14206865" > /dev/null
+
       - name: Build Phone debug APK
         run: gradle :app:assembleDebug -Ppixelplay.enableAbiSplits=true
 

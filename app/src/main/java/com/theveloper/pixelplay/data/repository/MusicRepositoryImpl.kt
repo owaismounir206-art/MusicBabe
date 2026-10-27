@@ -16,7 +16,6 @@ import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -715,7 +714,10 @@ class MusicRepositoryImpl @Inject constructor(
         if (songIds.isEmpty()) return flowOf(emptyList())
         val longIds = songIds.mapNotNull { it.toLongOrNull() }
         if (longIds.isEmpty()) return flowOf(emptyList())
-        return musicDao.getSongsByIds(longIds, emptyList(), false).map { entities ->
+        // SQLite on Android 11 allows 999 variables per query: big playlists are read in chunks.
+        val chunks = longIds.distinct().chunked(900).map { chunk -> musicDao.getSongsByIds(chunk, emptyList(), false) }
+        val all = if (chunks.size == 1) chunks.first() else combine(chunks) { parts -> parts.flatMap { it } }
+        return all.map { entities ->
             val songMap = entities.associate { it.id.toString() to it.toSong() }
             // Preserve the requested order
             songIds.mapNotNull { songMap[it] }

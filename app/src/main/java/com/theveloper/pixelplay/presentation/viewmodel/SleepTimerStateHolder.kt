@@ -164,6 +164,16 @@ class SleepTimerStateHolder @Inject constructor(
                 context.getString(R.string.sleep_timer_set_for_minutes_toast, durationMinutes)
             )
         }
+        // The alarm only pauses playback in the service: clear the "active" state here when it
+        // fires, so the timer no longer shows after the user resumes.
+        sleepTimerJob = scope.launch {
+            kotlinx.coroutines.delay(durationMillis)
+            if (_sleepTimerEndTimeMillis.value == endTime) {
+                _activeTimerDurationMinutes.value = null
+                _activeTimerValueDisplay.value = null
+                _sleepTimerEndTimeMillis.value = null
+            }
+        }
     }
 
     /**

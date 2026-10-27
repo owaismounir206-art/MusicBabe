@@ -38,7 +38,9 @@ class TransitionController @Inject constructor(
     private val transitionRepository: TransitionRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
 ) {
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    // Recreated on initialize(): release() cancels it when the service is destroyed, and the
+    // singleton outlives the service, so a later service would otherwise launch into a dead scope.
+    private var scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var transitionListener: Player.Listener? = null
     private var transitionSchedulerJob: Job? = null
     private var currentObservedPlayer: Player? = null
@@ -81,6 +83,7 @@ class TransitionController @Inject constructor(
      */
     fun initialize() {
         if (transitionListener != null) return // Already initialized
+        if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
         Timber.tag("TransitionDebug").d("Initializing TransitionController...")
 

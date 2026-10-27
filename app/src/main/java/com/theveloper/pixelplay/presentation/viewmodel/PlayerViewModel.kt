@@ -442,6 +442,11 @@ class PlayerViewModel @Inject constructor(
     val showNoInternetDialog: SharedFlow<Unit> = _showNoInternetDialog.asSharedFlow()
 
     val stablePlayerState: StateFlow<StablePlayerState> = playbackStateHolder.stablePlayerState
+
+    /** One shared flow for the sleep timer (a new stateIn per call kept a collector alive each time). */
+    private val currentSongIdFlow: StateFlow<String?> by lazy {
+        stablePlayerState.map { it.currentSong?.id }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    }
     val albumArtPaletteStyle: StateFlow<AlbumArtPaletteStyle> = themePreferencesRepository
         .albumArtPaletteStyleFlow
         .stateIn(
@@ -2002,7 +2007,7 @@ class PlayerViewModel @Inject constructor(
             scope = viewModelScope,
             toastEmitter = { msg -> _toastEvents.emit(msg) },
             mediaControllerProvider = { mediaController },
-            currentSongIdProvider = { stablePlayerState.map { it.currentSong?.id }.stateIn(viewModelScope, SharingStarted.Eagerly, null) },
+            currentSongIdProvider = { currentSongIdFlow },
             songTitleResolver = { songId -> libraryStateHolder.allSongsById.value[songId]?.title ?: "Unknown" }
         )
 
@@ -3235,6 +3240,17 @@ class PlayerViewModel @Inject constructor(
     val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
 
     private val _isMusicVideoVisible = MutableStateFlow(false)
+
+    /** A music video from the phone opens on its picture, not on the cover. */
+    @Suppress("unused")
+    private val localVideoAutoShow = stablePlayerState.map { it.currentSong?.id }
+        .distinctUntilChanged()
+        .onEach { id ->
+            if (id?.startsWith(com.theveloper.pixelplay.data.videos.LocalMusicVideo.SONG_ID_PREFIX) == true) {
+                _isMusicVideoVisible.value = true
+            }
+        }
+        .launchIn(viewModelScope)
     /** The player shows the song's music video in place of the cover. */
     val isMusicVideoVisible: StateFlow<Boolean> = _isMusicVideoVisible.asStateFlow()
 
