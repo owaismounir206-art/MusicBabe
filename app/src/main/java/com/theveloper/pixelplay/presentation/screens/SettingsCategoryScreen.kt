@@ -1019,6 +1019,7 @@ fun SettingsCategoryScreen(
                                         keyStatus = keyStatus,
                                         onVerify = { settingsViewModel.verifyCurrentAiKey() }
                                     )
+                                    AiGetKeyLink(provider = provider)
                                     Spacer(modifier = Modifier.height(8.dp))
                                     AiKeySecurityNote()
                                 } else {
@@ -1032,7 +1033,7 @@ fun SettingsCategoryScreen(
                                     if (uiState.isLoadingModels) {
                                         AiModelsLoadingCard()
                                     } else if (uiState.modelsFetchError != null) {
-                                        AiModelsErrorCard(message = uiState.modelsFetchError)
+                                        AiKeyProblemCard(rawMessage = uiState.modelsFetchError)
                                     } else if (uiState.availableModels.isNotEmpty()) {
                                         SearchableModelSelector(
                                             label = stringResource(R.string.settings_ai_model_title),
@@ -1046,6 +1047,43 @@ fun SettingsCategoryScreen(
                                 }
                             }
 
+                            // Gemini is the only provider that can listen to audio: its key is asked for
+                            // separately when another provider is selected.
+                            val geminiKey by settingsViewModel.geminiApiKey.collectAsStateWithLifecycle()
+                            if (provider != com.theveloper.pixelplay.data.ai.provider.AiProvider.GEMINI) {
+                                SettingsSubsection(title = stringResource(R.string.ai_gemini_extra_title)) {
+                                    AiApiKeyItem(
+                                        apiKey = geminiKey,
+                                        onApiKeySave = { settingsViewModel.onGeminiApiKeyChange(it) },
+                                        title = stringResource(R.string.ai_gemini_extra_title),
+                                        subtitle = stringResource(R.string.ai_gemini_extra_subtitle),
+                                        stateKey = "gemini_extra"
+                                    )
+                                    AiGetKeyLink(provider = com.theveloper.pixelplay.data.ai.provider.AiProvider.GEMINI)
+                                }
+                            }
+
+                            val hasAnyAiKey by settingsViewModel.hasAnyAiKey.collectAsStateWithLifecycle()
+                            SettingsSubsection(title = stringResource(R.string.ai_features_section)) {
+                                AiFeaturesCard(hasAnyKey = hasAnyAiKey, hasGeminiKey = geminiKey.isNotBlank())
+                            }
+
+                            SettingsSubsection(title = stringResource(R.string.ai_style_section)) {
+                                AiStylePresets(
+                                    temperature = settingsViewModel.aiTemperature.collectAsStateWithLifecycle().value,
+                                    topP = settingsViewModel.aiTopP.collectAsStateWithLifecycle().value,
+                                    onPreset = settingsViewModel::onAiStylePreset
+                                )
+                            }
+
+                            // Prompt, sampling numbers and song data are for those who want them.
+                            var showAdvancedAi by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                            AiAdvancedToggle(
+                                expanded = showAdvancedAi,
+                                onToggle = { showAdvancedAi = !showAdvancedAi },
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                            if (showAdvancedAi) {
                             // Prompt Behavior Section
                             SettingsSubsection(
                                 title = stringResource(R.string.settings_prompt_behavior_section),
@@ -1197,6 +1235,7 @@ fun SettingsCategoryScreen(
                                         )
                                     }
                                 )
+                            }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
