@@ -98,8 +98,8 @@ fun OnlineScreen(
     val context = LocalContext.current
     val moods = remember(context) {
         context.resources.getStringArray(R.array.online_moods).map { entry ->
-            val (label, query) = entry.split("|", limit = 2).let { it[0] to it.getOrElse(1) { it[0] } }
-            label to query
+            val parts = entry.split("|", limit = 2)
+            parts[0] to parts.getOrElse(1) { parts[0] }
         }
     }
     val bottomPadding = paddingValuesParent.calculateBottomPadding() + 38.dp +
