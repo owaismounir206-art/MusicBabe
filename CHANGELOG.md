@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-10-27
+
+### Added
+- **Interfaccia Home in stile YouTube Music**:
+  - Filtri orizzontali pinned a chip ("Tutto", "Video musicali", "Canzoni", "Album", "Artisti", "Mix") per navigare rapidamente tra i diversi contenuti musicali.
+  - Carosello video musicali in formato widescreen 16:9 con badge durata e pulsante di riproduzione diretta o aggiunta video dal dispositivo.
+  - Carosello album con copertine quadrate 1:1 e badge con anno e numero di brani.
+  - Carosello artisti in evidenza con avatar circolari e badge con conteggio tracce.
+  - Sezione "Selezione rapida" con layout a 3 righe orizzontali scorrevoli, pulsanti di riproduzione rapida e menu a tre puntini per le opzioni del brano.
+
+### Changed
+- **Restyling estetico dei testi sincronizzati (ritorno all'estetica amata della v1.7.0)**:
+  - Eliminato il forzato MAIUSCOLO su tutte le parole per ripristinare il casing naturale e la perfetta leggibilità originale.
+  - Ripristinata la tipografia pulita Google Sans Rounded con interlinea corretta (1.15f per la riga attiva, proporzionata a riposo).
+  - Ripristinato l'effetto di ingrandimento a molla fluido (1.08x con fisica Springy) sulla parola attualmente cantata senza artefatti o distorsioni di dimensione fittizie.
+  - Rimossi effetti di bagliore e scalatura cinetica sfocati che appesantivano la lettura.
+
 ## [2.0.2] - 2026-10-27
 
 ### Added

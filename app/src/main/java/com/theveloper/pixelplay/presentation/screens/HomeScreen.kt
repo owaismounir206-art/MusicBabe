@@ -143,6 +143,17 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.SettingsViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.StatsViewModel
 import com.theveloper.pixelplay.ui.theme.ExpTitleTypography
+import com.theveloper.pixelplay.presentation.screens.videos.MusicVideosViewModel
+import com.theveloper.pixelplay.presentation.components.YouTubeHomeCategory
+import com.theveloper.pixelplay.presentation.components.YouTubeHomeFilterChips
+import com.theveloper.pixelplay.presentation.components.HomeMusicVideosSection
+import com.theveloper.pixelplay.presentation.components.HomeAlbumsSection
+import com.theveloper.pixelplay.presentation.components.HomeArtistsSection
+import com.theveloper.pixelplay.presentation.components.HomeQuickPicksSection
+import com.theveloper.pixelplay.data.videos.toSong
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
@@ -318,6 +329,19 @@ fun HomeScreen(
     LocalContext.current
 
     val homeStatsOverview by statsViewModel.homeOverview.collectAsStateWithLifecycle()
+    val videosViewModel: MusicVideosViewModel = hiltViewModel()
+    val musicVideos by videosViewModel.videos.collectAsStateWithLifecycle()
+    val allAlbums by playerViewModel.albumsFlow.collectAsStateWithLifecycle()
+    val allArtists by playerViewModel.artistsFlow.collectAsStateWithLifecycle()
+    val allSongs by playerViewModel.allSongsFlow.collectAsStateWithLifecycle()
+
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        videosViewModel.import(uris)
+    }
+
+    var selectedCategory by rememberSaveable { mutableStateOf(YouTubeHomeCategory.ALL) }
 
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val density = LocalDensity.current
@@ -406,225 +430,340 @@ fun HomeScreen(
                 // Scena: 28 dp of air above every section title.
                 verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
-                if (yourMixSongs.isEmpty()) {
-                    item(
-                        key = "your_mix_placeholder",
-                        contentType = "your_mix_placeholder"
-                    ) {
-                        if (shouldShowYourMixLoadingPlaceholder) {
-                            YourMixLoadingPlaceholder()
-                        } else {
-                            YourMixEmptyPlaceholder(
-                                onRefresh = {
-                                    homePlaceholderRefreshGeneration++
-                                    settingsViewModel.refreshLibrary()
-                                    playerViewModel.forceUpdateDailyMix()
+                // 0) YouTube Music Filter Chips
+                item(
+                    key = "yt_filter_chips",
+                    contentType = "yt_filter_chips"
+                ) {
+                    YouTubeHomeFilterChips(
+                        selectedCategory = selectedCategory,
+                        onSelectCategory = { category ->
+                            selectedCategory = category
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    )
+                }
+
+                // 1) Mixes (Your Mix & Daily Mix)
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.MIXES)) {
+                    if (yourMixSongs.isEmpty()) {
+                        item(
+                            key = "your_mix_placeholder",
+                            contentType = "your_mix_placeholder"
+                        ) {
+                            if (shouldShowYourMixLoadingPlaceholder) {
+                                YourMixLoadingPlaceholder()
+                            } else {
+                                YourMixEmptyPlaceholder(
+                                    onRefresh = {
+                                        homePlaceholderRefreshGeneration++
+                                        settingsViewModel.refreshLibrary()
+                                        playerViewModel.forceUpdateDailyMix()
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        item(
+                            key = "your_mix_header",
+                            contentType = "your_mix_header"
+                        ) {
+                            YourMixHeader(
+                                song = yourMixSong,
+                                isShuffleEnabled = isShuffleEnabled,
+                                isPlaying = isPlaying,
+                                coverArtUri = yourMixSongs.firstOrNull()?.albumArtUriString,
+                                modifier = Modifier.homeRise(homeIntroPlayed, 0),
+                                onPlayShuffled = {
+                                    if (usesFallbackHomeMix) {
+                                        playerViewModel.shuffleAllSongs(queueName = "Your Mix")
+                                    } else {
+                                        playerViewModel.playSongsShuffled(
+                                            songsToPlay = yourMixSongs,
+                                            queueName = "Your Mix",
+                                            startAtZero = true,
+                                        )
+                                    }
                                 }
                             )
                         }
                     }
-                } else {
-                    item(
-                        key = "your_mix_header",
-                        contentType = "your_mix_header"
-                    ) {
-                        YourMixHeader(
-                            song = yourMixSong,
-                            isShuffleEnabled = isShuffleEnabled,
-                            isPlaying = isPlaying,
-                            coverArtUri = yourMixSongs.firstOrNull()?.albumArtUriString,
-                            modifier = Modifier.homeRise(homeIntroPlayed, 0),
-                            onPlayShuffled = {
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.shuffleAllSongs(queueName = "Your Mix")
-                                } else {
-                                    playerViewModel.playSongsShuffled(
-                                        songsToPlay = yourMixSongs,
-                                        queueName = "Your Mix",
-                                        startAtZero = true,
-                                    )
+
+                    // Collage
+                    if (yourMixSongs.isNotEmpty()) {
+                        item(
+                            key = "album_art_collage",
+                            contentType = "album_art_collage"
+                        ) {
+                            val basePattern = settingsUiState.collagePattern
+                            val isAutoRotate = settingsUiState.collageAutoRotate
+                            val patterns = remember { CollagePattern.entries }
+
+                            val activePattern = if (isAutoRotate) {
+                                var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
+                                LaunchedEffect(Unit) { rotationIndex++ }
+                                remember(rotationIndex) {
+                                    patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
                                 }
+                            } else {
+                                basePattern
                             }
-                        )
-                    }
-                }
 
-                // Collage
-                if (yourMixSongs.isNotEmpty()) {
-                    item(
-                        key = "album_art_collage",
-                        contentType = "album_art_collage"
-                    ) {
-                        val basePattern = settingsUiState.collagePattern
-                        val isAutoRotate = settingsUiState.collageAutoRotate
-                        val patterns = remember { CollagePattern.entries }
-
-                        val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
-                                patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                            }
-                        } else {
-                            basePattern
+                            AlbumArtCollage(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .homeRise(homeIntroPlayed, 1),
+                                songs = yourMixSongs,
+                                padding = 14.dp,
+                                height = 400.dp,
+                                pattern = activePattern,
+                                onSongClick = { song ->
+                                    if (usesFallbackHomeMix) {
+                                        playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
+                                    } else {
+                                        playerViewModel.showAndPlaySong(song, yourMixSongs, "Your Mix")
+                                    }
+                                }
+                            )
                         }
+                    }
 
-                        AlbumArtCollage(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .homeRise(homeIntroPlayed, 1),
-                            songs = yourMixSongs,
-                            padding = 14.dp,
-                            height = 400.dp,
-                            pattern = activePattern,
-                            onSongClick = { song ->
-                                if (usesFallbackHomeMix) {
-                                    playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
-                                } else {
-                                    playerViewModel.showAndPlaySong(song, yourMixSongs, "Your Mix")
-                                }
+                    // Daily Mix
+                    if (dailyMixSongs.isNotEmpty()) {
+                        item(
+                            key = "daily_mix_section",
+                            contentType = "daily_mix_section"
+                        ) {
+                            Box(modifier = Modifier.homeRise(homeIntroPlayed, 2)) {
+                                DailyMixSection(
+                                    songs = dailyMixSongs,
+                                    onClickOpen = {
+                                        navController.navigateSafely(Screen.DailyMixScreen.route)
+                                    },
+                                    onNavigateToAlbum = { song ->
+                                        navController.navigateSafelyReplacing(
+                                            route = Screen.AlbumDetail.createRoute(song.albumId),
+                                            patternToPop = Screen.AlbumDetail.route
+                                        )
+                                    },
+                                    onNavigateToArtist = { song ->
+                                        navController.navigateSafelyReplacing(
+                                            route = Screen.ArtistDetail.createRoute(song.artistId),
+                                            patternToPop = Screen.ArtistDetail.route
+                                        )
+                                    },
+                                    onNavigateToGenre = { song ->
+                                        song.genre?.let {
+                                            navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
+                                        }
+                                    },
+                                    playerViewModel = playerViewModel
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 2) YouTube Music Videos Section (16:9 widescreen cards)
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.VIDEOS)) {
+                    item(
+                        key = "home_music_videos_section",
+                        contentType = "home_music_videos_section"
+                    ) {
+                        HomeMusicVideosSection(
+                            videos = musicVideos,
+                            onPlayVideo = { video ->
+                                val queue = musicVideos.map { it.toSong() }
+                                playerViewModel.showAndPlaySong(video.toSong(), queue, "Video musicali")
+                            },
+                            onSeeAll = {
+                                navController.navigateSafely(Screen.MusicVideos.route)
+                            },
+                            onImportVideos = {
+                                videoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                )
                             }
                         )
                     }
                 }
 
-                // Daily Mix
-                if (dailyMixSongs.isNotEmpty()) {
-                    item(
-                        key = "daily_mix_section",
-                        contentType = "daily_mix_section"
-                    ) {
-                        Box(modifier = Modifier.homeRise(homeIntroPlayed, 2)) {
-                            DailyMixSection(
-                                songs = dailyMixSongs,
-                                onClickOpen = {
-                                    navController.navigateSafely(Screen.DailyMixScreen.route)
+                // 3) Songs / Quick Picks (YouTube Music signature 3-row columns & recently played)
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.SONGS)) {
+                    if (recentlyPlayedSongs.size >= RecentlyPlayedSectionMinSongsToShow) {
+                        item(
+                            key = "recently_played_section",
+                            contentType = "recently_played_section"
+                        ) {
+                            RecentlyPlayedSection(
+                                songs = recentlyPlayedSongs,
+                                onSongClick = { song ->
+                                    if (recentlyPlayedQueue.isNotEmpty()) {
+                                        playerViewModel.playSongs(
+                                            songsToPlay = recentlyPlayedQueue,
+                                            startSong = song,
+                                            queueName = "Recently Played"
+                                        )
+                                    }
                                 },
-                                onNavigateToAlbum = { song ->
+                                onOpenAllClick = {
+                                    navController.navigateSafely(Screen.RecentlyPlayed.route)
+                                },
+                                themeStateHolder = playerViewModel.themeStateHolder,
+                                currentSongId = currentSong?.id,
+                                contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
+                            )
+                        }
+                    }
+
+                    if (allSongs.isNotEmpty()) {
+                        item(
+                            key = "home_quick_picks_section",
+                            contentType = "home_quick_picks_section"
+                        ) {
+                            HomeQuickPicksSection(
+                                songs = allSongs.take(12),
+                                onSongClick = { song, songs ->
+                                    playerViewModel.showAndPlaySong(song, songs, "Ascolta di nuovo")
+                                },
+                                onPlayAll = {
+                                    if (allSongs.isNotEmpty()) {
+                                        playerViewModel.playSongs(allSongs.take(12), allSongs.first(), "Ascolta di nuovo")
+                                    }
+                                },
+                                onPlayNext = { song -> playerViewModel.addSongNextToQueue(song) },
+                                onAddToQueue = { song -> playerViewModel.addSongToQueue(song) }
+                            )
+                        }
+                    }
+                }
+
+                // 4) Albums & Singles (YouTube Music square 148dp carousel)
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.ALBUMS)) {
+                    if (allAlbums.isNotEmpty()) {
+                        item(
+                            key = "home_albums_section",
+                            contentType = "home_albums_section"
+                        ) {
+                            HomeAlbumsSection(
+                                albums = allAlbums,
+                                onAlbumClick = { album ->
                                     navController.navigateSafelyReplacing(
-                                        route = Screen.AlbumDetail.createRoute(song.albumId),
+                                        route = Screen.AlbumDetail.createRoute(album.id),
                                         patternToPop = Screen.AlbumDetail.route
                                     )
                                 },
-                                onNavigateToArtist = { song ->
-                                    navController.navigateSafelyReplacing(
-                                        route = Screen.ArtistDetail.createRoute(song.artistId),
-                                        patternToPop = Screen.ArtistDetail.route
-                                    )
-                                },
-                                onNavigateToGenre = { song ->
-                                    song.genre?.let {
-                                        navController.navigateSafely(Screen.GenreDetail.createRoute(java.net.URLEncoder.encode(it, "UTF-8")))
-                                    }
-                                },
-                                playerViewModel = playerViewModel
+                                onSeeAll = {
+                                    navController.navigateSafely(Screen.Library.route)
+                                }
                             )
                         }
                     }
                 }
 
-                if (recentlyPlayedSongs.size >= RecentlyPlayedSectionMinSongsToShow) {
-                    item(
-                        key = "recently_played_section",
-                        contentType = "recently_played_section"
-                    ) {
-                        RecentlyPlayedSection(
-                            songs = recentlyPlayedSongs,
-                            onSongClick = { song ->
-                                if (recentlyPlayedQueue.isNotEmpty()) {
-                                    playerViewModel.playSongs(
-                                        songsToPlay = recentlyPlayedQueue,
-                                        startSong = song,
-                                        queueName = "Recently Played"
-                                    )
-                                }
-                            },
-                            onOpenAllClick = {
-                                navController.navigateSafely(Screen.RecentlyPlayed.route)
-                            },
-                            themeStateHolder = playerViewModel.themeStateHolder,
-                            currentSongId = currentSong?.id,
-                            contentPadding = PaddingValues(start = 8.dp, end = 24.dp)
-                        )
-                    }
-                }
-
-                // "Turn up the volume babe!" Wrapped banner card
-                item(
-                    key = "wrapped_banner",
-                    contentType = "wrapped_banner"
-                ) {
-                    // Scena: the accent block of the page, a large tile with an inverted arrow.
-                    Card(
-                        onClick = { navController.navigateSafely(Screen.Wrapped.route) },
-                        shape = Scena.TileShape,
-                        colors = CardDefaults.cardColors(containerColor = scena.acc),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Scena.Gutter)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                // 5) Featured Artists (YouTube Music circular avatar carousel)
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.ARTISTS)) {
+                    if (allArtists.isNotEmpty()) {
+                        item(
+                            key = "home_artists_section",
+                            contentType = "home_artists_section"
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(Scena.ArtShape)
-                                    .background(scena.bg2),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.musicbabe_icon),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .clip(Scena.ArtShape)
-                                )
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.home_wrapped_banner_title),
-                                    style = scenaWide(18.sp),
-                                    color = scena.onAcc
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = stringResource(R.string.home_wrapped_banner_subtitle),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = scena.onAcc.copy(alpha = 0.82f)
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(scena.onAcc),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                    contentDescription = null,
-                                    tint = scena.acc
-                                )
-                            }
+                            HomeArtistsSection(
+                                artists = allArtists,
+                                onArtistClick = { artist ->
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.ArtistDetail.createRoute(artist.id),
+                                        patternToPop = Screen.ArtistDetail.route
+                                    )
+                                },
+                                onSeeAll = {
+                                    navController.navigateSafely(Screen.Library.route)
+                                }
+                            )
                         }
                     }
                 }
 
-                if (homeStatsOverview != null) {
+                // 6) Wrapped banner and listening stats
+                if (selectedCategory == YouTubeHomeCategory.ALL) {
                     item(
-                        key = "listening_stats_preview",
-                        contentType = "listening_stats_preview"
+                        key = "wrapped_banner",
+                        contentType = "wrapped_banner"
                     ) {
-                        StatsOverviewCard(
-                            summary = homeStatsOverview,
-                            onClick = { navController.navigateSafely(Screen.Stats.route) }
-                        )
+                        // Scena: the accent block of the page, a large tile with an inverted arrow.
+                        Card(
+                            onClick = { navController.navigateSafely(Screen.Wrapped.route) },
+                            shape = Scena.TileShape,
+                            colors = CardDefaults.cardColors(containerColor = scena.acc),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Scena.Gutter)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(Scena.ArtShape)
+                                        .background(scena.bg2),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.musicbabe_icon),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(Scena.ArtShape)
+                                    )
+                                }
+                                Spacer(Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.home_wrapped_banner_title),
+                                        style = scenaWide(18.sp),
+                                        color = scena.onAcc
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = stringResource(R.string.home_wrapped_banner_subtitle),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = scena.onAcc.copy(alpha = 0.82f)
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(scena.onAcc),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                        contentDescription = null,
+                                        tint = scena.acc
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (homeStatsOverview != null) {
+                        item(
+                            key = "listening_stats_preview",
+                            contentType = "listening_stats_preview"
+                        ) {
+                            StatsOverviewCard(
+                                summary = homeStatsOverview,
+                                onClick = { navController.navigateSafely(Screen.Stats.route) }
+                            )
+                        }
                     }
                 }
 
