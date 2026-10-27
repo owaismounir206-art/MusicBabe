@@ -126,7 +126,6 @@ import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.Download
 import com.theveloper.pixelplay.data.model.isOnlineTrack
 import com.theveloper.pixelplay.data.model.OnlineTrack
-import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
 import androidx.compose.material3.Slider
 
 import androidx.compose.material3.SliderDefaults
@@ -309,10 +308,45 @@ fun FullPlayerContent(
     }
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
-    var showOnlineSongDownloadDialog by remember { mutableStateOf(false) }
     var totalDrag by remember { mutableStateOf(0f) }
 
     val context = LocalContext.current
+
+    // Download in un tocco: nessun dialogo. La coda dei download e la notifica mostrano
+    // l'avanzamento, mentre la fine del download aggiorna la libreria da sola.
+    val downloadCurrentSong: () -> Unit = {
+        val onlineTrack = OnlineTrack(
+            id = song.id.removePrefix("online_").toLongOrNull()
+                ?: kotlin.math.abs(song.id.hashCode().toLong()),
+            title = song.title,
+            artistName = song.artist,
+            albumTitle = song.album,
+            albumCoverUrl = song.albumArtUriString,
+            durationSeconds = (song.duration / 1000).toInt(),
+            // Un brano online arriva da youtube://, che non è un URL scaricabile: il
+            // download risolve la sorgente integrale da titolo e artista.
+            previewUrl = song.contentUriString.takeUnless {
+                com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(it)
+            },
+            shareLink = song.path
+        )
+        playerViewModel.downloadSongInApp(
+            track = onlineTrack,
+            onComplete = { _, message ->
+                android.widget.Toast.makeText(
+                    context,
+                    message,
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        )
+        android.widget.Toast.makeText(
+            context,
+            context.getString(R.string.download_status_queued),
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
     val fileImportScope = rememberCoroutineScope()
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -425,25 +459,6 @@ fun FullPlayerContent(
         }
     }
 
-    if (showOnlineSongDownloadDialog && song != null) {
-        val onlineTrack = OnlineTrack(
-            id = song.id.removePrefix("online_").toLongOrNull() ?: kotlin.math.abs(song.id.hashCode().toLong()),
-            title = song.title,
-            artistName = song.artist,
-            albumTitle = song.album,
-            albumCoverUrl = song.albumArtUriString,
-            durationSeconds = (song.duration / 1000).toInt(),
-            // Online songs stream from youtube://, which is not a downloadable URL: the
-            // preview link lives in path.
-            previewUrl = if (com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString)) song.path else song.contentUriString,
-            shareLink = song.path
-        )
-        YtdlnisDownloadDialog(
-            track = onlineTrack,
-            playerViewModel = playerViewModel,
-            onDismiss = { showOnlineSongDownloadDialog = false }
-        )
-    }
 
     // Observador para reaccionar al resultado de la búsqueda de letras
     LaunchedEffect(lyricsSearchUiState) {
@@ -678,7 +693,7 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = { showOnlineSongDownloadDialog = true }
+            onDownloadClick = downloadCurrentSong
         )
     }
 
@@ -702,7 +717,7 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = { showOnlineSongDownloadDialog = true }
+            onDownloadClick = downloadCurrentSong
         )
     }
 

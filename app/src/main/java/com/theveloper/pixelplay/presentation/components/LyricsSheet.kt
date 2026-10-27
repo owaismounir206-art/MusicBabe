@@ -2352,6 +2352,7 @@ internal fun lyricsProviderCredit(source: String?): Pair<String, String>? = when
     LyricsProvider.LRCLIB -> "LRCLIB" to "https://lrclib.net/"
     LyricsProvider.NETEASE -> "NetEase Cloud Music" to "https://music.163.com/"
     LyricsProvider.AMLL -> "AMLL TTML DB" to "https://github.com/Steve-xmh/amll-ttml-db"
+    LyricsProvider.KUGOU -> "KuGou" to "https://www.kugou.com/"
     else -> null
 }
 

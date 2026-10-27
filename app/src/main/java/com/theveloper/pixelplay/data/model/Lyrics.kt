@@ -23,6 +23,7 @@ object LyricsProvider {
     const val LRCLIB = "lrclib"
     const val NETEASE = "netease"
     const val AMLL = "amll"
+    const val KUGOU = "kugou"
 }
 
 @Serializable

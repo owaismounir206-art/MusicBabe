@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-27
+
+### Added
+- **Testi da KuGou**: nuovo livello di ricerca dei testi sincronizzati tramite le API pubbliche KuGou (nessuna chiave, nessun login), usato automaticamente quando LRCLIB non ha il brano e NetEase non lo espone. I testi trovati vengono salvati come gli altri (cache, file `.lrc` accanto al brano) e la UI indica la sorgente KuGou.
+- **Download da YouTube**: quando nessuna delle fonti abituali (KuGou, NetEase, CDN) fornisce il brano intero, il download usa l'estrattore YouTube già presente per l'ascolto online, con verifica della durata prima di salvare il file.
+
+### Changed
+- **Download in un tocco**: il pulsante di download nel player non apre più il dialogo; il brano parte subito e l'avanzamento resta nella coda dei download e nella notifica.
+
+### Fixed
+- **Testi non trovati**: un brano assente su LRCLIB (404/503) interrompeva l'intera ricerca prima di provare NetEase e KuGou, quindi i testi "non si trovavano" anche quando esistevano. Ora l'errore viene ignorato e la ricerca prosegue con le altre sorgenti.
+- **Download non riuscito** sui brani che le fonti gratuite non coprono: ora c'è il fallback YouTube, con supporto ai file `.webm` e verifica della durata reale del file scaricato.
+
 ## [2.0.1] - 2026-10-27
 
 ### Changed
