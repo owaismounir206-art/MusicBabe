@@ -69,4 +69,30 @@
     <string name="settings_ai_digest_full">Full (better quality)</string>
     <string name="settings_ai_extended_fields">Extended song fields</string>
     <string name="settings_ai_extended_fields_desc">Include album, year and genre in the song data sent to the AI</string>
+    <!-- AI key guide -->
+    <string name="ai_key_get_link">Get a %1$s key</string>
+    <string name="ai_key_problem_invalid">The key was refused: check that you copied it whole, or create a new one.</string>
+    <string name="ai_key_problem_quota">The key works but its quota or credit is used up. Wait for it to reset or add credit.</string>
+    <string name="ai_key_problem_network">The provider could not be reached. Check your connection and try again.</string>
+    <string name="ai_key_problem_server">The provider is having problems right now. Try again in a few minutes.</string>
+    <string name="ai_key_problem_other">The key could not be checked.</string>
+    <string name="ai_key_problem_details">Details: %1$s</string>
+    <string name="ai_features_section">What your keys unlock</string>
+    <string name="ai_feature_playlists">AI playlists and Daily Mix</string>
+    <string name="ai_feature_translate">Lyrics translation</string>
+    <string name="ai_feature_sync">Lyrics sync with AI</string>
+    <string name="ai_feature_listen">Lyrics written by listening to the song</string>
+    <string name="ai_feature_ready">Ready</string>
+    <string name="ai_feature_needs_key">Needs a key</string>
+    <string name="ai_feature_needs_gemini">Needs a Gemini key</string>
+    <string name="ai_features_fallback_note">Features use the selected provider; if it has no key or fails, any other provider with a saved key is used.</string>
+    <string name="ai_gemini_extra_title">Gemini key for listening to songs</string>
+    <string name="ai_gemini_extra_subtitle">Only Gemini can listen to audio. Optional: used just for writing lyrics from the song.</string>
+    <string name="ai_advanced_show">Advanced settings</string>
+    <string name="ai_advanced_hide">Hide advanced settings</string>
+    <string name="ai_style_section">Answer style</string>
+    <string name="ai_style_precise">Precise</string>
+    <string name="ai_style_balanced">Balanced</string>
+    <string name="ai_style_creative">Creative</string>
+    <string name="ai_style_custom">Custom values below</string>
 </resources>

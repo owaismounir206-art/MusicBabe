@@ -216,6 +216,18 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AiPreferencesRepository.DEFAULT_SYSTEM_PROMPT)
 
     // Specific Provider StateFlows for UI Compatibility
+    /** True when any provider has a saved key: AI features fall back through every keyed provider. */
+    val hasAnyAiKey: StateFlow<Boolean> = combine(
+        AiProvider.entries.map { aiPreferencesRepository.getApiKey(it) }
+    ) { keys -> keys.any { it.isNotBlank() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    /** Applies a style preset (temperature and top P together). */
+    fun onAiStylePreset(preset: com.theveloper.pixelplay.data.ai.provider.AiGenerationPreset) {
+        onAiTemperatureChange(preset.temperature)
+        onAiTopPChange(preset.topP)
+    }
+
     val geminiApiKey: StateFlow<String> = aiPreferencesRepository.geminiApiKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val geminiModel: StateFlow<String> = aiPreferencesRepository.geminiModel

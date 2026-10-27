@@ -756,20 +756,10 @@ class PlayerViewModel @Inject constructor(
         val ollama = values[9]
         val custom = values[10]
         val openrouter = values[11]
-        when (provider) {
-            "GEMINI" -> gemini.isNotBlank()
-            "DEEPSEEK" -> deepseek.isNotBlank()
-            "GROQ" -> groq.isNotBlank()
-            "MISTRAL" -> mistral.isNotBlank()
-            "NVIDIA" -> nvidia.isNotBlank()
-            "KIMI" -> kimi.isNotBlank()
-            "GLM" -> glm.isNotBlank()
-            "OPENAI" -> openai.isNotBlank()
-            "OPENROUTER" -> openrouter.isNotBlank()
-            "OLLAMA" -> ollama.isNotBlank()
-            "CUSTOM" -> custom.isNotBlank()
-            else -> false
-        }
+        // AiHandler falls back through every provider with a key, so AI features work as soon as
+        // any key is saved, not only the selected provider's one.
+        listOf(gemini, deepseek, groq, mistral, nvidia, kimi, glm, openai, openrouter, ollama, custom)
+            .any { it.isNotBlank() }
     }.distinctUntilChanged()
         .stateIn(
         scope = viewModelScope,

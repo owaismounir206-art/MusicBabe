@@ -75,6 +75,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -438,6 +441,12 @@ fun LyricsSheet(
     // Save lyrics dialog state
     var showSaveLyricsDialog by remember { mutableStateOf(false) }
     var showSyncControls by remember { mutableStateOf(false) }
+    LaunchedEffect(showSyncControls, lyricsSyncOffset) {
+        if (showSyncControls) {
+            delay(5_000L)
+            showSyncControls = false
+        }
+    }
     var previewSeekPositionMs by remember(currentSong?.id) { mutableStateOf<Long?>(null) }
 
     var showSyncedLyrics by remember(lyrics) {
@@ -630,11 +639,13 @@ fun LyricsSheet(
     val playPauseColor = scena.acc
     val onPlayPauseColor = scena.onAcc
     // Words that light up use the accent when it reads well on the ground (large text: 3:1), ink otherwise.
+    // Lit words: the cover's accent when it reads on the ground, otherwise pure white or near
+    // black (never the grey ink, which made the whole screen monochrome).
     val lyricHighlightColor = remember(scena) {
         preferredContrastColor(
             background = scena.bg,
             preferred = scena.acc,
-            fallback = scena.ink,
+            fallback = if (scena.bg.luminance() < 0.5f) Color.White else Color.Black.copy(alpha = 0.92f),
             minContrastRatio = 3.0
         )
     }
@@ -790,10 +801,10 @@ fun LyricsSheet(
                         perWord = hasWordTimings || hasEstimatedWordTimings,
                         estimated = hasEstimatedWordTimings,
                         modifier = Modifier
-                            // On the header row, at the end edge: it never covers a lyric line.
-                            .align(Alignment.TopEnd)
+                            // Under the header, never over the title.
+                            .align(Alignment.TopStart)
                             .zIndex(2f)
-                            .padding(top = 18.dp, end = 18.dp)
+                            .padding(top = 104.dp, start = 22.dp)
                             .scenaRise(1)
                     )
                 }
@@ -848,7 +859,7 @@ fun LyricsSheet(
                                     // The rows keep 8 dp of their own padding (room for the word pop), so the
                                     // text edge lands at Scena.Gutter + 8 dp.
                                     .padding(horizontal = Scena.Gutter - 4.dp),
-                                contentPadding = PaddingValues(top = 130.dp, bottom = 100.dp),
+                                contentPadding = PaddingValues(top = 160.dp, bottom = 100.dp),
                                 lines = displaySyncedLines ?: synced,
                                 listState = syncedListState,
                                 playbackPositionFlow = playbackPositionFlow,
@@ -920,7 +931,7 @@ fun LyricsSheet(
                                 contentPadding = PaddingValues(
                                     start = Scena.Gutter + 8.dp,
                                     end = Scena.Gutter + 8.dp,
-                                    top = 130.dp,
+                                    top = 160.dp,
                                     bottom = 24.dp
                                 )
                             ) {
@@ -962,11 +973,14 @@ fun LyricsSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(130.dp)
+                        .height(170.dp)
                         .align(Alignment.TopCenter)
                         .background(
+                            // Solid behind the header, then a fade: lines never show through it.
                             brush = Brush.verticalGradient(
-                                colors = listOf(containerColor, Color.Transparent)
+                                0f to containerColor,
+                                0.62f to containerColor,
+                                1f to Color.Transparent
                             )
                         )
                 )
@@ -1636,7 +1650,7 @@ fun SyncedLyricsList(
                             positionFlow = playbackPositionFlow,
                             positionProvider = positionProvider,
                             time = line.time,
-                            color = MaterialTheme.scena.ink2.copy(alpha = 0.6f),
+                            color = accentColor.copy(alpha = 0.7f),
                             nextTime = nextTime,
                             modifier = parallaxModifier
                                 .fillMaxWidth()
@@ -1762,11 +1776,13 @@ fun LyricLineRow(
 
     // ─── Colour: ink2 (dim) until the line, or the word, is reached; then the single accent ──────
     val restingAlpha = when (resolvedPhase) {
-        LyricLinePhase.Active -> 0.42f
-        LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.74f
-        LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.52f
+        LyricLinePhase.Active -> 0.35f
+        LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.5f
+        LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.32f
     }
-    val unlitColor = scena.ink2.copy(alpha = restingAlpha)
+    // Every line is the lit colour at a lower opacity: unsung words of the active line at 35%,
+    // past lines a bit more present than the coming ones.
+    val unlitColor = accentColor.copy(alpha = restingAlpha)
     val lineColor by animateColorAsState(
         targetValue = if (isCurrentLine) accentColor else unlitColor,
         animationSpec = if (animationsEnabled) {
@@ -2092,73 +2108,54 @@ fun LyricWordSpan(
     val animationsEnabled = rememberScenaAnimationsEnabled()
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
-    val color by animateColorAsState(
-        targetValue = if (isHighlighted) highlightedColor else unhighlightedColor,
-        animationSpec = if (animationsEnabled) {
-            tween(durationMillis = 220, easing = Scena.EaseEmphasised)
-        } else {
-            snap()
-        },
-        label = "wordColor"
-    )
-
-    // Pop: up to ~1.08 when the word lights, then settle back to 1. Applied in the graphics layer, so
-    // the layout is untouched and nothing recomposes while it runs.
-    val pop = remember { Animatable(1f) }
+    // Lift: the word being sung rises a little. A translation only, so its width never changes
+    // and the fill below stays aligned with the letters.
+    val lift = remember { Animatable(0f) }
     LaunchedEffect(isCurrentWord, animationsEnabled) {
-        if (!animationsEnabled) {
-            pop.snapTo(1f)
-            return@LaunchedEffect
-        }
-        if (isCurrentWord) {
-            val sinceWordStart = (positionProvider?.invoke() ?: word.time.toLong()) - word.time.toLong()
-            if (sinceWordStart in 0L..600L) {
-                pop.animateTo(
-                    targetValue = 1.08f,
-                    animationSpec = spring(
-                        dampingRatio = 0.5f,
-                        stiffness = Spring.StiffnessHigh
-                    )
-                )
-            }
-        }
-        pop.animateTo(1f, Scena.Springy)
+        val target = if (isCurrentWord && animationsEnabled) -3f else 0f
+        if (animationsEnabled) lift.animateTo(target, Scena.Springy) else lift.snapTo(target)
     }
+    val latestHighlighted by rememberUpdatedState(isHighlighted)
+    val latestCurrent by rememberUpdatedState(isCurrentWord)
 
-    // Karaoke fill: while the word is sung its colour sweeps across it, from the start edge, in
-    // step with the audio. Read in the draw phase only, so the sweep never recomposes the line.
-    val sweep = isCurrentWord && positionProvider != null && endTimeMs != null && endTimeMs > word.time
-    Box(
-        modifier = modifier.graphicsLayer {
-            scaleX = pop.value
-            scaleY = pop.value
-        }
-    ) {
-        Text(
-            text = word.word,
-            style = style,
-            color = if (sweep) unhighlightedColor else color
-        )
-        if (sweep) {
-            Text(
-                text = word.word,
-                style = style,
-                color = highlightedColor,
-                modifier = Modifier.drawWithContent {
-                    val start = word.time.toLong()
-                    val end = requireNotNull(endTimeMs)
-                    val position = requireNotNull(positionProvider).invoke()
-                    val fraction = ((position - start).toFloat() / (end - start)).coerceIn(0f, 1f)
-                    val width = size.width * fraction
-                    if (isRtl) {
-                        clipRect(left = size.width - width) { this@drawWithContent.drawContent() }
-                    } else {
-                        clipRect(right = width) { this@drawWithContent.drawContent() }
+    // One Text, coloured in the draw phase: lit up to the sung fraction, dim after it, with a short
+    // soft edge. Drawn white and tinted with SrcIn on an offscreen layer, so lit and dim letters
+    // are the same glyphs and can never drift apart. The position is read here only.
+    Text(
+        text = word.word,
+        style = style,
+        color = Color.White,
+        modifier = modifier
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                translationY = lift.value * density
+            }
+            .drawWithContent {
+                drawContent()
+                val fraction = when {
+                    latestCurrent && positionProvider != null && endTimeMs != null && endTimeMs > word.time -> {
+                        val start = word.time.toLong()
+                        (((positionProvider)() - start).toFloat() / (endTimeMs - start)).coerceIn(0f, 1f)
                     }
+                    latestHighlighted -> 1f
+                    else -> 0f
                 }
-            )
-        }
-    }
+                val brush = if (fraction <= 0f || fraction >= 1f) {
+                    androidx.compose.ui.graphics.SolidColor(if (fraction >= 1f) highlightedColor else unhighlightedColor)
+                } else {
+                    val edge = 0.08f
+                    val lit = if (isRtl) 1f - fraction else fraction
+                    val (left, right) = if (isRtl) unhighlightedColor to highlightedColor else highlightedColor to unhighlightedColor
+                    Brush.horizontalGradient(
+                        0f to left,
+                        (lit - edge / 2).coerceIn(0f, 1f) to left,
+                        (lit + edge / 2).coerceIn(0f, 1f) to right,
+                        1f to right
+                    )
+                }
+                drawRect(brush = brush, blendMode = BlendMode.SrcIn)
+            }
+    )
 }
 
 @Composable

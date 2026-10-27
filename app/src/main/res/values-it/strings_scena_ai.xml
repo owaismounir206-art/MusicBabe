@@ -68,4 +68,30 @@
     <string name="settings_ai_digest_full">Completo (qualità migliore)</string>
     <string name="settings_ai_extended_fields">Campi estesi dei brani</string>
     <string name="settings_ai_extended_fields_desc">Includi album, anno e genere nei dati dei brani inviati all\'AI</string>
+    <!-- AI key guide -->
+    <string name="ai_key_get_link">Ottieni una chiave %1$s</string>
+    <string name="ai_key_problem_invalid">La chiave è stata rifiutata: controlla di averla copiata intera, o creane una nuova.</string>
+    <string name="ai_key_problem_quota">La chiave funziona ma ha finito la quota o il credito. Aspetta che si rinnovi o aggiungi credito.</string>
+    <string name="ai_key_problem_network">Il servizio non risponde. Controlla la connessione e riprova.</string>
+    <string name="ai_key_problem_server">Il servizio ha problemi in questo momento. Riprova tra qualche minuto.</string>
+    <string name="ai_key_problem_other">Non è stato possibile verificare la chiave.</string>
+    <string name="ai_key_problem_details">Dettagli: %1$s</string>
+    <string name="ai_features_section">Cosa sbloccano le tue chiavi</string>
+    <string name="ai_feature_playlists">Playlist e Daily Mix con l\'AI</string>
+    <string name="ai_feature_translate">Traduzione dei testi</string>
+    <string name="ai_feature_sync">Sincronizzazione dei testi con l\'AI</string>
+    <string name="ai_feature_listen">Testi scritti ascoltando la canzone</string>
+    <string name="ai_feature_ready">Pronto</string>
+    <string name="ai_feature_needs_key">Serve una chiave</string>
+    <string name="ai_feature_needs_gemini">Serve la chiave Gemini</string>
+    <string name="ai_features_fallback_note">Le funzioni usano il servizio scelto; se non ha la chiave o non risponde, si usa un altro servizio con una chiave salvata.</string>
+    <string name="ai_gemini_extra_title">Chiave Gemini per ascoltare le canzoni</string>
+    <string name="ai_gemini_extra_subtitle">Solo Gemini può ascoltare l\'audio. Facoltativa: serve solo a scrivere i testi dalla canzone.</string>
+    <string name="ai_advanced_show">Impostazioni avanzate</string>
+    <string name="ai_advanced_hide">Nascondi impostazioni avanzate</string>
+    <string name="ai_style_section">Stile delle risposte</string>
+    <string name="ai_style_precise">Preciso</string>
+    <string name="ai_style_balanced">Bilanciato</string>
+    <string name="ai_style_creative">Creativo</string>
+    <string name="ai_style_custom">Valori personalizzati qui sotto</string>
 </resources>
