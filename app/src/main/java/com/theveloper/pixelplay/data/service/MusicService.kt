@@ -1263,6 +1263,7 @@ class MusicService : MediaLibraryService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) consecutiveStreamFailures = 0
             val player = mediaSession?.player ?: engine.masterPlayer
             Timber.tag(TAG).d("onIsPlayingChanged: $isPlaying. Duration: ${player.duration}, Seekable: ${player.isCurrentMediaItemSeekable}")
             // Surface playback state to background workers so they can defer
@@ -1465,15 +1466,56 @@ class MusicService : MediaLibraryService() {
                 val trackTitle = currentMediaItem?.mediaMetadata?.title?.toString()
                     ?: currentMediaItem?.mediaId
                     ?: getString(R.string.common_unknown_track)
-                val errorMessage = if (error.isCleartextBlocked()) {
-                    getString(R.string.network_cleartext_not_permitted)
-                } else {
-                    error.localizedMessage ?: error.message ?: getString(R.string.common_unknown_error)
+                val proxyReason = streamFailureReason(error)
+                val errorMessage = when {
+                    error.isCleartextBlocked() -> getString(R.string.network_cleartext_not_permitted)
+                    proxyReason != null -> getString(streamFailureMessage(proxyReason))
+                    else -> error.localizedMessage ?: error.message ?: getString(R.string.common_unknown_error)
                 }
                 val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
                 android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()
+
+                // An online song that cannot play: move on to the next one instead of stopping,
+                // at most a few times in a row so a dead connection does not skip the whole queue.
+                val player = mediaSession?.player ?: return@launch
+                val isOnline = currentMediaItem?.localConfiguration?.uri?.host == "127.0.0.1" ||
+                    currentMediaItem?.mediaId?.startsWith("online_") == true
+                if (isOnline && proxyReason != com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_NETWORK &&
+                    player.hasNextMediaItem() && consecutiveStreamFailures < 3
+                ) {
+                    consecutiveStreamFailures++
+                    player.seekToNextMediaItem()
+                    player.prepare()
+                    player.play()
+                }
             }
         }
+    }
+
+    private var consecutiveStreamFailures = 0
+
+    /** The "MB:<code>" reason the local stream proxy put in its HTTP status, if this error has one. */
+    private fun streamFailureReason(error: PlaybackException): String? {
+        var cause: Throwable? = error
+        while (cause != null) {
+            if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                return cause.responseMessage?.takeIf { it.startsWith("MB:") }?.removePrefix("MB:")
+                    ?: if (cause.dataSpec.uri.host == "127.0.0.1") "http${cause.responseCode}" else null
+            }
+            cause = cause.cause
+        }
+        return null
+    }
+
+    private fun streamFailureMessage(reason: String): Int = when (reason) {
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_BOT -> R.string.stream_error_bot
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_AGE -> R.string.stream_error_age
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_REGION -> R.string.stream_error_region
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_UNAVAILABLE -> R.string.stream_error_unavailable
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_NETWORK -> R.string.stream_error_network
+        com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.REASON_NOT_FOUND -> R.string.stream_error_not_found
+        "refused", "http403", "http410" -> R.string.stream_error_refused
+        else -> R.string.stream_error_extractor
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

@@ -387,6 +387,28 @@ class LyricsStateHolder @Inject constructor(
         }
     }
 
+    /**
+     * Sync with the AI: the lyrics text and the audio go to Gemini, which answers with every line
+     * and word placed on the audio (an .mblrc). Without lyrics it writes them from the audio.
+     */
+    fun alignLyricsWithCloudAi(
+        currentSong: Song,
+        lyricsObj: Lyrics?,
+        getString: (Int) -> String,
+        align: suspend (Song, List<String>?) -> Result<List<SyncedLine>>
+    ) {
+        val lines = lyricsObj?.synced?.map { it.line }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+            ?: lyricsObj?.plain?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+        runAudioLyricsJob(
+            currentSong,
+            getString,
+            if (lines == null) R.string.lyrics_audio_cloud_started else R.string.lyrics_audio_align_started,
+            MBLRC_SOURCE_GEMINI
+        ) {
+            align(currentSong, lines)
+        }
+    }
+
     private fun runAudioLyricsJob(
         currentSong: Song,
         getString: (Int) -> String,
@@ -394,9 +416,6 @@ class LyricsStateHolder @Inject constructor(
         source: String,
         work: suspend () -> Result<List<SyncedLine>>
     ) {
-        if (currentSong.id.toLongOrNull() == null &&
-            !currentSong.id.startsWith(com.theveloper.pixelplay.data.videos.LocalMusicVideo.SONG_ID_PREFIX)
-        ) return
         if (audioAlignmentJob?.isActive == true) return
 
         audioAlignmentJob = scope?.launch {

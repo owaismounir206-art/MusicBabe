@@ -126,20 +126,28 @@ class MusicVideosViewModel @Inject constructor(
             setStatus(video.songId, VideoLyricsStatus.SEARCHING)
             val song = video.toSong().copy(lyrics = null)
             val online = runCatching { lyricsRepository.fetchFromRemote(song).getOrNull() }.getOrNull()
+            val onlineLines = online?.first?.let { lyrics ->
+                lyrics.synced?.map { it.line }?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+                    ?: lyrics.plain?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
+            }
             if (online != null && online.second.isNotBlank()) {
                 repository.saveLyrics(video.songId, online.second)
-                setStatus(video.songId, null)
-                return@launch
+                // With a Gemini key the text found online and the audio go to Gemini, which places
+                // every word on this exact video (an .mblrc), so the timing is the video's own.
+                if (!transcriber.hasKey()) {
+                    setStatus(video.songId, null)
+                    return@launch
+                }
             }
             setStatus(video.songId, VideoLyricsStatus.WRITING)
-            transcriber.transcribe(song)
+            transcriber.transcribe(song, onlineLines)
                 .onSuccess { lines ->
                     repository.saveLyrics(video.songId, MbLrcFormat.encode(lines, source = "gemini"))
                     setStatus(video.songId, null)
                 }
                 .onFailure {
                     Timber.i(it, "No lyrics for video ${video.title}")
-                    setStatus(video.songId, VideoLyricsStatus.NONE)
+                    setStatus(video.songId, if (online != null) null else VideoLyricsStatus.NONE)
                 }
         }
     }

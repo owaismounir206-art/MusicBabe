@@ -60,4 +60,12 @@
     <string name="videos_field_artist">Artista</string>
     <string name="videos_save">Salva</string>
     <string name="videos_open">Video musicali</string>
+    <string name="stream_error_bot">YouTube chiede di confermare che non sei un bot: riprova tra qualche minuto o con un\'altra rete</string>
+    <string name="stream_error_age">il video ha limiti di età su YouTube</string>
+    <string name="stream_error_region">il video non è disponibile nel tuo paese</string>
+    <string name="stream_error_unavailable">il video è stato rimosso o reso privato su YouTube</string>
+    <string name="stream_error_network">nessuna connessione a YouTube</string>
+    <string name="stream_error_not_found">nessuna versione ascoltabile trovata su YouTube</string>
+    <string name="stream_error_refused">YouTube ha rifiutato lo stream; riprovo con un link nuovo</string>
+    <string name="stream_error_extractor">YouTube ha cambiato qualcosa e ora il brano non si legge</string>
 </resources>

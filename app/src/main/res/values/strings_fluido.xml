@@ -60,4 +60,12 @@
     <string name="videos_field_artist">Artist</string>
     <string name="videos_save">Save</string>
     <string name="videos_open">Music videos</string>
+    <string name="stream_error_bot">YouTube asked to confirm you are not a bot; try again in a few minutes or on another network</string>
+    <string name="stream_error_age">the video is age-restricted on YouTube</string>
+    <string name="stream_error_region">the video is not available in your country</string>
+    <string name="stream_error_unavailable">the video was removed or made private on YouTube</string>
+    <string name="stream_error_network">no connection to YouTube</string>
+    <string name="stream_error_not_found">no playable version found on YouTube</string>
+    <string name="stream_error_refused">YouTube refused the stream; it will be retried with a new link</string>
+    <string name="stream_error_extractor">YouTube changed something and the song cannot be read right now</string>
 </resources>
