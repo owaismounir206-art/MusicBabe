@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-27
+
+### Changed
+- **Testi più leggibili**: le parole accese usano il colore della copertina se si legge bene, altrimenti bianco (tema scuro) o quasi nero (tema chiaro); prima ricadevano sul grigio e tutta la schermata diventava grigia. Tutte le righe usano lo stesso colore a opacità diverse: parole ancora da cantare della riga attiva al 35%, righe passate al 50%, righe in arrivo al 32%.
+- **Riempimento karaoke ridisegnato**: ogni parola è un solo testo colorato mentre viene cantata, con un bordo morbido; prima due testi sovrapposti si disallineavano ("Liv" acceso spostato rispetto a "orno"). La parola in corso si solleva leggermente invece di ingrandirsi.
+- **Testata dei testi**: l'etichetta "Parola per parola" sta sotto il titolo invece di coprirlo, e le righe non passano più sotto la testata. I controlli di sincronizzazione si chiudono da soli dopo 5 secondi.
+- **Impostazioni AI riorganizzate**:
+  - "Cosa sbloccano le tue chiavi": ogni funzione AI con il suo stato (pronta, serve una chiave, serve la chiave Gemini).
+  - Link "Ottieni una chiave" per ogni servizio.
+  - Se il servizio scelto non è Gemini, c'è un campo a parte, facoltativo, per la chiave Gemini: solo Gemini può ascoltare l'audio per scrivere i testi dalla canzone.
+  - Stile delle risposte con tre scelte (Preciso, Bilanciato, Creativo); prompt di sistema, parametri numerici e dati dei brani sono in "Impostazioni avanzate".
+
+### Fixed
+- **Chiave API**: i pulsanti AI di Libreria e playlist comparivano solo con una chiave per il servizio selezionato, anche se l'AI usa in automatico qualsiasi servizio con una chiave salvata. Ora compaiono appena c'è una chiave.
+- **Errori della chiave**: al posto del messaggio grezzo del server, una spiegazione chiara (chiave rifiutata, quota o credito finiti, nessuna connessione, servizio non disponibile) con i dettagli sotto.
+
 ## [1.9.0] - 2026-10-26
 
 ### Added
