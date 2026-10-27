@@ -2117,7 +2117,6 @@ fun LyricWordSpan(
     glow: Boolean = false
 ) {
     val animationsEnabled = rememberScenaAnimationsEnabled()
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     // Lift: the word being sung rises a little and settles with a spring. A translation only, so
     // its width never changes and the fill stays aligned with the letters.
@@ -2138,13 +2137,11 @@ fun LyricWordSpan(
         label = "wordGlow"
     )
     val latestHighlighted by rememberUpdatedState(isHighlighted)
-    val latestCurrent by rememberUpdatedState(isCurrentWord)
     val glowPad = GlowPadding
 
-    // One Text, coloured in the draw phase: lit up to the sung fraction, dim after it, with a short
-    // soft edge. Drawn white and tinted with SrcIn on an offscreen layer, so lit and dim letters
-    // are the same glyphs and can never drift apart. The layer is larger than the word (by
-    // [GlowPadding]) so the glow is not cut, while the word keeps its own size in the line.
+    // One Text, tinted in the draw phase (white, then SrcIn on an offscreen layer): lit or dim as
+    // a whole word. The layer is larger than the word (by [GlowPadding]) so the glow is not cut,
+    // while the word keeps its own size in the line.
     Text(
         text = word.word.uppercase(),
         style = style.withGlow(Color.White, glowAmount),
@@ -2163,31 +2160,10 @@ fun LyricWordSpan(
             }
             .drawWithContent {
                 drawContent()
-                val fraction = when {
-                    latestCurrent && positionProvider != null && endTimeMs != null && endTimeMs > word.time -> {
-                        val start = word.time.toLong()
-                        (((positionProvider)() - start).toFloat() / (endTimeMs - start)).coerceIn(0f, 1f)
-                    }
-                    latestHighlighted -> 1f
-                    else -> 0f
-                }
-                val brush = if (fraction <= 0f || fraction >= 1f) {
-                    androidx.compose.ui.graphics.SolidColor(if (fraction >= 1f) highlightedColor else unhighlightedColor)
-                } else {
-                    // The fill moves across the letters only, not across the glow margin.
-                    val padPx = glowPad.toPx()
-                    val textWidth = (size.width - 2 * padPx).coerceAtLeast(1f)
-                    val litX = padPx + textWidth * (if (isRtl) 1f - fraction else fraction)
-                    val lit = (litX / size.width).coerceIn(0f, 1f)
-                    val edge = 0.06f
-                    val (left, right) = if (isRtl) unhighlightedColor to highlightedColor else highlightedColor to unhighlightedColor
-                    Brush.horizontalGradient(
-                        0f to left,
-                        (lit - edge / 2).coerceIn(0f, 1f) to left,
-                        (lit + edge / 2).coerceIn(0f, 1f) to right,
-                        1f to right
-                    )
-                }
+                // Word by word: a word lights whole the moment it is sung, never letter by letter.
+                val brush = androidx.compose.ui.graphics.SolidColor(
+                    if (latestHighlighted) highlightedColor else unhighlightedColor
+                )
                 drawRect(brush = brush, blendMode = BlendMode.SrcIn)
             }
             .padding(glowPad)

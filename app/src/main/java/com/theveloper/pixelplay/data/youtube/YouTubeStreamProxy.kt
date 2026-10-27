@@ -4,6 +4,7 @@ import android.net.Uri
 import com.theveloper.pixelplay.data.stream.CloudStreamProxy
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import timber.log.Timber
 import javax.inject.Singleton
 
 /**
@@ -49,26 +50,65 @@ class YouTubeStreamProxy @Inject constructor(
         }
     }
 
+    private val failures = ConcurrentHashMap<String, String>()
+
+    override fun failureReason(id: String): String? = failures[id]
+
+    /**
+     * The audio of [id]. A song found by search tries the next hits when the first one cannot be
+     * played (removed, age-restricted, region-locked), so one bad upload does not fail the song.
+     */
     override suspend fun resolveStreamUrl(id: String): String? {
-        val videoId = videoIdFor(id) ?: return null
-        val stream = extractor.resolveAudio(videoId) ?: return null
-        stream.userAgent?.let { userAgents[stream.url] = it }
-        return stream.url
+        val candidates = candidatesFor(id)
+        if (candidates.isEmpty()) {
+            failures[id] = if (failures[id] == REASON_NETWORK) REASON_NETWORK else REASON_NOT_FOUND
+            return null
+        }
+        var lastReason = REASON_NO_STREAM
+        for (videoId in candidates) {
+            val result = runCatching { extractor.resolveAudio(videoId) }
+            val stream = result.getOrNull()
+            if (stream != null) {
+                failures.remove(id)
+                if (id.startsWith(SEARCH_KEY_PREFIX)) searchToVideo[id] = videoId
+                stream.userAgent?.let { userAgents[stream.url] = it }
+                return stream.url
+            }
+            lastReason = result.exceptionOrNull()?.let(::classify) ?: REASON_NO_STREAM
+            Timber.w(result.exceptionOrNull(), "YouTube audio for $videoId failed: $lastReason")
+        }
+        failures[id] = lastReason
+        return null
+    }
+
+    private suspend fun candidatesFor(key: String): List<String> {
+        if (!key.startsWith(SEARCH_KEY_PREFIX)) return listOf(key)
+        val known = searchToVideo[key]
+        val query = key.removePrefix(SEARCH_KEY_PREFIX)
+        val hits = runCatching { extractor.searchSongs(query, 3).map { it.videoId } }
+            .onFailure { failures[key] = classify(it) }
+            .getOrDefault(emptyList())
+        return (listOfNotNull(known) + hits).distinct()
+    }
+
+    /** A short, stable code for what YouTube answered; the player turns it into a message. */
+    private fun classify(error: Throwable): String {
+        val text = (error.message ?: "").lowercase() + " " + error.javaClass.simpleName.lowercase()
+        return when {
+            "sign in to confirm" in text || "not a bot" in text || "recaptcha" in text -> REASON_BOT
+            "age" in text && ("restrict" in text || "inappropriate" in text) -> REASON_AGE
+            "country" in text || "geo" in text || "region" in text -> REASON_REGION
+            "unavailable" in text || "not available" in text || "private" in text || "removed" in text ||
+                "contentnotavailable" in text -> REASON_UNAVAILABLE
+            error is java.io.IOException || "timeout" in text || "unable to resolve host" in text -> REASON_NETWORK
+            else -> REASON_EXTRACTOR
+        }
     }
 
     // googlevideo throttles requests without a Range to about real time; an open range is served
     // at full speed. ExoPlayer's own Range (seeks) replaces this one.
     override fun upstreamHeaders(streamUrl: String): Map<String, String> =
         mapOf("Range" to "bytes=0-") + userAgents[streamUrl]?.let { mapOf("User-Agent" to it) }.orEmpty()
-
-    private suspend fun videoIdFor(key: String): String? {
-        if (!key.startsWith(SEARCH_KEY_PREFIX)) return key
-        searchToVideo[key]?.let { return it }
-        val query = key.removePrefix(SEARCH_KEY_PREFIX)
-        val hit = extractor.searchSongs(query, 3).firstOrNull()?.videoId ?: return null
-        searchToVideo[key] = hit
-        return hit
-    }
 
     fun resolveYouTubeUri(uriString: String): String? = resolveUri(uriString)
 
@@ -82,6 +122,15 @@ class YouTubeStreamProxy @Inject constructor(
 
     companion object {
         const val SCHEME = "youtube"
+
+        const val REASON_BOT = "bot"
+        const val REASON_AGE = "age"
+        const val REASON_REGION = "region"
+        const val REASON_UNAVAILABLE = "unavailable"
+        const val REASON_NETWORK = "network"
+        const val REASON_NO_STREAM = "nostream"
+        const val REASON_NOT_FOUND = "notfound"
+        const val REASON_EXTRACTOR = "extractor"
         private const val SEARCH_KEY_PREFIX = "q~"
         private const val MAX_QUERY_LENGTH = 200
 

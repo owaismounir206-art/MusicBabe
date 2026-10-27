@@ -3313,13 +3313,29 @@ class PlayerViewModel @Inject constructor(
     /** Speed the audio is playing at (1 = normal). */
     fun livePlaybackSpeed(): Float = mediaController?.playbackParameters?.speed ?: 1f
 
+    /**
+     * Sync lyrics to the audio. With a Gemini key the text and the audio go to Gemini, which is
+     * far more precise than the on-device model; without a key the phone does it.
+     */
     fun alignLyricsToAudio() {
         val currentSong = stablePlayerState.value.currentSong ?: return
-        lyricsStateHolder.alignLyricsToAudio(
-            currentSong = currentSong,
-            lyricsObj = stablePlayerState.value.lyrics,
-            getString = { resId -> context.getString(resId) }
-        )
+        val lyrics = stablePlayerState.value.lyrics
+        viewModelScope.launch {
+            if (geminiAudioLyricsTranscriber.hasKey()) {
+                lyricsStateHolder.alignLyricsWithCloudAi(
+                    currentSong = currentSong,
+                    lyricsObj = lyrics,
+                    getString = { resId -> context.getString(resId) },
+                    align = geminiAudioLyricsTranscriber::transcribe
+                )
+            } else {
+                lyricsStateHolder.alignLyricsToAudio(
+                    currentSong = currentSong,
+                    lyricsObj = lyrics,
+                    getString = { resId -> context.getString(resId) }
+                )
+            }
+        }
     }
 
     fun cancelLyricsAudioAlignment() = lyricsStateHolder.cancelAudioAlignment()
@@ -3327,10 +3343,11 @@ class PlayerViewModel @Inject constructor(
     /** Gemini listens to the song and writes the lyrics (opt-in: the audio is uploaded). */
     fun writeLyricsWithCloudAi() {
         val currentSong = stablePlayerState.value.currentSong ?: return
-        lyricsStateHolder.transcribeLyricsWithCloudAi(
+        lyricsStateHolder.alignLyricsWithCloudAi(
             currentSong = currentSong,
+            lyricsObj = stablePlayerState.value.lyrics,
             getString = { resId -> context.getString(resId) },
-            transcribe = geminiAudioLyricsTranscriber::transcribe
+            align = geminiAudioLyricsTranscriber::transcribe
         )
     }
 

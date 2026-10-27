@@ -44,8 +44,11 @@ class CloudLyricsException(@StringRes val messageRes: Int, val detail: String? =
 @Singleton
 class GeminiAudioLyricsTranscriber @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val aiPreferences: AiPreferencesRepository
+    private val aiPreferences: AiPreferencesRepository,
+    private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor
 ) {
+    /** True when a Gemini key is saved: lyrics sync then goes through Gemini, not the phone. */
+    suspend fun hasKey(): Boolean = aiPreferences.geminiApiKey.first().isNotBlank()
     private val httpClient = OkHttpClient.Builder()
         .enforceCleartextPolicy()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -55,13 +58,25 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun transcribe(song: Song): Result<List<SyncedLine>> = withContext(Dispatchers.IO) {
+    suspend fun transcribe(song: Song): Result<List<SyncedLine>> = transcribe(song, lyricsLines = null)
+
+    /**
+     * Sends the audio, and the lyrics text when [lyricsLines] is given, and gets back the
+     * timed lyrics as MBLRC. With the text Gemini only has to place it on the audio, which is far
+     * more precise than hearing the words.
+     */
+    suspend fun transcribe(song: Song, lyricsLines: List<String>?): Result<List<SyncedLine>> = withContext(Dispatchers.IO) {
         runCatching {
             val apiKey = aiPreferences.geminiApiKey.first().trim()
             if (apiKey.isEmpty()) throw CloudLyricsException(R.string.lyrics_cloud_no_key)
             val model = aiPreferences.geminiModel.first().ifBlank { DEFAULT_MODEL }
 
             val uri = Uri.parse(song.contentUriString)
+            // A song streamed from YouTube: its audio (an .m4a of a few MB) is downloaded for the request.
+            if (uri.scheme == com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.SCHEME) {
+                val audio = downloadYouTubeAudio(song)
+                return@runCatching request(apiKey, model, audio, "audio/mp4", song, lyricsLines)
+            }
             if (uri.scheme != "content" && uri.scheme != "file") throw AudioAlignmentException.NotLocal()
             val isVideo = song.mimeType?.startsWith("video/") == true ||
                 context.contentResolver.getType(uri)?.startsWith("video/") == true
@@ -80,44 +95,74 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
                 ?: context.contentResolver.getType(uri)?.takeIf { it.startsWith("audio/") }
                 ?: "audio/mpeg"
 
-            val body = buildJsonObject {
-                putJsonArray("contents") {
-                    add(buildJsonObject {
-                        put("role", "user")
-                        putJsonArray("parts") {
-                            add(buildJsonObject {
-                                putJsonObject("inline_data") {
-                                    put("mime_type", mimeType)
-                                    put("data", Base64.encodeToString(audio, Base64.NO_WRAP))
-                                }
-                            })
-                            add(buildJsonObject { put("text", prompt(song)) })
-                        }
-                    })
-                }
-                putJsonObject("generationConfig") {
-                    put("temperature", 0.1)
-                    put("responseMimeType", "application/json")
-                    put("maxOutputTokens", 16_384)
-                }
-            }
+            request(apiKey, model, audio, mimeType, song, lyricsLines)
+        }
+    }
 
-            val request = Request.Builder()
-                .url("$BASE_URL/models/$model:generateContent")
-                .header("x-goog-api-key", apiKey)
-                .post(body.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-            val text = httpClient.newCall(request).execute().use { response ->
-                val raw = response.body.string()
-                if (!response.isSuccessful) {
-                    throw CloudLyricsException(R.string.lyrics_cloud_error, "${response.code}: ${errorMessage(raw) ?: response.message}")
-                }
-                answerText(raw)
+    private fun request(
+        apiKey: String,
+        model: String,
+        audio: ByteArray,
+        mimeType: String,
+        song: Song,
+        lyricsLines: List<String>?
+    ): List<SyncedLine> {
+        val body = buildJsonObject {
+            putJsonArray("contents") {
+                add(buildJsonObject {
+                    put("role", "user")
+                    putJsonArray("parts") {
+                        add(buildJsonObject {
+                            putJsonObject("inline_data") {
+                                put("mime_type", mimeType)
+                                put("data", Base64.encodeToString(audio, Base64.NO_WRAP))
+                            }
+                        })
+                        add(buildJsonObject {
+                            put("text", if (lyricsLines.isNullOrEmpty()) prompt(song) else alignPrompt(song, lyricsLines))
+                        })
+                    }
+                })
             }
+            putJsonObject("generationConfig") {
+                put("temperature", 0.1)
+                put("responseMimeType", "application/json")
+                put("maxOutputTokens", 32_768)
+            }
+        }
+        val request = Request.Builder()
+            .url("$BASE_URL/models/$model:generateContent")
+            .header("x-goog-api-key", apiKey)
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        val text = httpClient.newCall(request).execute().use { response ->
+            val raw = response.body.string()
+            if (!response.isSuccessful) {
+                throw CloudLyricsException(R.string.lyrics_cloud_error, "${response.code}: ${errorMessage(raw) ?: response.message}")
+            }
+            answerText(raw)
+        }
+        val lines = parseAnswer(text)
+        if (lines.isNullOrEmpty()) throw AudioAlignmentException.NoSpeech()
+        return lines
+    }
 
-            val lines = parseAnswer(text)
-            if (lines.isNullOrEmpty()) throw AudioAlignmentException.NoSpeech()
-            lines
+    private suspend fun downloadYouTubeAudio(song: Song): ByteArray {
+        val videoId = song.contentUriString.removePrefix("youtube://video/")
+            .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)
+            ?: youTubeExtractor.findVideoId(song.title, song.artist, song.duration)
+            ?: throw AudioAlignmentException.NotLocal()
+        val stream = youTubeExtractor.resolveAudio(videoId) ?: throw AudioAlignmentException.NotLocal()
+        val request = Request.Builder()
+            .url(stream.url)
+            .header("User-Agent", stream.userAgent ?: com.theveloper.pixelplay.data.youtube.YouTubeExtractor.WEB_USER_AGENT)
+            .header("Range", "bytes=0-")
+            .build()
+        return youTubeExtractor.httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw AudioAlignmentException.NotLocal()
+            val bytes = response.body.byteStream().readNBytes(MAX_INLINE_BYTES + 1)
+            if (bytes.size > MAX_INLINE_BYTES) throw CloudLyricsException(R.string.lyrics_cloud_too_large)
+            bytes
         }
     }
 
@@ -179,6 +224,25 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
         - "singer": "A" for the main voice, "B" for a second lead voice in duets, "AB" when they sing
           together. Omit it for songs with a single voice.
         - No instrumental markers, no comments.
+    """.trimIndent()
+
+    private fun alignPrompt(song: Song, lines: List<String>) = """
+        Here are the lyrics of the attached song "${song.title}" by ${song.displayArtist}, one line per row:
+        ---
+        ${lines.joinToString("\n")}
+        ---
+        Listen to the audio and place every line and every word of these lyrics on it.
+        Answer with JSON only, in this shape:
+        {"format":"mblrc","version":1,"lines":[
+          {"start":12340,"end":15100,"text":"first sung line",
+           "words":[{"start":12340,"text":"first"},{"start":12800,"text":"sung"},{"start":13100,"text":"line"}]}
+        ]}
+        - Keep the lines and their words exactly as given, in the same order: do not add, drop,
+          merge, split or rewrite anything. A line that is repeated in the song appears once per time it is sung, as in the text.
+        - "start" is when the singer starts that word or line, "end" when the line's last word stops,
+          in milliseconds on the attached audio, strictly ascending.
+        - A word starts when its first syllable is sung, not before: long pauses stay pauses.
+        - No comments, no instrumental markers.
     """.trimIndent()
 
     private companion object {

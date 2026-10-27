@@ -158,6 +158,12 @@ abstract class CloudStreamProxy<K : Any>(
     /** Extract the raw ID string from a parsed URI. Override for custom URI layouts. */
     protected open fun extractIdFromUri(uri: Uri): String? = uri.host
 
+    /**
+     * Why [id] has no stream, as a short ASCII code sent as the HTTP reason phrase ("MB:<code>"),
+     * so the player can tell the user what went wrong instead of a bare 404.
+     */
+    protected open fun failureReason(id: K): String? = null
+
     /** Extra headers sent upstream for [streamUrl], e.g. the User-Agent a CDN ties its URLs to. */
     protected open fun upstreamHeaders(streamUrl: String): Map<String, String> = emptyMap()
 
@@ -195,9 +201,10 @@ abstract class CloudStreamProxy<K : Any>(
                             return@get
                         }
 
-                        val streamUrl = getOrFetchStreamUrl(id)
+                        var streamUrl = getOrFetchStreamUrl(id)
                         if (streamUrl.isNullOrBlank()) {
-                            call.respond(HttpStatusCode.NotFound, "No stream URL available")
+                            val reason = failureReason(id)?.let { "MB:$it" } ?: "Not Found"
+                            call.respond(HttpStatusCode(404, reason), "No stream URL available")
                             return@get
                         }
                         if (!CloudStreamSecurity.isSafeRemoteStreamUrl(
@@ -212,24 +219,49 @@ abstract class CloudStreamProxy<K : Any>(
 
                         // The URL was just validated against this proxy's own host allow-list,
                         // which for some providers deliberately includes plain-HTTP CDNs.
-                        val requestBuilder = Request.Builder()
-                            .url(streamUrl)
-                            .tag(CleartextAllowListedRequest::class.java, CleartextAllowListedRequest)
-                        upstreamHeaders(streamUrl).forEach { (name, value) ->
-                            requestBuilder.header(name, value)
-                        }
-                        rangeValidation.normalizedHeader?.let {
-                            requestBuilder.header("Range", it)
+                        fun buildRequest(url: String): Request {
+                            val requestBuilder = Request.Builder()
+                                .url(url)
+                                .tag(CleartextAllowListedRequest::class.java, CleartextAllowListedRequest)
+                            upstreamHeaders(url).forEach { (name, value) ->
+                                requestBuilder.header(name, value)
+                            }
+                            rangeValidation.normalizedHeader?.let {
+                                requestBuilder.header("Range", it)
+                            }
+                            return requestBuilder.build()
                         }
 
-                        val response = withContext(Dispatchers.IO) {
-                            okHttpClient.newCall(requestBuilder.build()).execute()
+                        var response = withContext(Dispatchers.IO) {
+                            okHttpClient.newCall(buildRequest(streamUrl!!)).execute()
+                        }
+                        // An expired or refused link (403/410): resolve a fresh one once and retry.
+                        if (response.code == 403 || response.code == 410) {
+                            response.close()
+                            urlCache.remove(id)
+                            val fresh = getOrFetchStreamUrl(id)
+                            if (!fresh.isNullOrBlank() && CloudStreamSecurity.isSafeRemoteStreamUrl(
+                                    url = fresh,
+                                    allowedHostSuffixes = allowedHostSuffixes,
+                                    allowHttpForAllowedHosts = true
+                                )
+                            ) {
+                                streamUrl = fresh
+                                response = withContext(Dispatchers.IO) {
+                                    okHttpClient.newCall(buildRequest(fresh)).execute()
+                                }
+                            } else {
+                                val reason = failureReason(id)?.let { "MB:$it" } ?: "Forbidden"
+                                call.respond(HttpStatusCode(403, reason), "Upstream refused the stream")
+                                return@get
+                            }
                         }
 
                         response.use { upstream ->
                             if (upstream.code != 200 && upstream.code != 206) {
+                                val status = CloudStreamSecurity.mapUpstreamStatusToProxyStatus(upstream.code)
                                 call.respond(
-                                    CloudStreamSecurity.mapUpstreamStatusToProxyStatus(upstream.code),
+                                    if (upstream.code == 403 || upstream.code == 410) HttpStatusCode(status.value, "MB:refused") else status,
                                     "Upstream stream request failed"
                                 )
                                 return@get
