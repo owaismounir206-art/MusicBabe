@@ -731,6 +731,8 @@ fun LyricsSheet(
         // Removed TopBar and FAB
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
+            // Stage: the cover, blurred and dimmed, fills the screen behind the glowing lines.
+            LyricsStageBackdrop(artUri = currentSong?.albumArtUriString, ground = containerColor)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -2663,6 +2665,35 @@ private fun LyricsTrackInfo(
                 .size(width = 18.dp, height = 16.dp),
             color = contentColor,
             isPlaying = isPlaying
+        )
+    }
+}
+
+/** The cover, very blurred and dimmed, behind the lyrics; plain [ground] where blur is not available. */
+@Composable
+internal fun LyricsStageBackdrop(artUri: String?, ground: Color, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize().background(ground)) {
+        if (artUri != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            SmartImage(
+                model = artUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.55f; scaleX = 1.3f; scaleY = 1.3f }
+                    .blur(70.dp)
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to ground.copy(alpha = 0.55f),
+                        0.5f to ground.copy(alpha = 0.35f),
+                        1f to ground.copy(alpha = 0.75f)
+                    )
+                )
         )
     }
 }

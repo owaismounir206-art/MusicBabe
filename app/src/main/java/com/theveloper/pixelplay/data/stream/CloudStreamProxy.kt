@@ -164,6 +164,17 @@ abstract class CloudStreamProxy<K : Any>(
      */
     protected open fun failureReason(id: K): String? = null
 
+    /**
+     * Lets a provider serve the request itself (YouTube reads its CDN in pieces). Returns true
+     * when it answered [call]; false falls back to the single upstream request below.
+     */
+    protected open suspend fun serveDirect(
+        call: io.ktor.server.application.ApplicationCall,
+        id: K,
+        streamUrl: String,
+        rangeHeader: String?
+    ): Boolean = false
+
     /** Extra headers sent upstream for [streamUrl], e.g. the User-Agent a CDN ties its URLs to. */
     protected open fun upstreamHeaders(streamUrl: String): Map<String, String> = emptyMap()
 
@@ -219,6 +230,10 @@ abstract class CloudStreamProxy<K : Any>(
 
                         // The URL was just validated against this proxy's own host allow-list,
                         // which for some providers deliberately includes plain-HTTP CDNs.
+                        if (serveDirect(call, id, streamUrl!!, call.request.headers["Range"])) {
+                            return@get
+                        }
+
                         fun buildRequest(url: String): Request {
                             val requestBuilder = Request.Builder()
                                 .url(url)

@@ -37,6 +37,7 @@ import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.ui.theme.Scena
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -84,7 +85,8 @@ sealed interface MusicVideoState {
 @HiltViewModel
 class MusicVideoViewModel @Inject constructor(
     private val extractor: YouTubeExtractor,
-    private val localVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository
+    private val localVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository,
+    private val streamProxy: com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy
 ) : ViewModel() {
     private val _state = MutableStateFlow<MusicVideoState>(MusicVideoState.Idle)
     val state: StateFlow<MusicVideoState> = _state.asStateFlow()
@@ -110,7 +112,14 @@ class MusicVideoViewModel @Inject constructor(
                     expectedDurationMs = song.duration,
                     musicVideo = true
                 )
-                val stream = videoId?.let { extractor.resolveVideo(it) }
+                // Through the local proxy, which reads YouTube in pieces: the video starts with the
+                // first piece instead of waiting (and being throttled) on one long request.
+                val stream = videoId?.let { id ->
+                    val proxied = if (streamProxy.ensureReady(5_000L)) {
+                        streamProxy.resolveYouTubeUri(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.musicVideoUri(id))
+                    } else null
+                    proxied?.let { YouTubeStream(it, userAgent = null, mimeType = null) } ?: extractor.resolveVideo(id)
+                }
                 if (stream == null) MusicVideoState.NotFound else MusicVideoState.Ready(song.id, stream)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -138,6 +147,7 @@ fun MusicVideoPanel(
     song: Song,
     playerViewModel: PlayerViewModel,
     modifier: Modifier = Modifier,
+    onFullscreen: (() -> Unit)? = null,
     viewModel: MusicVideoViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -181,6 +191,22 @@ fun MusicVideoPanel(
                     .graphicsLayer { alpha = coverAlpha }
                     .background(Color.Black.copy(alpha = 0.45f))
             )
+        }
+        if (onFullscreen != null && current is MusicVideoState.Ready) {
+            androidx.compose.material3.IconButton(
+                onClick = onFullscreen,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f))
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Rounded.Fullscreen,
+                    contentDescription = stringResource(R.string.fullscreen_open),
+                    tint = Color.White
+                )
+            }
         }
         when (current) {
             is MusicVideoState.Ready -> if (!firstFrameShown) LoadingIndicator(color = Color.White)

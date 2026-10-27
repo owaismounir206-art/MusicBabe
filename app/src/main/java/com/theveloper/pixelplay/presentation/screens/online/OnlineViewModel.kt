@@ -28,6 +28,8 @@ data class OnlineHomeState(
     val quickPicks: List<OnlineSongItem> = emptyList(),
     val shelves: List<OnlineShelf> = emptyList(),
     val failed: Boolean = false,
+    /** Songs from the library played last, to pick up where you left off. */
+    val recent: List<com.theveloper.pixelplay.data.model.Song> = emptyList(),
 )
 
 @Immutable
@@ -57,15 +59,17 @@ class OnlineViewModel @Inject constructor(
     /** Loads every shelf in parallel; each one appears as soon as it is ready. */
     fun refresh() {
         viewModelScope.launch {
-            _home.value = OnlineHomeState(loading = true)
+            _home.value = OnlineHomeState(loading = true, recent = _home.value.recent)
             val seeds = repository.seeds()
+            _home.update { it.copy(recent = (seeds.recent + seeds.top).distinctBy { song -> song.id }.take(12)) }
             val picks = async { repository.quickPicks(seeds) }
+            val videos = async { repository.musicVideos(seeds) }
             val ytHome = async { repository.youTubeMusicHome() }
             val artists = async { repository.artistShelves(seeds) }
             val covers = async { repository.coversAndRemixes(seeds) }
 
             _home.update { it.copy(quickPicks = picks.await()) }
-            val personal = artists.await() + listOfNotNull(covers.await())
+            val personal = listOfNotNull(videos.await()) + artists.await() + listOfNotNull(covers.await())
             _home.update { it.copy(shelves = personal) }
             val youtube = ytHome.await()
             _home.update {

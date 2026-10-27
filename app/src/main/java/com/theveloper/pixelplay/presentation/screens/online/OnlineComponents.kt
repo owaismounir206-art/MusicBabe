@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -90,6 +91,8 @@ class OnlineActions(
     val playNext: (OnlineSongItem) -> Unit,
     val addToQueue: (OnlineSongItem) -> Unit,
     val open: (OnlineCollectionItem) -> Unit,
+    /** Saves the song's own YouTube audio as .m4a. */
+    val save: (OnlineSongItem) -> Unit = {},
 )
 
 /** Localized title of a shelf built by the app (markers from [OnlineMusicRepository]). */
@@ -97,6 +100,7 @@ class OnlineActions(
 fun shelfTitle(shelf: OnlineShelf): Pair<String?, String> = when {
     shelf.title == OnlineMusicRepository.COVERS_MARKER -> null to stringResource(R.string.online_shelf_covers)
     shelf.title == OnlineMusicRepository.ALBUMS_MARKER -> null to stringResource(R.string.online_shelf_albums)
+    shelf.title == OnlineMusicRepository.VIDEOS_MARKER -> null to stringResource(R.string.online_shelf_videos)
     shelf.subtitle == OnlineMusicRepository.MORE_FROM_MARKER -> stringResource(R.string.online_shelf_more_from) to shelf.title
     else -> shelf.subtitle to shelf.title
 }
@@ -390,7 +394,16 @@ fun OnlineShelfSection(
             onPlayAll = if (songs.size >= 2) ({ actions.playSongs(songs, 0, title) }) else null
         )
         Spacer(Modifier.height(12.dp))
-        if (shelf.style == OnlineShelfStyle.SONG_LIST && songs.isNotEmpty()) {
+        if (shelf.style == OnlineShelfStyle.VIDEOS && songs.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = Scena.Gutter),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(songs, key = { it.key }) { video ->
+                    OnlineVideoCard(video = video, onClick = { actions.playSongs(songs, songs.indexOf(video), title) })
+                }
+            }
+        } else if (shelf.style == OnlineShelfStyle.SONG_LIST && songs.isNotEmpty()) {
             SongColumns(songs = songs, onPlay = { actions.playSongs(songs, it, title) }, actions = actions)
         } else {
             LazyRow(
@@ -482,6 +495,11 @@ fun OnlineSongRow(
                     leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                     onClick = { menu = false; actions.addToQueue(song) }
                 )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.save_stream_title)) },
+                    leadingIcon = { Icon(Icons.Rounded.Download, null) },
+                    onClick = { menu = false; actions.save(song) }
+                )
             }
         }
     }
@@ -545,6 +563,50 @@ fun OnlineCard(item: OnlineItem, onClick: () -> Unit, modifier: Modifier = Modif
                 modifier = Modifier.padding(horizontal = 2.dp)
             )
         }
+    }
+}
+
+/** A music video: 16:9 thumbnail, title and artist below, as on YouTube Music. */
+@Composable
+fun OnlineVideoCard(video: OnlineSongItem, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 280.dp) {
+    val scena = MaterialTheme.scena
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, Fluido.springDefault(), label = "videoScale")
+    Column(
+        modifier = modifier
+            .width(width)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick)
+    ) {
+        Box {
+            SmartImage(
+                model = video.thumbnailUrl,
+                contentDescription = null,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .width(width)
+                    .aspectRatio(16f / 9f),
+                targetSize = Size(640, 360)
+            )
+            if (video.durationSeconds > 0) {
+                Text(
+                    "%d:%02d".format(video.durationSeconds / 60, video.durationSeconds % 60),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(video.title, style = MaterialTheme.typography.titleSmall, color = scena.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(video.artist, style = MaterialTheme.typography.bodySmall, color = scena.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

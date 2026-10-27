@@ -3,6 +3,10 @@ package com.theveloper.pixelplay.data.youtube
 import android.net.Uri
 import com.theveloper.pixelplay.data.stream.CloudStreamProxy
 import java.util.concurrent.ConcurrentHashMap
+import io.ktor.server.response.header
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytesWriter
+import io.ktor.utils.io.writeFully
 import javax.inject.Inject
 import timber.log.Timber
 import javax.inject.Singleton
@@ -36,6 +40,7 @@ class YouTubeStreamProxy @Inject constructor(
 
     override fun validateId(id: String): Boolean = when {
         id.startsWith(SEARCH_KEY_PREFIX) -> id.length - SEARCH_KEY_PREFIX.length in 1..MAX_QUERY_LENGTH
+        id.startsWith(VIDEO_KEY_PREFIX) -> YouTubeExtractor.isValidVideoId(id.removePrefix(VIDEO_KEY_PREFIX))
         else -> YouTubeExtractor.isValidVideoId(id)
     }
 
@@ -46,6 +51,7 @@ class YouTubeStreamProxy @Inject constructor(
         return when (uri.host) {
             "video" -> value
             "search" -> SEARCH_KEY_PREFIX + value
+            "mv" -> VIDEO_KEY_PREFIX + value
             else -> null
         }
     }
@@ -54,11 +60,71 @@ class YouTubeStreamProxy @Inject constructor(
 
     override fun failureReason(id: String): String? = failures[id]
 
+    private val fetcher = YouTubeChunkedFetcher(extractor.httpClient)
+
+    /**
+     * Serves the stream piece by piece (see [YouTubeChunkedFetcher]): the response starts as soon
+     * as the first small piece arrives, so a song plays while the rest is still loading.
+     */
+    override suspend fun serveDirect(
+        call: io.ktor.server.application.ApplicationCall,
+        id: String,
+        streamUrl: String,
+        rangeHeader: String?
+    ): Boolean {
+        val total = fetcher.contentLength(streamUrl) ?: return false
+        if (total <= 0) return false
+        val (start, end) = parseRange(rangeHeader, total) ?: run {
+            call.response.header("Content-Range", "bytes */$total")
+            call.respond(io.ktor.http.HttpStatusCode(416, "Range Not Satisfiable"), "")
+            return true
+        }
+        val mime = fetcher.mimeType(streamUrl) ?: if (id.startsWith(VIDEO_KEY_PREFIX)) "video/mp4" else "audio/mp4"
+        call.response.status(if (rangeHeader != null) io.ktor.http.HttpStatusCode.PartialContent else io.ktor.http.HttpStatusCode.OK)
+        call.response.header("Accept-Ranges", "bytes")
+        call.response.header("Content-Length", (end - start + 1).toString())
+        if (rangeHeader != null) call.response.header("Content-Range", "bytes $start-$end/$total")
+        call.respondBytesWriter(contentType = io.ktor.http.ContentType.parse(mime)) {
+            fetcher.fetch(streamUrl, userAgents[streamUrl], start, end) { bytes, count ->
+                writeFully(bytes, 0, count)
+            }
+        }
+        return true
+    }
+
+    /** "bytes=a-b", "bytes=a-" or "bytes=-n" against [total]; null when it cannot be satisfied. */
+    private fun parseRange(header: String?, total: Long): Pair<Long, Long>? {
+        if (header.isNullOrBlank()) return 0L to total - 1
+        val spec = header.removePrefix("bytes=").trim()
+        val dash = spec.indexOf('-')
+        if (dash < 0) return null
+        val a = spec.substring(0, dash).trim()
+        val b = spec.substring(dash + 1).trim()
+        val (start, end) = when {
+            a.isEmpty() -> (total - (b.toLongOrNull() ?: return null)).coerceAtLeast(0) to total - 1
+            b.isEmpty() -> (a.toLongOrNull() ?: return null) to total - 1
+            else -> (a.toLongOrNull() ?: return null) to minOf(b.toLongOrNull() ?: return null, total - 1)
+        }
+        return if (start in 0..end) start to end else null
+    }
+
     /**
      * The audio of [id]. A song found by search tries the next hits when the first one cannot be
      * played (removed, age-restricted, region-locked), so one bad upload does not fail the song.
      */
     override suspend fun resolveStreamUrl(id: String): String? {
+        if (id.startsWith(VIDEO_KEY_PREFIX)) {
+            val videoId = id.removePrefix(VIDEO_KEY_PREFIX)
+            val result = runCatching { extractor.resolveVideo(videoId, maxHeight = 1080) }
+            val stream = result.getOrNull()
+            if (stream == null) {
+                failures[id] = result.exceptionOrNull()?.let(::classify) ?: REASON_NO_STREAM
+                return null
+            }
+            failures.remove(id)
+            stream.userAgent?.let { userAgents[stream.url] = it }
+            return stream.url
+        }
         val candidates = candidatesFor(id)
         if (candidates.isEmpty()) {
             failures[id] = if (failures[id] == REASON_NETWORK) REASON_NETWORK else REASON_NOT_FOUND
@@ -132,6 +198,10 @@ class YouTubeStreamProxy @Inject constructor(
         const val REASON_NOT_FOUND = "notfound"
         const val REASON_EXTRACTOR = "extractor"
         private const val SEARCH_KEY_PREFIX = "q~"
+        private const val VIDEO_KEY_PREFIX = "v~"
+
+        /** The music video picture (video only, up to 1080p), served in pieces like the audio. */
+        fun musicVideoUri(videoId: String): String = "$SCHEME://mv/$videoId"
         private const val MAX_QUERY_LENGTH = 200
 
         fun videoUri(videoId: String): String = "$SCHEME://video/$videoId"

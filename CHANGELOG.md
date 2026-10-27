@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-27
+
+### Added
+- **Schermo intero in orizzontale**: dal player o dall'icona sul video. A sinistra il video (o la copertina) con i comandi, a destra i testi che scorrono.
+- **Salva sul telefono**: salva esattamente quello che stai ascoltando, senza cercarlo su altre fonti. Formati:
+  - audio in qualità originale (.m4a);
+  - audio non compresso (.wav);
+  - il video musicale (.mp4 fino a 1080p con audio), che compare anche in "Video musicali".
+- **Brano | Video** nel player, come in YouTube Music. I video musicali si trovano anche nella Home ("Video musicali per te") e nei risultati di ricerca, e si aprono direttamente sul video.
+
+### Changed
+- **La Home è la zona online**, ora più pulita:
+  - In alto: ricerca, mood e "Riprendi l'ascolto" con i brani della tua libreria.
+  - Poi "Selezione rapida", i video e le sezioni di YouTube Music.
+  - Le icone in alto portano a "Video musicali", a "Per te" (mix e statistiche della vecchia Home) e alle Impostazioni.
+  - Le schede tornano tre: Home, Cerca, Libreria.
+- **Testi**: sfondo scuro tinto col colore della copertina, con la copertina sfocata dietro. Lo stile delle righe resta quello della v1.7.0 ripristinato nella 2.0.3.
+
+### Fixed
+- **Brani e video online partono subito**: lo stream viene letto a pezzi, come fanno le app di YouTube. Il brano parte appena arriva il primo pezzo e il resto si carica mentre ascolti; prima un'unica richiesta veniva rallentata o interrotta da YouTube.
+
 ## [2.0.3] - 2026-10-27
 
 ### Added

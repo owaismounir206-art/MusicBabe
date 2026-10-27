@@ -9,6 +9,8 @@ sealed class Screen(val route: String) {
     object Search : Screen("search")
     object Library : Screen("library")
     object Online : Screen("online")
+    /** The previous home: daily mixes, recently played, stats. Opened from Home > "For you". */
+    object ForYou : Screen("for_you")
     object OnlineCollection : Screen(
         "online_collection?kind={kind}&title={title}&subtitle={subtitle}&thumb={thumb}&browseId={browseId}&url={url}"
     ) {

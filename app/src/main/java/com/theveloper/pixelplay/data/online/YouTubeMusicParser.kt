@@ -33,6 +33,7 @@ object YouTubeMusicParser {
                     items = items.distinctBy { it.key },
                     style = when {
                         songsOnly && listRows -> OnlineShelfStyle.SONG_LIST
+                        songsOnly && items.all { (it as OnlineSongItem).isVideo } -> OnlineShelfStyle.VIDEOS
                         else -> OnlineShelfStyle.CARDS
                     }
                 )
@@ -84,11 +85,14 @@ object YouTubeMusicParser {
         val nav = r["navigationEndpoint"]
         val videoId = nav?.let { findFirst(it, "watchEndpoint") }?.let { (it as? JsonObject)?.str("videoId") }
         if (videoId != null) {
+            // OMV (official) and UGC are music videos; ATV is the plain audio track.
+            val videoType = nav?.let { findFirst(it, "musicVideoType") }?.let { (it as? JsonPrimitive)?.contentOrNull }
             return OnlineSongItem(
                 videoId = videoId,
                 title = title,
                 artist = artistOf(subtitleRuns),
-                thumbnailUrl = thumb
+                thumbnailUrl = thumb,
+                isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC"
             )
         }
         val browseId = nav?.let { findFirst(it, "browseEndpoint") }?.let { (it as? JsonObject)?.str("browseId") }

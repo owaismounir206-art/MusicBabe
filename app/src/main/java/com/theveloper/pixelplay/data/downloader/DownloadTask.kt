@@ -9,6 +9,12 @@ import com.theveloper.pixelplay.data.model.OnlineTrack
 sealed interface DownloadRequest {
     data class Track(val track: OnlineTrack) : DownloadRequest
     data class Query(val query: String) : DownloadRequest
+    /** Exactly the YouTube stream the app plays (same video id), as audio or as video. */
+    data class YouTube(
+        val track: OnlineTrack,
+        val videoId: String,
+        val format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat
+    ) : DownloadRequest
 }
 
 /** Stato di avanzamento di un singolo download della coda. */
