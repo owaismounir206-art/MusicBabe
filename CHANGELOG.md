@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-27
+
+### Changed
+- **Sincronizzazione dei testi con l'AI**: con una chiave Gemini, "Sincronizza" manda a Gemini il testo e l'audio del brano e riceve il file .mblrc con ogni riga e ogni parola al suo tempo. Funziona con i brani della libreria, i video del telefono (anche quando i testi arrivano da internet) e i brani online. Il modello sul telefono si usa solo senza chiave.
+- **Testi parola per parola**: ogni parola si accende tutta insieme, con il bagliore, quando viene cantata. Non c'è più il riempimento lettera per lettera.
+
+### Fixed
+- **Brani online in errore**:
+  - L'errore dice il motivo: verifica anti-bot di YouTube, limiti di età, paese, video rimosso, nessuna connessione.
+  - Un link scaduto o rifiutato viene richiesto di nuovo e riprovato.
+  - Se un caricamento non si può ascoltare, si provano gli altri risultati.
+  - Un brano online che non parte passa al successivo invece di fermare la musica.
+
 ## [2.0.0] - 2026-10-27
 
 ### Added
