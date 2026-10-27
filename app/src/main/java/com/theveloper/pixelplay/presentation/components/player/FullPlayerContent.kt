@@ -2360,18 +2360,28 @@ private fun PlayerSongInfo(
         // Let's check AutoScrollingTextOnDemand. Assuming it uses it for scrolling trigger.
         // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
         // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
-        PlayerTitle(
-            text = title,
-            color = textColor,
-            maxSizeSp = titleMaxSizeSp,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Fluido: a new song's title rises in on the log curve while the old one fades out.
+        androidx.compose.animation.AnimatedContent(
+            targetState = title,
+            transitionSpec = { com.theveloper.pixelplay.ui.theme.fluidTextTransform() },
+            label = "playerTitle"
+        ) { animatedTitle ->
+            PlayerTitle(
+                text = animatedTitle,
+                color = textColor,
+                maxSizeSp = titleMaxSizeSp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
 
-
-
+        androidx.compose.animation.AnimatedContent(
+            targetState = artist,
+            transitionSpec = { com.theveloper.pixelplay.ui.theme.fluidTextTransform() },
+            label = "playerArtist"
+        ) { animatedArtist ->
         AutoScrollingTextOnDemand(
-            text = artist,
+            text = animatedArtist,
             style = artistStyle,
             gradientEdgeColor = gradientEdgeColor,
             expansionFractionProvider = expansionFractionProvider,
@@ -2406,6 +2416,7 @@ private fun PlayerSongInfo(
             ),
             canScroll = isPlayingProvider()
         )
+        }
     }
 }
 

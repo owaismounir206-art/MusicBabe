@@ -1457,8 +1457,13 @@ class LyricsRepositoryImpl @Inject constructor(
         val file = File(context.filesDir, "lyrics/$fileName")
         if (!file.exists()) return null
 
-        val json = file.readText()
-        return gson.fromJson(json, LyricsData::class.java)
+        // A file cut short by a crash would otherwise throw on every read and block the song's lyrics.
+        return runCatching { gson.fromJson(file.readText(), LyricsData::class.java) }
+            .onFailure {
+                Log.w(TAG, "Unreadable lyrics cache for ${song.id}, removing it", it)
+                file.delete()
+            }
+            .getOrNull()
     }
 
     // ========== Original methods (kept for backward compatibility) ==========

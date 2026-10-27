@@ -660,9 +660,14 @@ class MediaControllerSyncStateHolder @Inject constructor(
                 transitionSchedulerJob?.cancel()
                 lyricsStateHolder.cancelLoading()
                 transitionSchedulerJob = cb.scope.launch {
-                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    // With repeat-one the song ends with a REPEAT transition onto itself.
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                         val activeEotSongId = EotStateHolder.eotTargetSongId.value
-                        val previousSongId = playerCtrl.run { if (previousMediaItemIndex != C.INDEX_UNSET) getMediaItemAt(previousMediaItemIndex).mediaId else null }
+                        val previousSongId = if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                            mediaItem?.mediaId
+                        } else {
+                            playerCtrl.run { if (previousMediaItemIndex != C.INDEX_UNSET) getMediaItemAt(previousMediaItemIndex).mediaId else null }
+                        }
 
                         if (sleepTimerStateHolder.isEndOfTrackTimerActive.value && activeEotSongId != null && previousSongId != null && previousSongId == activeEotSongId) {
                             playerCtrl.seekTo(0L)

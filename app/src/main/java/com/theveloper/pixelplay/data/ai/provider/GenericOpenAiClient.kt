@@ -148,13 +148,9 @@ class GenericOpenAiClient(
                     .get()
                     .build()
                 
-                val response = client.newCall(request).execute()
-                
-                if (!response.isSuccessful) {
-                    return@withContext listOf(defaultModelId)
-                }
-                
-                val responseBody = response.body.string()
+                val responseBody = client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) null else response.body.string()
+                } ?: return@withContext listOf(defaultModelId)
                 val modelsResponse = json.decodeFromString<ModelsResponse>(responseBody)
                 modelsResponse.data.map { it.id }.let { UnifiedModelFilter.filterChatModels(it) }
             } catch (e: Exception) {
@@ -173,8 +169,7 @@ class GenericOpenAiClient(
                     .get()
                     .build()
                 
-                val response = client.newCall(request).execute()
-                response.isSuccessful
+                client.newCall(request).execute().use { it.isSuccessful }
             } catch (e: Exception) {
                 false
             }

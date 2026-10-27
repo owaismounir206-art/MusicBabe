@@ -706,7 +706,8 @@ private fun String.capitalizeFirstLetter(): String {
 
 object LyricsUtils {
 
-    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{1,3}):(\\d{2})[.:](\\d{1,3})](.*)$")
+    // The fraction is optional: "[01:02]text" is a synced line too.
+    private val LRC_LINE_REGEX = Pattern.compile("^\\[(\\d{1,3}):(\\d{2})(?:[.:](\\d{1,3}))?](.*)$")
     private val LRC_WORD_REGEX = Pattern.compile("<(\\d{1,3}):(\\d{2})[.:](\\d{1,3})>([^<]*)")
     private val LRC_WORD_TAG_REGEX = Regex("<\\d{1,3}:\\d{2}[.:]\\d{1,3}>")
     private val LRC_WORD_SPLIT_REGEX = Regex("(?=<\\d{1,3}:\\d{2}[.:]\\d{1,3}>)")
@@ -1733,7 +1734,8 @@ private fun sanitizeLrcLine(rawLine: String): String {
 
     val trimmedPrefix = withoutTerminators.trimStart { it.isWhitespace() }
     val firstBracket = trimmedPrefix.indexOf('[')
-    return if (firstBracket > 0) {
+    // Junk before a timestamp is dropped; a plain line such as "Ooh baby [x2]" is kept whole.
+    return if (firstBracket > 0 && LEADING_LRC_TIMESTAMP.containsMatchIn(trimmedPrefix.substring(firstBracket))) {
         trimmedPrefix.substring(firstBracket)
     } else {
         trimmedPrefix
@@ -2045,3 +2047,5 @@ private fun List<PathNode>.transform(matrix: Matrix): MutableList<PathNode> {
         }
     }.toMutableList()
 }
+
+private val LEADING_LRC_TIMESTAMP = Regex("^\\[\\d{1,3}:\\d{2}")
