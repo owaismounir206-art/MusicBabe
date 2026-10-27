@@ -98,6 +98,27 @@ class OnlineMusicRepository @Inject constructor(
         }.awaitAll().filterNotNull()
     }
 
+    /** "Music videos for you": official videos of the user's artists, or the hits without history. */
+    suspend fun musicVideos(seeds: Seeds): OnlineShelf? = coroutineScope {
+        val queries = seeds.artists.take(3).ifEmpty { listOf(localizedQuery("top music videos")) }
+        val found = queries.map { query ->
+            async {
+                runCatching {
+                    extractor.search(query, YoutubeSearchQueryHandlerFactory.MUSIC_VIDEOS, 6)
+                        .filter { it.durationSeconds in 60..900 }
+                        .map { it.toOnlineSong().copy(isVideo = true) }
+                }.getOrDefault(emptyList())
+            }
+        }.awaitAll()
+        val videos = interleave(found).distinctBy { it.videoId }.take(12)
+        if (videos.size < 3) null else OnlineShelf(
+            id = "videos",
+            title = VIDEOS_MARKER,
+            items = videos,
+            style = OnlineShelfStyle.VIDEOS
+        )
+    }
+
     /** "Covers and remixes" of the songs the user plays most. */
     suspend fun coversAndRemixes(seeds: Seeds): OnlineShelf? = coroutineScope {
         val picks = seeds.top.take(3)
@@ -132,7 +153,13 @@ class OnlineMusicRepository @Inject constructor(
         val albums = async { collections(query, YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS) }
         val playlists = async { collections(query, YoutubeSearchQueryHandlerFactory.MUSIC_PLAYLISTS) }
         val artists = async { collections(query, YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS, 6) }
+        val videos = async {
+            runCatching {
+                extractor.search(query, YoutubeSearchQueryHandlerFactory.MUSIC_VIDEOS, 10).map { it.toOnlineSong().copy(isVideo = true) }
+            }.getOrDefault(emptyList())
+        }
         OnlineSearchResults(
+            videos = videos.await(),
             songs = songs.await(),
             albums = albums.await(),
             playlists = playlists.await(),
@@ -263,5 +290,6 @@ class OnlineMusicRepository @Inject constructor(
         const val MORE_FROM_MARKER = "@more_from"
         const val COVERS_MARKER = "@covers"
         const val ALBUMS_MARKER = "@albums"
+        const val VIDEOS_MARKER = "@videos"
     }
 }

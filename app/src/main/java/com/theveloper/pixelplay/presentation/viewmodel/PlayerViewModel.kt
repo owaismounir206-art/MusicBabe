@@ -3338,6 +3338,18 @@ class PlayerViewModel @Inject constructor(
         dualPlayerEngine.setKaraokeMode(!isKaraokeEnabled.value)
     }
 
+    private val _isFullscreenLyrics = MutableStateFlow(false)
+    /** Landscape full screen: video or cover on the left, lyrics on the right. */
+    val isFullscreenLyrics: StateFlow<Boolean> = _isFullscreenLyrics.asStateFlow()
+
+    fun setFullscreenLyrics(enabled: Boolean) {
+        _isFullscreenLyrics.value = enabled
+    }
+
+    fun setMusicVideoVisible(visible: Boolean) {
+        _isMusicVideoVisible.value = visible
+    }
+
     fun toggleMusicVideo() {
         _isMusicVideoVisible.value = !_isMusicVideoVisible.value
     }

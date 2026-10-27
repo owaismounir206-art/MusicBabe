@@ -37,6 +37,7 @@ import com.theveloper.pixelplay.presentation.components.SmartImage
 import com.theveloper.pixelplay.ui.theme.Scena
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -146,6 +147,7 @@ fun MusicVideoPanel(
     song: Song,
     playerViewModel: PlayerViewModel,
     modifier: Modifier = Modifier,
+    onFullscreen: (() -> Unit)? = null,
     viewModel: MusicVideoViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -189,6 +191,22 @@ fun MusicVideoPanel(
                     .graphicsLayer { alpha = coverAlpha }
                     .background(Color.Black.copy(alpha = 0.45f))
             )
+        }
+        if (onFullscreen != null && current is MusicVideoState.Ready) {
+            androidx.compose.material3.IconButton(
+                onClick = onFullscreen,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f))
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Rounded.Fullscreen,
+                    contentDescription = stringResource(R.string.fullscreen_open),
+                    tint = Color.White
+                )
+            }
         }
         when (current) {
             is MusicVideoState.Ready -> if (!firstFrameShown) LoadingIndicator(color = Color.White)

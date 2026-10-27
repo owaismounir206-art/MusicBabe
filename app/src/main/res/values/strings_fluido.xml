@@ -78,4 +78,13 @@
     <string name="save_stream_video_desc">The video up to 1080p with its audio. It also appears in Music videos, with synced lyrics.</string>
     <string name="save_stream_started">Saving “%1$s”…</string>
     <string name="save_stream_not_found">This song was not found on YouTube</string>
+    <string name="fullscreen_open">Full screen</string>
+    <string name="fullscreen_exit">Exit full screen</string>
+    <string name="fullscreen_no_lyrics">No lyrics for this song yet</string>
+    <string name="online_shelf_videos">Music videos for you</string>
+    <string name="home_for_you">For you: mixes and stats</string>
+    <string name="home_settings">Settings</string>
+    <string name="home_recent">Pick up again</string>
+    <string name="player_switch_song">Song</string>
+    <string name="player_switch_video">Video</string>
 </resources>

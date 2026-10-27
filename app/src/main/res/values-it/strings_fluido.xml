@@ -78,4 +78,13 @@
     <string name="save_stream_video_desc">Il video fino a 1080p con il suo audio. Compare anche in Video musicali, con i testi sincronizzati.</string>
     <string name="save_stream_started">Salvo «%1$s»…</string>
     <string name="save_stream_not_found">Questo brano non è stato trovato su YouTube</string>
+    <string name="fullscreen_open">Schermo intero</string>
+    <string name="fullscreen_exit">Esci dallo schermo intero</string>
+    <string name="fullscreen_no_lyrics">Ancora nessun testo per questo brano</string>
+    <string name="online_shelf_videos">Video musicali per te</string>
+    <string name="home_for_you">Per te: mix e statistiche</string>
+    <string name="home_settings">Impostazioni</string>
+    <string name="home_recent">Riprendi l\'ascolto</string>
+    <string name="player_switch_song">Brano</string>
+    <string name="player_switch_video">Video</string>
 </resources>

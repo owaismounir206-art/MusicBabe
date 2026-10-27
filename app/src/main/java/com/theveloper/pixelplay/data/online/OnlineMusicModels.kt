@@ -22,6 +22,8 @@ data class OnlineSongItem(
     val album: String = "",
     val durationSeconds: Long = 0,
     override val thumbnailUrl: String? = null,
+    /** A music video: playing it opens the player on the video. */
+    val isVideo: Boolean = false,
 ) : OnlineItem {
     override val key: String get() = "song:$videoId"
     override val subtitle: String get() = artist
@@ -52,6 +54,8 @@ enum class OnlineShelfStyle {
     SONG_LIST,
     /** Cards with a large cover and two lines below. */
     CARDS,
+    /** Music videos: wide 16:9 thumbnails. */
+    VIDEOS,
 }
 
 @Immutable
@@ -81,8 +85,9 @@ data class OnlineSearchResults(
     val albums: List<OnlineCollectionItem> = emptyList(),
     val playlists: List<OnlineCollectionItem> = emptyList(),
     val artists: List<OnlineCollectionItem> = emptyList(),
+    val videos: List<OnlineSongItem> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = songs.isEmpty() && albums.isEmpty() && playlists.isEmpty() && artists.isEmpty()
+    val isEmpty: Boolean get() = songs.isEmpty() && albums.isEmpty() && playlists.isEmpty() && artists.isEmpty() && videos.isEmpty()
 }
 
 fun YouTubeTrack.toOnlineSong(): OnlineSongItem = OnlineSongItem(

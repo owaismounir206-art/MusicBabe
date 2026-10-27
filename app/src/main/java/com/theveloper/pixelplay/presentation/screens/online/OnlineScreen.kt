@@ -6,6 +6,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +74,8 @@ fun rememberOnlineActions(playerViewModel: PlayerViewModel, navController: NavHo
                 val queue = songs.map(OnlineSongItem::toSong)
                 queue.getOrNull(index)?.let { start ->
                     playerViewModel.showAndPlaySong(start, queue, queueName = queueName)
+                    // A music video opens the player on the video, a song on the cover.
+                    playerViewModel.setMusicVideoVisible(songs[index].isVideo)
                 }
             },
             playNext = { playerViewModel.addSongNextToQueue(it.toSong()) },
@@ -148,12 +155,15 @@ fun OnlineScreen(
                         maxLines = 1
                     )
                 }
-                FluidPillButton(
-                    text = stringResource(R.string.videos_open),
-                    icon = Icons.Rounded.VideoLibrary,
-                    outlined = true,
-                    onClick = { navController.navigate(Screen.MusicVideos.route) }
-                )
+                HeaderIcon(Icons.Rounded.VideoLibrary, stringResource(R.string.videos_open)) {
+                    navController.navigate(Screen.MusicVideos.route)
+                }
+                HeaderIcon(Icons.Rounded.AutoAwesome, stringResource(R.string.home_for_you)) {
+                    navController.navigate(Screen.ForYou.route)
+                }
+                HeaderIcon(Icons.Rounded.Settings, stringResource(R.string.home_settings)) {
+                    navController.navigate(Screen.Settings.route)
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -177,6 +187,25 @@ fun OnlineScreen(
             Spacer(Modifier.height(24.dp))
         }
 
+        if (!searching && home.recent.isNotEmpty()) {
+            item(key = "recent") {
+                Column(Modifier.fluidEnter(3)) {
+                    OnlineSectionHeader(title = stringResource(R.string.home_recent))
+                    Spacer(Modifier.height(12.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = Scena.Gutter),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(home.recent, key = { it.id }) { song ->
+                            RecentSongCard(song = song, onClick = {
+                                playerViewModel.showAndPlaySong(song, home.recent, queueName = context.getString(R.string.home_recent))
+                            })
+                        }
+                    }
+                }
+                Spacer(Modifier.height(28.dp))
+            }
+        }
         if (searching) {
             item(key = "results") {
                 AnimatedContent(
@@ -247,6 +276,21 @@ private fun OnlineSearchResultsView(results: OnlineSearchResults, actions: Onlin
                 Column(Modifier.padding(horizontal = Scena.Gutter - 4.dp)) {
                     results.songs.take(8).forEachIndexed { index, song ->
                         OnlineSongRow(song = song, onClick = { actions.playSongs(results.songs, index, title) }, actions = actions)
+                    }
+                }
+            }
+        }
+        if (results.videos.isNotEmpty()) {
+            Column {
+                val title = stringResource(R.string.online_shelf_videos)
+                OnlineSectionHeader(title = title)
+                Spacer(Modifier.height(12.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = Scena.Gutter),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(results.videos, key = { it.key }) { video ->
+                        OnlineVideoCard(video = video, onClick = { actions.playSongs(results.videos, results.videos.indexOf(video), title) })
                     }
                 }
             }
@@ -323,4 +367,34 @@ private fun greetingRes(): Int = when (Calendar.getInstance().get(Calendar.HOUR_
     in 12..17 -> R.string.online_greeting_afternoon
     in 18..22 -> R.string.online_greeting_evening
     else -> R.string.online_greeting_night
+}
+
+@Composable
+private fun HeaderIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    androidx.compose.material3.IconButton(onClick = onClick) {
+        Icon(icon, contentDescription = label, tint = MaterialTheme.scena.ink)
+    }
+}
+
+/** A library song in "Pick up again": cover and title, plays from the library. */
+@Composable
+private fun RecentSongCard(song: com.theveloper.pixelplay.data.model.Song, onClick: () -> Unit) {
+    val scena = MaterialTheme.scena
+    Column(
+        Modifier
+            .width(120.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+    ) {
+        com.theveloper.pixelplay.presentation.components.SmartImage(
+            model = song.albumArtUriString,
+            contentDescription = null,
+            shape = Scena.ArtShape,
+            modifier = Modifier.size(120.dp),
+            targetSize = coil.size.Size(360, 360)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(song.title, style = MaterialTheme.typography.titleSmall, color = scena.ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(song.displayArtist, style = MaterialTheme.typography.bodySmall, color = scena.ink2, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
 }

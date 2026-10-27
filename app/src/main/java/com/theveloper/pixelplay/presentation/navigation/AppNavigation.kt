@@ -125,11 +125,11 @@ fun AppNavigation(
                 },
             ) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
-                    HomeScreen(
-                        navController = navController, 
-                        paddingValuesParent = paddingValues, 
+                    // Home is the online zone (YouTube Music style), with your library's recent songs.
+                    com.theveloper.pixelplay.presentation.screens.online.OnlineScreen(
+                        navController = navController,
                         playerViewModel = playerViewModel,
-                        onOpenSidebar = onOpenSidebar
+                        paddingValuesParent = paddingValues
                     )
                 }
             }
@@ -225,6 +225,16 @@ fun AppNavigation(
                     com.theveloper.pixelplay.presentation.screens.online.OnlineCollectionScreen(
                         navController = navController,
                         playerViewModel = playerViewModel
+                    )
+                }
+            }
+            composable(Screen.ForYou.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    HomeScreen(
+                        navController = navController,
+                        paddingValuesParent = paddingValues,
+                        playerViewModel = playerViewModel,
+                        onOpenSidebar = onOpenSidebar
                     )
                 }
             }

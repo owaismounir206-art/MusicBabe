@@ -124,6 +124,7 @@ import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Fullscreen
 import com.theveloper.pixelplay.data.model.isOnlineTrack
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
@@ -425,6 +426,11 @@ fun FullPlayerContent(
         }
     }
 
+    val fullscreenLyrics by playerViewModel.isFullscreenLyrics.collectAsStateWithLifecycle()
+    if (fullscreenLyrics) {
+        FullscreenLyricsPlayer(playerViewModel = playerViewModel, onDismiss = { playerViewModel.setFullscreenLyrics(false) })
+    }
+
     if (showOnlineSongDownloadDialog && song != null) {
         com.theveloper.pixelplay.presentation.components.SaveStreamSheet(
             onPick = { format ->
@@ -566,7 +572,11 @@ fun FullPlayerContent(
     val albumCoverSection: @Composable (Modifier) -> Unit = { modifier ->
         if (isMusicVideoVisible && song != null) {
             Box(modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                MusicVideoPanel(song = song, playerViewModel = playerViewModel)
+                MusicVideoPanel(
+                    song = song,
+                    playerViewModel = playerViewModel,
+                    onFullscreen = { playerViewModel.setFullscreenLyrics(true) }
+                )
             }
         } else if (carouselStyle == CarouselStyle.DISC && song != null) {
             ScenaDiscCover(
@@ -784,13 +794,8 @@ fun FullPlayerContent(
                         if (!isCastConnecting) {
                             AnimatedVisibility(visible = (!isRemotePlaybackActive)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        modifier = Modifier.padding(start = 18.dp),
-                                        text = stringResource(R.string.player_now_playing),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = scenaWide(14.sp)
-                                    )
+                                    // "Song | Video", as in YouTube Music: the video replaces the cover.
+                                    SongVideoSwitch(playerViewModel, modifier = Modifier.padding(start = 12.dp))
 
                                     if (currentSong != null && (currentSong.telegramChatId != null || currentSong.contentUriString.startsWith("telegram:"))) {
                                         Icon(
@@ -1018,6 +1023,8 @@ fun FullPlayerContent(
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
         val lyricsAudioAlignmentProgress by playerViewModel.lyricsAudioAlignmentProgress.collectAsStateWithLifecycle()
+        // The lyrics are always a dark stage tinted by the cover: the glow needs a dark ground.
+        MaterialTheme(colorScheme = lyricsStageScheme(MaterialTheme.colorScheme)) {
         LyricsSheet(
             stablePlayerStateFlow = playerViewModel.stablePlayerState,
             playbackPositionFlow = playerViewModel.currentPlaybackPosition,
@@ -1067,6 +1074,7 @@ fun FullPlayerContent(
             onRepeatToggle = onRepeatToggle,
             onFavoriteToggle = onFavoriteToggle
         )
+        }
     }
 
     val artistPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1653,7 +1661,21 @@ private fun SongMetadataDisplaySection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MusicVideoToggleButton(playerViewModel, chipColor, chipContentColor)
+
+                FilledIconButton(
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = chipColor,
+                        contentColor = chipContentColor
+                    ),
+                    onClick = { playerViewModel.setFullscreenLyrics(true) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Fullscreen,
+                        contentDescription = stringResource(R.string.fullscreen_open)
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .size(PlayerActionSize)
@@ -2858,6 +2880,65 @@ private fun BottomToggleRow(
                 iconId = if (isFavorite) R.drawable.round_favorite_24 else R.drawable.rounded_favorite_24,
                 contentDesc = stringResource(R.string.common_favorite)
             )
+        }
+    }
+}
+
+/** A dark scheme for the lyrics stage, tinted by [base]'s primary container (cover colour). */
+internal fun lyricsStageScheme(base: androidx.compose.material3.ColorScheme): androidx.compose.material3.ColorScheme {
+    val tint = base.primaryContainer
+    val ground = androidx.compose.ui.graphics.lerp(Color(0xFF09090B), tint, 0.22f)
+    return base.copy(
+        surface = ground,
+        background = ground,
+        surfaceContainerLowest = ground,
+        surfaceContainerLow = androidx.compose.ui.graphics.lerp(ground, Color.White, 0.04f),
+        surfaceContainer = androidx.compose.ui.graphics.lerp(ground, Color.White, 0.08f),
+        surfaceContainerHigh = androidx.compose.ui.graphics.lerp(ground, Color.White, 0.12f),
+        surfaceContainerHighest = androidx.compose.ui.graphics.lerp(ground, Color.White, 0.16f),
+        onSurface = Color.White,
+        onBackground = Color.White,
+        onSurfaceVariant = Color.White.copy(alpha = 0.72f),
+        primary = androidx.compose.ui.graphics.lerp(base.primary, Color.White, 0.55f),
+        onPrimary = Color(0xFF111114),
+        outline = Color.White.copy(alpha = 0.4f),
+        outlineVariant = Color.White.copy(alpha = 0.18f),
+    )
+}
+
+/** Segmented "Song | Video" pill: the selected side is filled, the switch slides with a spring. */
+@Composable
+private fun SongVideoSwitch(playerViewModel: PlayerViewModel, modifier: Modifier = Modifier) {
+    val isVideo by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
+    val onColor = LocalMaterialTheme.current.onPrimaryContainer
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(onColor.copy(alpha = 0.12f))
+            .padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        listOf(false, true).forEach { video ->
+            val selected = video == isVideo
+            val bg by androidx.compose.animation.animateColorAsState(
+                if (selected) onColor else Color.Transparent,
+                com.theveloper.pixelplay.ui.theme.Fluido.colorSpec(),
+                label = "switchBg"
+            )
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(bg)
+                    .clickable { if (!selected) playerViewModel.toggleMusicVideo() }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    stringResource(if (video) R.string.player_switch_video else R.string.player_switch_song),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (selected) LocalMaterialTheme.current.primaryContainer else onColor
+                )
+            }
         }
     }
 }
