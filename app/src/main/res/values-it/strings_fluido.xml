@@ -87,4 +87,23 @@
     <string name="home_recent">Riprendi l\'ascolto</string>
     <string name="player_switch_song">Brano</string>
     <string name="player_switch_video">Video</string>
+    <string name="yt_chip_all">Tutto</string>
+    <string name="yt_chip_videos">Video musicali</string>
+    <string name="yt_chip_songs">Canzoni</string>
+    <string name="yt_chip_albums">Album</string>
+    <string name="yt_chip_artists">Artisti</string>
+    <string name="yt_chip_mixes">Mix</string>
+    <string name="yt_section_videos">Video musicali</string>
+    <string name="yt_section_videos_overline">Video consigliati</string>
+    <string name="yt_section_albums">Album e singoli</string>
+    <string name="yt_section_albums_overline">Discografia</string>
+    <string name="yt_section_artists">Artisti in primo piano</string>
+    <string name="yt_section_artists_overline">I tuoi preferiti</string>
+    <string name="yt_section_quick_picks">Ascolta di nuovo</string>
+    <string name="yt_section_quick_picks_overline">Canzoni rapide</string>
+    <string name="yt_see_all">Vedi tutti</string>
+    <string name="yt_play_all">Riproduci tutto</string>
+    <string name="yt_videos_empty_card_title">Aggiungi video musicali</string>
+    <string name="yt_videos_empty_card_subtitle">Riproduci i video con testo sincronizzato riga per riga</string>
+    <string name="yt_videos_import_action">Importa video</string>
 </resources>

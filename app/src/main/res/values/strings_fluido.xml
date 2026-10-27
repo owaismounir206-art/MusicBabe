@@ -87,4 +87,23 @@
     <string name="home_recent">Pick up again</string>
     <string name="player_switch_song">Song</string>
     <string name="player_switch_video">Video</string>
+    <string name="yt_chip_all">All</string>
+    <string name="yt_chip_videos">Videos</string>
+    <string name="yt_chip_songs">Songs</string>
+    <string name="yt_chip_albums">Albums</string>
+    <string name="yt_chip_artists">Artists</string>
+    <string name="yt_chip_mixes">Mixes</string>
+    <string name="yt_section_videos">Music videos</string>
+    <string name="yt_section_videos_overline">Recommended videos</string>
+    <string name="yt_section_albums">Albums &amp; Singles</string>
+    <string name="yt_section_albums_overline">Discography</string>
+    <string name="yt_section_artists">Featured artists</string>
+    <string name="yt_section_artists_overline">Your favorites</string>
+    <string name="yt_section_quick_picks">Listen again</string>
+    <string name="yt_section_quick_picks_overline">Quick picks</string>
+    <string name="yt_see_all">See all</string>
+    <string name="yt_play_all">Play all</string>
+    <string name="yt_videos_empty_card_title">Add music videos</string>
+    <string name="yt_videos_empty_card_subtitle">Play videos with synced lyrics line by line</string>
+    <string name="yt_videos_import_action">Import videos</string>
 </resources>

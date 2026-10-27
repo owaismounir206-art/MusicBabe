@@ -19,6 +19,7 @@ import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibResponse
 import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
+import com.theveloper.pixelplay.data.lyrics.KugouLyricsProvider
 import com.theveloper.pixelplay.utils.LyricsImportSecurity
 import com.theveloper.pixelplay.utils.LyricsImportValidationResult
 import com.theveloper.pixelplay.utils.LogUtils
@@ -124,7 +125,9 @@ class LyricsRepositoryImpl @Inject constructor(
     private val okHttpClient: OkHttpClient,
     // Livello 3 del pipeline: NetEase reverse public lyrics API (no-auth, no API key).
     // Valore di default mantenuto per compatibilità con i test unitari esistenti.
-    private val neteaseApiService: NeteaseApiService = NeteaseApiService()
+    private val neteaseApiService: NeteaseApiService = NeteaseApiService(),
+    // Livello 4: testi LRC da KuGou, l'ultima sorgente gratuita senza login.
+    private val kugouLyricsProvider: KugouLyricsProvider = KugouLyricsProvider()
 ) : LyricsRepository {
 
 
@@ -478,6 +481,19 @@ class LyricsRepositoryImpl @Inject constructor(
             }
         }
 
+        // Livello extra senza login: KuGou restituisce LRC sincronizzato anche per i brani
+        // che LRCLIB non ha e che NetEase espone solo agli utenti con account. Gira solo
+        // quando nessun provider ha trovato niente, così chi ha già i testi non aspetta.
+        if (fallbackPlainLyrics == null) {
+            runCatching { fetchFromKugouLyrics(song) }.getOrNull()?.let { kugouLyrics ->
+                lyricsCache.put(cacheKey, kugouLyrics)
+                saveLocalLyricsJson(song, kugouLyrics)
+                writeSidecarLrcForRemote(song, kugouLyrics)
+                Log.d(TAG, "Kugou lyrics resolved for: ${song.displayArtist} - ${song.title}")
+                return@withContext kugouLyrics
+            }
+        }
+
         // Se nessun provider ha restituito testi sincronizzati, emetti il testo plain senza inventare timestamp
         if (fallbackPlainLyrics != null) {
             Log.d(TAG, "Using plain lyrics fallback from $fallbackPlainSourceName for: ${song.displayArtist} - ${song.title}")
@@ -776,6 +792,32 @@ class LyricsRepositoryImpl @Inject constructor(
             parsed
         } catch (e: Exception) {
             Log.d(TAG, "NetEase lyrics fallback failed for '${song.title}': ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Livello 4 del pipeline lyrics: testi LRC da KuGou ([KugouLyricsProvider], API pubbliche
+     * senza chiavi). Copre i brani che LRCLIB non ha e che NetEase espone solo agli utenti
+     * con account, cioè il caso più frequente quando i testi "non si trovano".
+     */
+    private suspend fun fetchFromKugouLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
+        try {
+            val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+            if (cleanTitle.isBlank()) return@withContext null
+
+            val rawLrc = kugouLyricsProvider.fetchLrc(cleanTitle, cleanArtist, song.duration)
+                ?: return@withContext null
+            val parsed = LyricsUtils.parseLyrics(rawLrc).copy(
+                areFromRemote = true,
+                source = com.theveloper.pixelplay.data.model.LyricsProvider.KUGOU
+            )
+            if (!parsed.isValid()) return@withContext null
+
+            Log.d(TAG, "===== FOUND KUGOU LYRICS for: ${song.title} =====")
+            parsed
+        } catch (e: Exception) {
+            Log.d(TAG, "KuGou lyrics fallback failed for '${song.title}': ${e.message}")
             null
         }
     }
@@ -1512,17 +1554,21 @@ class LyricsRepositoryImpl @Inject constructor(
                 }
             }
 
-            // Fallback: Try the exact match API (less likely to succeed, but worth a shot)
-            val response = withNetworkRetry(operationName = "lrclib_get_lyrics") {
-                val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
-                val durationSec = (song.duration / 1000).toInt()
-                lrcLibApiService.getLyrics(
-                    trackName = cleanTitle,
-                    artistName = cleanArtist,
-                    albumName = null,
-                    duration = if (durationSec > 0) durationSec else null
-                )
-            }
+            // Fallback: Try the exact match API (less likely to succeed, but worth a shot).
+            // Un 404 di LRCLIB significa solo "brano assente" e non deve interrompere la
+            // catena: il livello NetEase qui sotto deve poter ancora trovare i testi.
+            val response = runCatching {
+                withNetworkRetry(operationName = "lrclib_get_lyrics") {
+                    val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+                    val durationSec = (song.duration / 1000).toInt()
+                    lrcLibApiService.getLyrics(
+                        trackName = cleanTitle,
+                        artistName = cleanArtist,
+                        albumName = null,
+                        duration = if (durationSec > 0) durationSec else null
+                    )
+                }
+            }.getOrNull()
 
             val exactMatch = response
                 ?.let { rankRemoteLyricsMatches(song, listOf(it), RemoteLyricsMatchMode.AUTOMATIC).firstOrNull()?.response }
@@ -1588,8 +1634,22 @@ class LyricsRepositoryImpl @Inject constructor(
 
                     Result.success(Pair(neteaseLyrics, rawLyricsToSave))
                 } else {
-                    LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
-                    Result.failure(NoLyricsFoundException())
+                    // Ultimo livello senza login: KuGou copre i brani assenti da LRCLIB.
+                    val kugouLyrics = runCatching { fetchFromKugouLyrics(song) }.getOrNull()
+                    if (kugouLyrics != null) {
+                        val rawLyricsToSave = LyricsUtils.toLrcString(kugouLyrics)
+                        lyricsCache.put(cacheKey, kugouLyrics)
+                        saveLocalLyricsJson(song, kugouLyrics)
+                        writeSidecarLrcForRemote(song, kugouLyrics)
+                        LogUtils.d(
+                            this@LyricsRepositoryImpl,
+                            "Fetched and cached remote lyrics (KuGou fallback) for: ${song.title}"
+                        )
+                        Result.success(Pair(kugouLyrics, rawLyricsToSave))
+                    } else {
+                        LogUtils.d(this@LyricsRepositoryImpl, "No lyrics found remotely for: ${song.title}")
+                        Result.failure(NoLyricsFoundException())
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -1714,6 +1774,35 @@ class LyricsRepositoryImpl @Inject constructor(
         )
     }
 
+    /** Risultato di ricerca manuale da KuGou, usato quando LRCLIB non restituisce nulla. */
+    private suspend fun findKugouLyricsSearchResult(
+        title: String,
+        artist: String?
+    ): LyricsSearchResult? {
+        val rawLrc = runCatching {
+            kugouLyricsProvider.fetchLrc(title, artist.orEmpty(), 0L)
+        }.getOrNull() ?: return null
+        val parsed = LyricsUtils.parseLyrics(rawLrc).copy(
+            areFromRemote = true,
+            source = com.theveloper.pixelplay.data.model.LyricsProvider.KUGOU
+        )
+        if (!parsed.isValid()) return null
+        val hasSynced = !parsed.synced.isNullOrEmpty()
+        return LyricsSearchResult(
+            record = LrcLibResponse(
+                id = ("$title|${artist.orEmpty()}").hashCode(),
+                name = title,
+                artistName = artist.orEmpty(),
+                albumName = "",
+                duration = 0.0,
+                plainLyrics = if (hasSynced) null else rawLrc,
+                syncedLyrics = if (hasSynced) rawLrc else null
+            ),
+            lyrics = parsed,
+            rawLyrics = rawLrc
+        )
+    }
+
     override suspend fun searchRemoteByQuery(title: String, artist: String?): Result<Pair<String, List<LyricsSearchResult>>> = withContext(Dispatchers.IO) {
         try {
             val cleanTitle = title.trim()
@@ -1740,6 +1829,11 @@ class LyricsRepositoryImpl @Inject constructor(
             val responses = runSearchStrategiesFast(strategies)
 
             if (responses.isEmpty()) {
+                // Nessun risultato su LRCLIB: prova KuGou con i dati digitati, così la
+                // ricerca manuale non si ferma al primo provider.
+                findKugouLyricsSearchResult(cleanTitle, cleanArtist)?.let { kugouResult ->
+                    return@withContext Result.success(Pair(query, listOf(kugouResult)))
+                }
                 return@withContext Result.failure(NoLyricsFoundException(query))
             }
 

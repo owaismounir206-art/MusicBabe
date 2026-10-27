@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2026-10-27
 
 ### Added
-- **Schermo intero in orizzontale**: dal player o dall'icona sul video. A sinistra il video (o la copertina) con i comandi, a destra i testi che scorrono e si illuminano.
+- **Schermo intero in orizzontale**: dal player o dall'icona sul video. A sinistra il video (o la copertina) con i comandi, a destra i testi che scorrono.
 - **Salva sul telefono**: salva esattamente quello che stai ascoltando, senza cercarlo su altre fonti. Formati:
   - audio in qualità originale (.m4a);
   - audio non compresso (.wav);
@@ -23,10 +23,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Poi "Selezione rapida", i video e le sezioni di YouTube Music.
   - Le icone in alto portano a "Video musicali", a "Per te" (mix e statistiche della vecchia Home) e alle Impostazioni.
   - Le schede tornano tre: Home, Cerca, Libreria.
-- **Testi ridisegnati**: sfondo scuro tinto col colore della copertina, con la copertina sfocata dietro, e il bagliore parola per parola.
+- **Testi**: sfondo scuro tinto col colore della copertina, con la copertina sfocata dietro. Lo stile delle righe resta quello della v1.7.0 ripristinato nella 2.0.3.
 
 ### Fixed
 - **Brani e video online partono subito**: lo stream viene letto a pezzi, come fanno le app di YouTube. Il brano parte appena arriva il primo pezzo e il resto si carica mentre ascolti; prima un'unica richiesta veniva rallentata o interrotta da YouTube.
+
+## [2.0.3] - 2026-10-27
+
+### Added
+- **Interfaccia Home in stile YouTube Music**:
+  - Filtri orizzontali pinned a chip ("Tutto", "Video musicali", "Canzoni", "Album", "Artisti", "Mix") per navigare rapidamente tra i diversi contenuti musicali.
+  - Carosello video musicali in formato widescreen 16:9 con badge durata e pulsante di riproduzione diretta o aggiunta video dal dispositivo.
+  - Carosello album con copertine quadrate 1:1 e badge con anno e numero di brani.
+  - Carosello artisti in evidenza con avatar circolari e badge con conteggio tracce.
+  - Sezione "Selezione rapida" con layout a 3 righe orizzontali scorrevoli, pulsanti di riproduzione rapida e menu a tre puntini per le opzioni del brano.
+
+### Changed
+- **Restyling estetico dei testi sincronizzati (ritorno all'estetica amata della v1.7.0)**:
+  - Eliminato il forzato MAIUSCOLO su tutte le parole per ripristinare il casing naturale e la perfetta leggibilità originale.
+  - Ripristinata la tipografia pulita Google Sans Rounded con interlinea corretta (1.15f per la riga attiva, proporzionata a riposo).
+  - Ripristinato l'effetto di ingrandimento a molla fluido (1.08x con fisica Springy) sulla parola attualmente cantata senza artefatti o distorsioni di dimensione fittizie.
+  - Rimossi effetti di bagliore e scalatura cinetica sfocati che appesantivano la lettura.
+
+## [2.0.2] - 2026-10-27
+
+### Added
+- **Testi da KuGou**: nuovo livello di ricerca dei testi sincronizzati tramite le API pubbliche KuGou (nessuna chiave, nessun login), usato automaticamente quando LRCLIB non ha il brano e NetEase non lo espone. I testi trovati vengono salvati come gli altri (cache, file `.lrc` accanto al brano) e la UI indica la sorgente KuGou.
+- **Download da YouTube**: quando nessuna delle fonti abituali (KuGou, NetEase, CDN) fornisce il brano intero, il download usa l'estrattore YouTube già presente per l'ascolto online, con verifica della durata prima di salvare il file.
+
+### Changed
+- **Download in un tocco**: il pulsante di download nel player non apre più il dialogo; il brano parte subito e l'avanzamento resta nella coda dei download e nella notifica.
+
+### Fixed
+- **Testi non trovati**: un brano assente su LRCLIB (404/503) interrompeva l'intera ricerca prima di provare NetEase e KuGou, quindi i testi "non si trovavano" anche quando esistevano. Ora l'errore viene ignorato e la ricerca prosegue con le altre sorgenti.
+- **Download non riuscito** sui brani che le fonti gratuite non coprono: ora c'è il fallback YouTube, con supporto ai file `.webm` e verifica della durata reale del file scaricato.
 
 ## [2.0.1] - 2026-10-27
 

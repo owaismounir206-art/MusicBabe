@@ -1756,7 +1756,7 @@ fun LyricLineRow(
     val activeSp = remember(sanitizedLine, baseSp) {
         scenaActiveLyricSizeSp(
             charCount = sanitizedLine.length,
-            longestWordChars = (longestLatinWordChars(sanitizedLine) * KineticBigWordScale).toInt(),
+            longestWordChars = longestLatinWordChars(sanitizedLine),
             userScale = baseSp / ScenaBaseLyricSp
         )
     }
@@ -1770,15 +1770,19 @@ fun LyricLineRow(
         label = "lineGrowth"
     )
     val fontSp = lerp(baseSp, activeSp, growth)
-    val lineTextStyle = glowLyricStyle(fontSp)
+    val lineTextStyle = if (isCurrentLine) {
+        scenaDisplay(fontSp.sp).copy(lineHeight = (fontSp * 1.15f).sp)
+    } else {
+        scenaWide(fontSp.sp)
+    }
 
     // ─── Colour: ink2 (dim) until the line, or the word, is reached; then the single accent ──────
     val restingAlpha = when (resolvedPhase) {
-        LyricLinePhase.Active -> 0.35f
-        LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.5f
-        LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.32f
+        LyricLinePhase.Active -> 0.48f
+        LyricLinePhase.Past -> if (useAnimatedLyrics) 0.8f else 0.70f
+        LyricLinePhase.Future -> if (useAnimatedLyrics) 0.8f else 0.45f
     }
-    // Every line is the lit colour at a lower opacity: unsung words of the active line at 35%,
+    // Every line is the lit colour at a lower opacity: unsung words of the active line at 48%,
     // past lines a bit more present than the coming ones.
     val unlitColor = accentColor.copy(alpha = restingAlpha)
     val lineColor by animateColorAsState(
@@ -1934,20 +1938,14 @@ fun LyricLineRow(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = horizontalAlignment
         ) {
-            val kinetic = remember(sanitizedLine, fontSp) { kineticLineText(sanitizedLine, fontSp) }
-            val glow by animateFloatAsState(
-                targetValue = if (isCurrentLine) 1f else 0f,
-                animationSpec = if (animationsEnabled) tween(Fluido.Medium, easing = Fluido.EaseLog) else snap(),
-                label = "lineGlow"
-            )
             Text(
-                text = kinetic,
-                style = lineTextStyle.withGlow(accentColor, glow),
+                text = sanitizedLine,
+                style = lineTextStyle,
                 color = lineColor,
                 textAlign = textAlign,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp)
+                    .padding(vertical = 4.dp)
             )
 
             LyricSecondaryLines(
@@ -1990,12 +1988,7 @@ fun LyricLineRow(
                 },
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                sanitizedWordClusters.forEachIndexed { clusterIndex, cluster ->
-                    val wordScale = kineticWordScale(
-                        word = cluster.words.joinToString("") { it.word },
-                        isLastWord = clusterIndex == sanitizedWordClusters.lastIndex
-                    )
-                    val clusterStyle = if (wordScale == 1f) lineTextStyle else glowLyricStyle(fontSp * wordScale)
+                sanitizedWordClusters.forEach { cluster ->
                     key("${line.time}_cluster_${cluster.startIndex}") {
                         Row(verticalAlignment = Alignment.Bottom) {
                             cluster.words.forEachIndexed { clusterOffset, word ->
@@ -2008,7 +2001,7 @@ fun LyricLineRow(
                                         endTimeMs = sanitizedWords?.getOrNull(wordIndex + 1)?.time?.toLong()
                                             ?.coerceAtMost(lineEndTime) ?: lineEndTime,
                                         useAnimatedLyrics = useAnimatedLyrics,
-                                        style = clusterStyle,
+                                        style = lineTextStyle,
                                         glow = isCurrentLine,
                                         highlightedColor = accentColor,
                                         unhighlightedColor = unlitColor,
@@ -2101,8 +2094,8 @@ private fun LyricSecondaryLines(
 
 /**
  * One word (or syllable) of a word-timed line. [isHighlighted] means the word has been reached, so it is
- * lit; [isCurrentWord] marks the one that lit last: it gets a small springy scale pop (about 1.08) when it
- * has just lit, never a made-up one for words that were already lit when the row came into view.
+ * lit; [isCurrentWord] marks the one that lit last: it gets a springy scale pop (about 1.08x) when it
+ * has just lit, restoring the beloved v1.7.0 lyric animation ("le parole si ingrandivano e il font era giusto").
  */
 @Composable
 fun LyricWordSpan(
@@ -2120,114 +2113,49 @@ fun LyricWordSpan(
 ) {
     val animationsEnabled = rememberScenaAnimationsEnabled()
 
-    // Lift: the word being sung rises a little and settles with a spring. A translation only, so
-    // its width never changes and the fill stays aligned with the letters.
-    val lift = remember { Animatable(0f) }
-    LaunchedEffect(isCurrentWord, animationsEnabled) {
-        val target = if (isCurrentWord && animationsEnabled) -4f else 0f
-        if (animationsEnabled) lift.animateTo(target, Fluido.springBouncy()) else lift.snapTo(target)
-    }
-    // Glow: a word that is reached lights up and starts to shine on the log curve (fast, then
-    // settling); it fades in 180 ms when the line is left.
-    val glowAmount by animateFloatAsState(
-        targetValue = if (glow && isHighlighted) 1f else 0f,
-        animationSpec = when {
-            !animationsEnabled -> snap()
-            glow && isHighlighted -> tween(Fluido.Long, easing = Fluido.EaseLog)
-            else -> tween(Fluido.FadeOut, easing = Fluido.EaseExit)
+    val color by animateColorAsState(
+        targetValue = if (isHighlighted) highlightedColor else unhighlightedColor,
+        animationSpec = if (animationsEnabled) {
+            tween(durationMillis = 220, easing = Scena.EaseEmphasised)
+        } else {
+            snap()
         },
-        label = "wordGlow"
-    )
-    val latestHighlighted by rememberUpdatedState(isHighlighted)
-    val glowPad = GlowPadding
-
-    // One Text, tinted in the draw phase (white, then SrcIn on an offscreen layer): lit or dim as
-    // a whole word. The layer is larger than the word (by [GlowPadding]) so the glow is not cut,
-    // while the word keeps its own size in the line.
-    Text(
-        text = word.word.uppercase(),
-        style = style.withGlow(Color.White, glowAmount),
-        color = Color.White,
-        modifier = modifier
-            .layout { measurable, constraints ->
-                val pad = glowPad.roundToPx()
-                val placeable = measurable.measure(constraints.offset(horizontal = 2 * pad, vertical = 2 * pad))
-                val width = (placeable.width - 2 * pad).coerceAtLeast(0)
-                val height = (placeable.height - 2 * pad).coerceAtLeast(0)
-                layout(width, height) { placeable.place(-pad, -pad) }
-            }
-            .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
-                translationY = lift.value * density
-            }
-            .drawWithContent {
-                drawContent()
-                // Word by word: a word lights whole the moment it is sung, never letter by letter.
-                val brush = androidx.compose.ui.graphics.SolidColor(
-                    if (latestHighlighted) highlightedColor else unhighlightedColor
-                )
-                drawRect(brush = brush, blendMode = BlendMode.SrcIn)
-            }
-            .padding(glowPad)
-    )
-}
-
-/** Room around a word for its glow. */
-private val GlowPadding = 14.dp
-
-/** Size of the important words ("FOREVER", "WEEKEND") against the line. */
-internal const val KineticBigWordScale = 1.18f
-
-/** Short linking words ("the", "di", "a") are set smaller, as in kinetic lyric videos. */
-internal const val KineticSmallWordScale = 0.78f
-
-/**
- * Kinetic typography: the words that carry the line are bigger, the small linking words smaller.
- * Long words and the last word of the line are the ones that carry it.
- */
-internal fun kineticWordScale(word: String, isLastWord: Boolean): Float {
-    val letters = word.count { it.isLetterOrDigit() }
-    return when {
-        letters == 0 -> 1f
-        isLastWord && letters >= 3 -> KineticBigWordScale
-        letters <= 3 -> KineticSmallWordScale
-        letters >= 7 -> KineticBigWordScale
-        else -> 1f
-    }
-}
-
-/** Heavy, uppercase-friendly lyric face: Google Sans Flex ExtraBold, tight lines. */
-internal fun glowLyricStyle(fontSp: Float): TextStyle = TextStyle(
-    fontFamily = GoogleSansRounded,
-    fontWeight = FontWeight.ExtraBold,
-    fontSize = fontSp.sp,
-    lineHeight = (fontSp * 1.08f).sp,
-    letterSpacing = 0.01.em
-)
-
-/** The style with a soft glow of [color] at [amount] (0 = none). */
-internal fun TextStyle.withGlow(color: Color, amount: Float): TextStyle =
-    if (amount <= 0.01f) this.copy(shadow = null)
-    else this.copy(
-        shadow = androidx.compose.ui.graphics.Shadow(
-            color = color.copy(alpha = 0.85f * amount),
-            offset = androidx.compose.ui.geometry.Offset.Zero,
-            blurRadius = 28f * amount
-        )
+        label = "wordColor"
     )
 
-/** A line without word timings, uppercase, with the kinetic sizes as spans. */
-internal fun kineticLineText(line: String, fontSp: Float): androidx.compose.ui.text.AnnotatedString {
-    val words = line.uppercase().split(' ').filter { it.isNotEmpty() }
-    return androidx.compose.ui.text.buildAnnotatedString {
-        words.forEachIndexed { index, word ->
-            val scale = kineticWordScale(word, isLastWord = index == words.lastIndex)
-            pushStyle(androidx.compose.ui.text.SpanStyle(fontSize = (fontSp * scale).sp))
-            append(word)
-            pop()
-            if (index < words.lastIndex) append(' ')
+    // Pop: up to ~1.08 when the word lights, then settle back to 1. Applied in the graphics layer, so
+    // the layout is untouched and nothing recomposes while it runs.
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(isCurrentWord, animationsEnabled) {
+        if (!animationsEnabled) {
+            pop.snapTo(1f)
+            return@LaunchedEffect
         }
+        if (isCurrentWord) {
+            val sinceWordStart = (positionProvider?.invoke() ?: word.time.toLong()) - word.time.toLong()
+            if (sinceWordStart in 0L..600L) {
+                pop.animateTo(
+                    targetValue = 1.08f,
+                    animationSpec = spring(
+                        dampingRatio = 0.5f,
+                        stiffness = Spring.StiffnessHigh
+                    )
+                )
+            }
+        }
+        pop.animateTo(1f, Scena.Springy)
     }
+
+    Text(
+        text = word.word,
+        style = style,
+        color = color,
+        // Scale applied at draw phase — zero layout impact per frame.
+        modifier = modifier.graphicsLayer {
+            scaleX = pop.value
+            scaleY = pop.value
+        }
+    )
 }
 
 @Composable
@@ -2354,6 +2282,7 @@ internal fun lyricsProviderCredit(source: String?): Pair<String, String>? = when
     LyricsProvider.LRCLIB -> "LRCLIB" to "https://lrclib.net/"
     LyricsProvider.NETEASE -> "NetEase Cloud Music" to "https://music.163.com/"
     LyricsProvider.AMLL -> "AMLL TTML DB" to "https://github.com/Steve-xmh/amll-ttml-db"
+    LyricsProvider.KUGOU -> "KuGou" to "https://www.kugou.com/"
     else -> null
 }
 

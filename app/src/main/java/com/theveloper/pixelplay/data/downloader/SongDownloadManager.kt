@@ -32,6 +32,9 @@ import com.theveloper.pixelplay.data.preferences.DownloadQuality
 import com.theveloper.pixelplay.data.repository.LyricsRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
 import com.theveloper.pixelplay.data.scanner.MusicFolderScanner
+import com.theveloper.pixelplay.data.youtube.YouTubeExtractor
+import com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy
+import com.theveloper.pixelplay.data.youtube.YouTubeTrack
 import com.theveloper.pixelplay.utils.LyricsUtils
 import com.theveloper.pixelplay.utils.SearchQueryMatcher
 import com.theveloper.pixelplay.utils.YtdlnisHelper
@@ -78,6 +81,9 @@ class SongDownloadManager @Inject constructor(
     // Nessun ciclo DI: NeteaseRepository e LyricsRepository non dipendono dai downloader.
     private val neteaseRepository: NeteaseRepository,
     private val kugouResolver: KugouFullTrackResolver,
+    // Ultimo passo della cascata: lo stesso estrattore/proxy usato per la riproduzione online.
+    private val youTubeStreamProxy: YouTubeStreamProxy,
+    private val youTubeExtractor: YouTubeExtractor,
     private val lyricsRepository: LyricsRepository,
     private val songMetadataEditor: SongMetadataEditor,
     private val downloadPreferencesRepository: DownloadPreferencesRepository,
@@ -147,7 +153,7 @@ class SongDownloadManager @Inject constructor(
 
         // Estensioni dei file audio diretti (per distinguere un flusso da una pagina web).
         private val AUDIO_FILE_EXTENSIONS = listOf(
-            ".mp3", ".m4a", ".flac", ".ogg", ".oga", ".aac", ".opus", ".wav", ".wma"
+            ".mp3", ".m4a", ".flac", ".ogg", ".oga", ".aac", ".opus", ".wav", ".wma", ".webm"
         )
 
         // Content-Type che non sono MAI flussi audio scaricabili (pagine web o payload di errore).
@@ -694,6 +700,28 @@ class SongDownloadManager @Inject constructor(
             return ResolvedDownload(track, kugouTrack.streamUrl)
         }
 
+        // Passo C in-app: YouTube tramite il proxy di riproduzione. È l'ultima sorgente
+        // gratuita senza chiavi, quindi un brano riproducibile è sempre scaricabile.
+        val youTubeSource = resolveYouTubeSource(trimmedQuery, "", 0)
+        if (youTubeSource != null) {
+            val (streamUrl, match) = youTubeSource
+            val track = OnlineTrack(
+                id = abs(match.videoId.hashCode().toLong()),
+                title = match.title.ifBlank { trimmedQuery },
+                artistName = match.uploader.removeSuffix(" - Topic").trim(),
+                albumTitle = "",
+                albumCoverUrl = match.thumbnailUrl,
+                durationSeconds = match.durationSeconds.toInt(),
+                previewUrl = streamUrl,
+                shareLink = null
+            )
+            Timber.i(
+                "SongDownloadManager: query '$trimmedQuery' risolta via YouTube " +
+                    "(videoId=${match.videoId})"
+            )
+            return ResolvedDownload(track, streamUrl)
+        }
+
         if (launchYtDlpQueryBridge(trimmedQuery)) {
             throw DownloadFailure(
                 context.getString(R.string.download_info_handoff_ytdlnis, trimmedQuery)
@@ -806,6 +834,7 @@ class SongDownloadManager @Inject constructor(
 
             "audio/flac", "audio/x-flac" -> return AudioFormat("flac", "audio/flac")
             "audio/ogg", "application/ogg", "audio/opus" -> return AudioFormat("ogg", "audio/ogg")
+            "audio/webm", "video/webm" -> return AudioFormat("webm", "audio/webm")
             "audio/wav", "audio/x-wav", "audio/wave" -> return AudioFormat("wav", "audio/wav")
             "audio/mpeg", "audio/mp3", "audio/mpeg3", "audio/x-mpeg" ->
                 return AudioFormat("mp3", "audio/mpeg")
@@ -821,6 +850,8 @@ class SongDownloadManager @Inject constructor(
             urlPath.endsWith(".flac") -> AudioFormat("flac", "audio/flac")
             urlPath.endsWith(".ogg") || urlPath.endsWith(".oga") || urlPath.endsWith(".opus") ->
                 AudioFormat("ogg", "audio/ogg")
+
+            urlPath.endsWith(".webm") -> AudioFormat("webm", "audio/webm")
 
             urlPath.endsWith(".wav") -> AudioFormat("wav", "audio/wav")
             else -> AudioFormat("mp3", "audio/mpeg")
@@ -1267,10 +1298,12 @@ class SongDownloadManager @Inject constructor(
     /**
      * Cascata full-length **interamente in-app**, nell'ordine:
      *  1. NetEase (stream integrale, nessun login richiesto);
-     *  2. KuGou ([KugouFullTrackResolver], API pubbliche senza chiavi).
+     *  2. KuGou ([KugouFullTrackResolver], API pubbliche senza chiavi);
+     *  3. YouTube tramite [YouTubeStreamProxy]: è lo stesso flusso usato per riprodurre i
+     *     brani online, quindi un brano che l'app riesce a riprodurre è sempre scaricabile.
      *
-     * Nessuna delle due sorgenti restituisce mai anteprime: se il brano non è
-     * disponibile integralmente si restituisce `null` e la decisione passa al chiamante.
+     * Nessuna delle sorgenti restituisce mai anteprime: se il brano non è disponibile
+     * integralmente si restituisce `null` e la decisione passa al chiamante.
      */
     private suspend fun resolveInAppFullStream(
         track: OnlineTrack,
@@ -1282,14 +1315,63 @@ class SongDownloadManager @Inject constructor(
         val query = listOf(track.artistName.trim(), cleanQueryTitle(track.title))
             .filter { it.isNotBlank() }
             .joinToString(" ")
-        if (query.isBlank()) return null
+        if (query.isNotBlank()) {
+            val kugouTrack = kugouResolver.resolve(query, quality.kugouBitrate)
+            if (kugouTrack != null) {
+                Timber.i(
+                    "SongDownloadManager: risolto flusso full-length via KuGou per '${track.title}' " +
+                        "('${kugouTrack.artist} - ${kugouTrack.title}', ${kugouTrack.durationMs}ms)"
+                )
+                return kugouTrack.streamUrl
+            }
+        }
 
-        val kugouTrack = kugouResolver.resolve(query, quality.kugouBitrate) ?: return null
-        Timber.i(
-            "SongDownloadManager: risolto flusso full-length via KuGou per '${track.title}' " +
-                "('${kugouTrack.artist} - ${kugouTrack.title}', ${kugouTrack.durationMs}ms)"
-        )
-        return kugouTrack.streamUrl
+        val youTubeSource = resolveYouTubeSource(track.title, track.artistName, track.durationSeconds)
+        if (youTubeSource != null) {
+            Timber.i(
+                "SongDownloadManager: risolto flusso full-length via YouTube per '${track.title}' " +
+                    "(videoId=${youTubeSource.second.videoId})"
+            )
+            return youTubeSource.first
+        }
+        return null
+    }
+
+    /**
+     * Ultimo passo della cascata: individua il video con lo stesso estrattore della
+     * riproduzione e restituisce l'URL servito dal proxy locale, insieme ai metadati del
+     * video trovato. Il proxy applica da sé Range e User-Agent corretti, quindi il download
+     * riusa esattamente la sorgente che il player riesce a suonare.
+     */
+    private suspend fun resolveYouTubeSource(
+        title: String,
+        artist: String,
+        durationSeconds: Int
+    ): Pair<String, YouTubeTrack>? {
+        val cleanTitle = cleanQueryTitle(title)
+        val query = listOf(artist.trim(), cleanTitle)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .ifBlank { return null }
+
+        val hits = runCatching { youTubeExtractor.searchSongs(query, 5) }
+            .getOrNull()
+            .orEmpty()
+            .filter { YouTubeExtractor.isValidVideoId(it.videoId) }
+        if (hits.isEmpty()) return null
+
+        val match = if (durationSeconds > 0) {
+            hits.minByOrNull { abs(it.durationSeconds - durationSeconds) } ?: hits.first()
+        } else {
+            hits.first()
+        }
+
+        if (!youTubeStreamProxy.ensureReady()) return null
+        val uri = YouTubeStreamProxy.videoUri(match.videoId)
+        // Riscalda la cache: il proxy risolve l'URL upstream prima della prima richiesta.
+        youTubeStreamProxy.warmUpStreamUrl(uri)
+        val streamUrl = youTubeStreamProxy.resolveUri(uri)?.takeIf { it.isNotBlank() } ?: return null
+        return streamUrl to match
     }
 
     /**

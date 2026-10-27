@@ -127,7 +127,6 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fullscreen
 import com.theveloper.pixelplay.data.model.isOnlineTrack
 import com.theveloper.pixelplay.data.model.OnlineTrack
-import com.theveloper.pixelplay.presentation.components.YtdlnisDownloadDialog
 import androidx.compose.material3.Slider
 
 import androidx.compose.material3.SliderDefaults
@@ -310,10 +309,14 @@ fun FullPlayerContent(
     }
 
     var showFetchLyricsDialog by remember { mutableStateOf(false) }
-    var showOnlineSongDownloadDialog by remember { mutableStateOf(false) }
     var totalDrag by remember { mutableStateOf(0f) }
 
     val context = LocalContext.current
+
+    // Save to phone: a sheet with the formats (exact stream as .m4a / .wav, or the .mp4 video).
+    var showOnlineSongDownloadDialog by remember { mutableStateOf(false) }
+    val downloadCurrentSong: () -> Unit = { showOnlineSongDownloadDialog = true }
+
     val fileImportScope = rememberCoroutineScope()
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -678,7 +681,7 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = { showOnlineSongDownloadDialog = true }
+            onDownloadClick = downloadCurrentSong
         )
     }
 
@@ -702,7 +705,7 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = { showOnlineSongDownloadDialog = true }
+            onDownloadClick = downloadCurrentSong
         )
     }
 
