@@ -426,21 +426,11 @@ fun FullPlayerContent(
     }
 
     if (showOnlineSongDownloadDialog && song != null) {
-        val onlineTrack = OnlineTrack(
-            id = song.id.removePrefix("online_").toLongOrNull() ?: kotlin.math.abs(song.id.hashCode().toLong()),
-            title = song.title,
-            artistName = song.artist,
-            albumTitle = song.album,
-            albumCoverUrl = song.albumArtUriString,
-            durationSeconds = (song.duration / 1000).toInt(),
-            // Online songs stream from youtube://, which is not a downloadable URL: the
-            // preview link lives in path.
-            previewUrl = if (com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString)) song.path else song.contentUriString,
-            shareLink = song.path
-        )
-        YtdlnisDownloadDialog(
-            track = onlineTrack,
-            playerViewModel = playerViewModel,
+        com.theveloper.pixelplay.presentation.components.SaveStreamSheet(
+            onPick = { format ->
+                showOnlineSongDownloadDialog = false
+                playerViewModel.saveCurrentStream(format)
+            },
             onDismiss = { showOnlineSongDownloadDialog = false }
         )
     }

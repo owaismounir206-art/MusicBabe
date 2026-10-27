@@ -73,7 +73,20 @@ fun rememberOnlineActions(playerViewModel: PlayerViewModel, navController: NavHo
             },
             playNext = { playerViewModel.addSongNextToQueue(it.toSong()) },
             addToQueue = { playerViewModel.addSongToQueue(it.toSong()) },
-            open = { navController.navigate(Screen.OnlineCollection.createRoute(it)) }
+            open = { navController.navigate(Screen.OnlineCollection.createRoute(it)) },
+            save = { song ->
+                playerViewModel.downloadSongInApp(
+                    com.theveloper.pixelplay.data.model.OnlineTrack(
+                        id = kotlin.math.abs(song.videoId.hashCode().toLong()),
+                        title = song.title,
+                        artistName = song.artist,
+                        albumTitle = song.album,
+                        albumCoverUrl = song.thumbnailUrl,
+                        durationSeconds = song.durationSeconds.toInt(),
+                        youtubeVideoId = song.videoId
+                    )
+                )
+            }
         )
     }
 

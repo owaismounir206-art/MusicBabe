@@ -374,6 +374,45 @@ class PlayerViewModel @Inject constructor(
     suspend fun loadDownloadCandidates(query: String): List<DownloadCandidate> =
         songDownloadManager.previewQueryCandidates(query)
 
+    /**
+     * Saves the song playing now exactly as it streams: its own YouTube audio (.m4a or .wav) or
+     * its music video (.mp4). A library song is matched once on YouTube (by title, artist and
+     * length) only for the video.
+     */
+    fun saveCurrentStream(format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat) {
+        val song = stablePlayerState.value.currentSong ?: return
+        viewModelScope.launch {
+            val ownVideoId = song.contentUriString
+                .removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+                .takeIf { com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString) }
+                ?.takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)
+            val videoId = runCatching {
+                if (format.isVideo) {
+                    youTubeExtractor.findVideoId(song.title, song.artist, song.duration, musicVideo = true)
+                } else {
+                    ownVideoId ?: youTubeExtractor.findVideoId(song.title, song.artist, song.duration)
+                }
+            }.getOrNull()
+            if (videoId == null) {
+                _toastEvents.emit(context.getString(R.string.save_stream_not_found))
+                return@launch
+            }
+            val track = OnlineTrack(
+                id = kotlin.math.abs(videoId.hashCode().toLong()),
+                title = song.title,
+                artistName = song.artist,
+                albumTitle = song.album.takeUnless { it == "YouTube" || it == "YouTube Music" || it == "Online" }.orEmpty(),
+                albumCoverUrl = song.albumArtUriString,
+                durationSeconds = (song.duration / 1000).toInt(),
+                youtubeVideoId = videoId
+            )
+            _toastEvents.emit(context.getString(R.string.save_stream_started, song.title))
+            songDownloadManager.startYouTubeDownload(track, videoId, format) { _, message ->
+                viewModelScope.launch { _toastEvents.emit(message) }
+            }
+        }
+    }
+
     fun cancelDownload(taskId: Long) = songDownloadManager.cancelDownload(taskId)
 
     fun retryDownload(taskId: Long) = songDownloadManager.retryDownload(taskId)

@@ -68,4 +68,14 @@
     <string name="stream_error_not_found">no playable version found on YouTube</string>
     <string name="stream_error_refused">YouTube refused the stream; it will be retried with a new link</string>
     <string name="stream_error_extractor">YouTube changed something and the song cannot be read right now</string>
+    <string name="save_stream_title">Save to phone</string>
+    <string name="save_stream_subtitle">Exactly what is playing, saved in Music/MusicBabe (audio) or Movies/MusicBabe (video).</string>
+    <string name="save_stream_m4a">Audio · original quality (.m4a)</string>
+    <string name="save_stream_m4a_desc">The audio as it streams, no re-encoding: smallest file, plays everywhere like an mp3.</string>
+    <string name="save_stream_wav">Audio · uncompressed (.wav)</string>
+    <string name="save_stream_wav_desc">The same audio decoded to WAV, for editing apps. About 10 MB per minute.</string>
+    <string name="save_stream_video">Music video (.mp4)</string>
+    <string name="save_stream_video_desc">The video up to 1080p with its audio. It also appears in Music videos, with synced lyrics.</string>
+    <string name="save_stream_started">Saving “%1$s”…</string>
+    <string name="save_stream_not_found">This song was not found on YouTube</string>
 </resources>

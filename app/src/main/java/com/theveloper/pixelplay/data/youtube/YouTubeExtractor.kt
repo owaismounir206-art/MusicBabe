@@ -239,6 +239,21 @@ class YouTubeExtractor @Inject constructor() {
             ?.let { YouTubeStream(it.content, userAgentFor(it.content), it.format?.mimeType) }
     }
 
+    /**
+     * The video to save: H.264 in MP4 (what MediaMuxer and every player handle), the highest up to
+     * [maxHeight]; video only, the audio is added by the downloader.
+     */
+    suspend fun resolveVideoForDownload(videoId: String, maxHeight: Int = 1080): YouTubeStream? = withContext(Dispatchers.IO) {
+        val info = streamInfo(videoId)
+        info.videoOnlyStreams
+            .filter {
+                it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.height in 1..maxHeight &&
+                    it.format?.mimeType == "video/mp4" && it.codec?.startsWith("avc") == true
+            }
+            .maxByOrNull { it.height }
+            ?.let { YouTubeStream(it.content, userAgentFor(it.content), it.format?.mimeType) }
+    }
+
     private fun streamInfo(videoId: String): StreamInfo {
         require(isValidVideoId(videoId)) { "Invalid YouTube video id" }
         ensureInit()

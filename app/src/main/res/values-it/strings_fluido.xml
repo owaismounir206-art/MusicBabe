@@ -68,4 +68,14 @@
     <string name="stream_error_not_found">nessuna versione ascoltabile trovata su YouTube</string>
     <string name="stream_error_refused">YouTube ha rifiutato lo stream; riprovo con un link nuovo</string>
     <string name="stream_error_extractor">YouTube ha cambiato qualcosa e ora il brano non si legge</string>
+    <string name="save_stream_title">Salva sul telefono</string>
+    <string name="save_stream_subtitle">Esattamente quello che stai ascoltando, salvato in Musica/MusicBabe (audio) o Filmati/MusicBabe (video).</string>
+    <string name="save_stream_m4a">Audio · qualità originale (.m4a)</string>
+    <string name="save_stream_m4a_desc">L\'audio così com\'è nello stream, senza ricodifica: file leggero, si apre ovunque come un mp3.</string>
+    <string name="save_stream_wav">Audio · non compresso (.wav)</string>
+    <string name="save_stream_wav_desc">Lo stesso audio decodificato in WAV, per le app di editing. Circa 10 MB al minuto.</string>
+    <string name="save_stream_video">Video musicale (.mp4)</string>
+    <string name="save_stream_video_desc">Il video fino a 1080p con il suo audio. Compare anche in Video musicali, con i testi sincronizzati.</string>
+    <string name="save_stream_started">Salvo «%1$s»…</string>
+    <string name="save_stream_not_found">Questo brano non è stato trovato su YouTube</string>
 </resources>

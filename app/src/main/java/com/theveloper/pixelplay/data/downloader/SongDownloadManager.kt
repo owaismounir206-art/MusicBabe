@@ -80,7 +80,9 @@ class SongDownloadManager @Inject constructor(
     private val kugouResolver: KugouFullTrackResolver,
     private val lyricsRepository: LyricsRepository,
     private val songMetadataEditor: SongMetadataEditor,
-    private val downloadPreferencesRepository: DownloadPreferencesRepository
+    private val downloadPreferencesRepository: DownloadPreferencesRepository,
+    private val youTubeMediaDownloader: com.theveloper.pixelplay.data.youtube.YouTubeMediaDownloader,
+    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -186,7 +188,21 @@ class SongDownloadManager @Inject constructor(
         track: OnlineTrack,
         onProgress: ((Float) -> Unit)? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
-    ): Long = enqueue(DownloadRequest.Track(track), onProgress, onComplete)
+    ): Long = enqueue(requestFor(track), onProgress, onComplete)
+
+    /** A song from YouTube Music is saved from its own stream, never searched again elsewhere. */
+    private fun requestFor(track: OnlineTrack): DownloadRequest =
+        track.youtubeVideoId?.let {
+            DownloadRequest.YouTube(track, it, com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A)
+        } ?: DownloadRequest.Track(track)
+
+    /** Saves the YouTube stream [videoId] of [track] in [format] (.m4a, .wav or the .mp4 video). */
+    fun startYouTubeDownload(
+        track: OnlineTrack,
+        videoId: String,
+        format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat,
+        onComplete: ((Boolean, String) -> Unit)? = null
+    ): Long = enqueue(DownloadRequest.YouTube(track, videoId, format), null, onComplete)
 
     /**
      * Mette in coda il download a partire dal testo digitato nella barra di ricerca:
@@ -200,7 +216,7 @@ class SongDownloadManager @Inject constructor(
     ): Long = enqueue(DownloadRequest.Query(query), onProgress, onComplete)
 
     fun enqueueTrackDownload(track: OnlineTrack): Long =
-        enqueue(DownloadRequest.Track(track), null, null)
+        enqueue(requestFor(track), null, null)
 
     fun enqueueQueryDownload(query: String): Long =
         enqueue(DownloadRequest.Query(query), null, null)
@@ -306,6 +322,12 @@ class SongDownloadManager @Inject constructor(
         val artist: String
         val coverUrl: String?
         when (request) {
+            is DownloadRequest.YouTube -> {
+                title = request.track.title
+                artist = request.track.artistName
+                coverUrl = request.track.albumCoverUrl
+            }
+
             is DownloadRequest.Track -> {
                 title = request.track.title
                 artist = request.track.artistName
@@ -319,7 +341,10 @@ class SongDownloadManager @Inject constructor(
             }
         }
 
-        val key = dedupeKey(title, artist)
+        val key = dedupeKey(title, artist) + when (request) {
+            is DownloadRequest.YouTube -> "|" + request.format.name
+            else -> ""
+        }
         // Stesso brano già in coda o già in download: nessun doppione silenzioso.
         _downloadTasks.value.firstOrNull { it.isActive && it.dedupeKey == key }?.let { inFlight ->
             Timber.i("SongDownloadManager: download già in corso per '$title', nessun doppione")
@@ -393,10 +418,16 @@ class SongDownloadManager @Inject constructor(
                 it.copy(status = DownloadStatus.RESOLVING, progress = 0f, message = null)
             }
 
+            (task.request as? DownloadRequest.YouTube)?.let { request ->
+                runYouTubeTask(task, request, callbacks)
+                return
+            }
+
             val quality = downloadPreferencesRepository.qualityFlow.first()
             val resolved = when (val request = task.request) {
                 is DownloadRequest.Query -> resolveQueryForTask(request.query, quality)
                 is DownloadRequest.Track -> resolveTrackForTask(request.track, quality)
+                is DownloadRequest.YouTube -> null
             } ?: throw DownloadFailure(
                 context.getString(R.string.download_error_no_source, task.title)
             )
@@ -476,6 +507,74 @@ class SongDownloadManager @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "SongDownloadManager: download non riuscito per '${task.title}'")
             failTask(task, e.message ?: context.getString(R.string.download_error_generic))
+        }
+    }
+
+    /**
+     * Saves exactly the stream that plays: the YouTube video id of the song, as .m4a (the audio
+     * as it streams), .wav (decoded) or .mp4 (the music video). Nothing is searched elsewhere,
+     * so the file is always the right song.
+     */
+    private suspend fun runYouTubeTask(
+        task: DownloadTask,
+        request: DownloadRequest.YouTube,
+        callbacks: TaskCallbacks?
+    ) {
+        val track = request.track
+        updateTask(task.id) { it.copy(status = DownloadStatus.DOWNLOADING, progress = 0f, message = null) }
+        lastProgressPercent.remove(task.id)
+        showProgressNotification(task.id, track.title, track.artistName, 0f)
+        val file = youTubeMediaDownloader.download(request.videoId, request.format) { progress ->
+            val percent = (progress.coerceIn(0f, 1f) * 100).toInt()
+            if (lastProgressPercent.put(task.id, percent) != percent) {
+                updateTask(task.id) { it.copy(progress = progress) }
+                callbacks?.onProgress?.invoke(progress)
+                showProgressNotification(task.id, track.title, track.artistName, progress)
+            }
+        }
+        try {
+            val format = request.format
+            val safeName = "${track.artistName} - ${track.title}".replace(Regex("[\\\\/:*?\"<>|]"), " ").trim()
+            val fileName = "$safeName.${format.extension}"
+            val resolver = context.contentResolver
+            val collection = if (format.isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, format.mimeType)
+                put(MediaStore.MediaColumns.TITLE, track.title)
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    if (format.isVideo) "${Environment.DIRECTORY_MOVIES}/MusicBabe" else "${Environment.DIRECTORY_MUSIC}/MusicBabe"
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+                if (!format.isVideo) {
+                    put(MediaStore.Audio.Media.ARTIST, track.artistName)
+                    put(MediaStore.Audio.Media.ALBUM, track.albumTitle.ifBlank { "MusicBabe" })
+                }
+            }
+            val uri = resolver.insert(collection, values) ?: throw DownloadFailure(context.getString(R.string.download_error_generic))
+            resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                ?: throw DownloadFailure(context.getString(R.string.download_error_generic))
+            if (format == com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A) {
+                muxDownloadedFileMetadata(fileName, uri, track.title, track.artistName, track.albumTitle.ifBlank { "MusicBabe" }, null)
+            }
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            if (format.isVideo) {
+                // The saved video shows up in "Music videos", with its lyrics found or written.
+                runCatching { localMusicVideos.import(listOf(uri)) }
+            }
+            completeTask(
+                task = task,
+                track = track,
+                filePath = "${if (format.isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_MUSIC}/MusicBabe/$fileName",
+                songId = null,
+                song = null,
+                alreadyPresent = false
+            )
+        } finally {
+            file.delete()
         }
     }
 

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -90,6 +91,8 @@ class OnlineActions(
     val playNext: (OnlineSongItem) -> Unit,
     val addToQueue: (OnlineSongItem) -> Unit,
     val open: (OnlineCollectionItem) -> Unit,
+    /** Saves the song's own YouTube audio as .m4a. */
+    val save: (OnlineSongItem) -> Unit = {},
 )
 
 /** Localized title of a shelf built by the app (markers from [OnlineMusicRepository]). */
@@ -481,6 +484,11 @@ fun OnlineSongRow(
                     text = { Text(stringResource(R.string.online_add_to_queue)) },
                     leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                     onClick = { menu = false; actions.addToQueue(song) }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.save_stream_title)) },
+                    leadingIcon = { Icon(Icons.Rounded.Download, null) },
+                    onClick = { menu = false; actions.save(song) }
                 )
             }
         }
