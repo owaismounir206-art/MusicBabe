@@ -176,7 +176,7 @@ object YouTubeMusicParser {
             .orEmpty()
     }
 
-    private fun text(element: JsonElement): String = runs(element).joinToString("") { it.first }.trim()
+    fun text(element: JsonElement): String = runs(element).joinToString("") { it.first }.trim()
 
     /** The largest thumbnail found under [element], upscaled when it is a Google image URL. */
     fun bestThumbnail(element: JsonElement): String? {

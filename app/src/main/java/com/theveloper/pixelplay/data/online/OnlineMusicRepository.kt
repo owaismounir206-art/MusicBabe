@@ -35,6 +35,7 @@ class OnlineMusicRepository @Inject constructor(
     private val extractor: YouTubeExtractor,
     private val engagementDao: EngagementDao,
     private val musicRepository: MusicRepository,
+    private val account: com.theveloper.pixelplay.data.youtube.YouTubeAccount,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -143,7 +144,11 @@ class OnlineMusicRepository @Inject constructor(
 
     /** The YouTube Music home page, read without an account. */
     suspend fun youTubeMusicHome(): List<OnlineShelf> =
-        runCatching { YouTubeMusicParser.shelves(browse("FEmusic_home")) }
+        runCatching {
+            // Signed in: the account's own home (mixes, "because you listened to…").
+            if (account.isSignedIn.value) account.homeShelves().ifEmpty { YouTubeMusicParser.shelves(browse("FEmusic_home")) }
+            else YouTubeMusicParser.shelves(browse("FEmusic_home"))
+        }
             .onFailure { Timber.w(it, "YouTube Music home failed") }
             .getOrDefault(emptyList())
 
@@ -213,8 +218,10 @@ class OnlineMusicRepository @Inject constructor(
         }
     }
 
+    suspend fun searchSuggestions(input: String): List<String> = account.searchSuggestions(input)
+
     private suspend fun page(browseId: String, item: OnlineCollectionItem): OnlineCollectionPage {
-        val root = browse(browseId)
+        val root = if (account.isSignedIn.value) account.browse(browseId) else browse(browseId)
         val header = YouTubeMusicParser.header(root)
         val headerArt = header?.third ?: item.thumbnailUrl
         val songs = YouTubeMusicParser.listSongs(root).map { song ->

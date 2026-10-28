@@ -23,6 +23,9 @@ sealed class Screen(val route: String) {
         }
     }
     object MusicVideos : Screen("music_videos")
+    object YouTubeAccount : Screen("youtube_account")
+    object Samples : Screen("samples")
+    object YouTubeSignIn : Screen("youtube_sign_in")
     object Settings : Screen("settings")
     object Accounts : Screen("settings_accounts")
     object SettingsCategory : Screen("settings_category/{categoryId}") {

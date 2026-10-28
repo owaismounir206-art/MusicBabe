@@ -74,6 +74,7 @@ fun PixelPlayTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     colorSchemePairOverride: ColorSchemePair? = null,
     useDynamicColor: Boolean = false,
+    pureBlack: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -96,14 +97,25 @@ fun PixelPlayTheme(
         else -> LightColorScheme
     }
 
+    val schemeToUse = if (pureBlack && darkTheme) finalColorScheme.copy(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceDim = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = Color(0xFF0B0B0C),
+        surfaceContainer = Color(0xFF121214),
+        surfaceContainerHigh = Color(0xFF1B1B1E),
+        surfaceContainerHighest = Color(0xFF242428),
+    ) else finalColorScheme
+
     PixelPlayStatusBarStyle(
-        color = finalColorScheme.background,
-        navigationColor = finalColorScheme.background
+        color = schemeToUse.background,
+        navigationColor = schemeToUse.background
     )
 
     CompositionLocalProvider(LocalPixelPlayDarkTheme provides darkTheme) {
         MaterialTheme(
-            colorScheme = finalColorScheme,
+            colorScheme = schemeToUse,
             typography = Typography,
             shapes = Shapes,
             content = content

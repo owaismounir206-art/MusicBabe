@@ -106,4 +106,24 @@
     <string name="yt_videos_empty_card_title">Aggiungi video musicali</string>
     <string name="yt_videos_empty_card_subtitle">Riproduci i video con testo sincronizzato riga per riga</string>
     <string name="yt_videos_import_action">Importa video</string>
+    <string name="account_title">Account YouTube Music</string>
+    <string name="account_sign_in_title">Accedi a YouTube Music</string>
+    <string name="account_signed_in">Accesso eseguito</string>
+    <string name="account_signed_out">Non hai effettuato l\'accesso</string>
+    <string name="account_explainer">Accedi con Google per sincronizzare Mi piace, playlist, cronologia e la tua Home personale. Facoltativo: senza, tutto il resto funziona uguale.</string>
+    <string name="account_sign_in">Accedi con Google</string>
+    <string name="account_sign_out">Esci</string>
+    <string name="account_playlists">Le tue playlist</string>
+    <string name="account_liked">Brani che ti piacciono</string>
+    <string name="account_history">Cronologia</string>
+    <string name="yt_comments">Commenti</string>
+    <string name="yt_share">Condividi</string>
+    <string name="yt_no_comments">Nessun commento</string>
+    <string name="yt_replies">%1$d risposte</string>
+    <string name="explore_new_releases">Novità</string>
+    <string name="explore_charts">Classifiche</string>
+    <string name="samples_title">Samples</string>
+    <string name="samples_full">Brano intero</string>
+    <string name="fluido_palette_amoled">Nero (AMOLED)</string>
+    <string name="online_clear_history">Cancella</string>
 </resources>

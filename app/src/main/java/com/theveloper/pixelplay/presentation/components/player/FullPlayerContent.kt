@@ -61,6 +61,8 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LoadingIndicator
@@ -1580,8 +1582,9 @@ private fun SongMetadataDisplaySection(
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true }
 ) {
+    Column(modifier.fillMaxWidth()) {
     Row(
-        modifier
+        Modifier
             .fillMaxWidth()
             .heightIn(min = 70.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1778,6 +1781,18 @@ private fun SongMetadataDisplaySection(
                 }
             }
         }
+    }
+    // YouTube songs: likes with their count, dislike, comments, views, share and save.
+    if (song != null && !showQueueButton) {
+        CompositionLocalProvider(LocalContentColor provides textColor) {
+            com.theveloper.pixelplay.presentation.screens.account.YouTubeActionsRow(
+                song = song,
+                playerViewModel = playerViewModel,
+                onSave = onClickDownload,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
     }
 }
 

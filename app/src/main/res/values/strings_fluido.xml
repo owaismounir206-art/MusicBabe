@@ -106,4 +106,24 @@
     <string name="yt_videos_empty_card_title">Add music videos</string>
     <string name="yt_videos_empty_card_subtitle">Play videos with synced lyrics line by line</string>
     <string name="yt_videos_import_action">Import videos</string>
+    <string name="account_title">YouTube Music account</string>
+    <string name="account_sign_in_title">Sign in to YouTube Music</string>
+    <string name="account_signed_in">Signed in</string>
+    <string name="account_signed_out">Not signed in</string>
+    <string name="account_explainer">Sign in with Google to sync likes, your playlists, history and your personal home. Optional: without it everything else works the same.</string>
+    <string name="account_sign_in">Sign in with Google</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_playlists">Your playlists</string>
+    <string name="account_liked">Liked songs</string>
+    <string name="account_history">History</string>
+    <string name="yt_comments">Comments</string>
+    <string name="yt_share">Share</string>
+    <string name="yt_no_comments">No comments</string>
+    <string name="yt_replies">%1$d replies</string>
+    <string name="explore_new_releases">New releases</string>
+    <string name="explore_charts">Charts</string>
+    <string name="samples_title">Samples</string>
+    <string name="samples_full">Full song</string>
+    <string name="fluido_palette_amoled">Black (AMOLED)</string>
+    <string name="online_clear_history">Clear</string>
 </resources>

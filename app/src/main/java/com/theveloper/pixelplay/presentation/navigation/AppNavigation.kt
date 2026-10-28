@@ -238,6 +238,17 @@ fun AppNavigation(
                     )
                 }
             }
+            composable(Screen.YouTubeAccount.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.account.YouTubeAccountScreen(navController, playerViewModel)
+                }
+            }
+            composable(Screen.Samples.route) {
+                com.theveloper.pixelplay.presentation.screens.online.SamplesScreen(navController, playerViewModel)
+            }
+            composable(Screen.YouTubeSignIn.route) {
+                com.theveloper.pixelplay.presentation.screens.account.YouTubeSignInScreen(navController)
+            }
             composable(Screen.MusicVideos.route) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.theveloper.pixelplay.presentation.screens.videos.MusicVideosScreen(

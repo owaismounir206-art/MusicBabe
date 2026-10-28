@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-28
+
+### Added
+- **Account YouTube Music** (facoltativo, icona account in Home): accedi con Google dentro l'app. Mi piace, le tue playlist, i brani che ti piacciono, la cronologia e la Home personale ("Perché ascolti…", i tuoi mix) sono quelli del tuo account.
+- **Sotto il titolo nel player, come su YouTube Music**:
+  - 👍 con il numero dei Mi piace, sincronizzato con l'account e con i preferiti;
+  - 👎;
+  - commenti (si leggono, con avatar, Mi piace e risposte);
+  - visualizzazioni;
+  - Condividi;
+  - Salva sul telefono.
+- **Samples**: spezzoni dei video e brani consigliati da scorrere in verticale. Ognuno parte dalla parte migliore; "Brano intero" lo riprende dall'inizio.
+- **Ricerca**: suggerimenti di YouTube Music mentre scrivi e cronologia delle ricerche, cancellabile.
+- **Esplora** in Home: Novità e Classifiche.
+- **Tema Nero (AMOLED)** in Impostazioni > Aspetto > Colori dell'app.
+
 ## [2.1.0] - 2026-10-27
 
 ### Added
