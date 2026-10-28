@@ -122,4 +122,8 @@
     <string name="yt_replies">%1$d replies</string>
     <string name="explore_new_releases">New releases</string>
     <string name="explore_charts">Charts</string>
+    <string name="samples_title">Samples</string>
+    <string name="samples_full">Full song</string>
+    <string name="fluido_palette_amoled">Black (AMOLED)</string>
+    <string name="online_clear_history">Clear</string>
 </resources>

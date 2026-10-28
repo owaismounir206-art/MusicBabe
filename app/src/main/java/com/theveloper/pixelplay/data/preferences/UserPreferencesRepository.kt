@@ -45,6 +45,8 @@ object ThemePreference {
 object AppPalette {
     const val FLUIDO = "fluido"
     const val DYNAMIC = "dynamic"
+    /** Fluido on pure black, for OLED screens. */
+    const val AMOLED = "amoled"
 }
 
 object AppThemeMode {

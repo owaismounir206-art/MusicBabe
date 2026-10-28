@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Search
@@ -159,6 +161,9 @@ fun OnlineScreen(
                         maxLines = 1
                     )
                 }
+                HeaderIcon(Icons.Rounded.Slideshow, stringResource(R.string.samples_title)) {
+                    navController.navigate(Screen.Samples.route)
+                }
                 HeaderIcon(Icons.Rounded.VideoLibrary, stringResource(R.string.videos_open)) {
                     navController.navigate(Screen.MusicVideos.route)
                 }
@@ -183,6 +188,36 @@ fun OnlineScreen(
                 modifier = Modifier.fluidEnter(1)
             )
             Spacer(Modifier.height(12.dp))
+        }
+        item(key = "recent_searches") {
+            val recentSearches by viewModel.recentSearches.collectAsStateWithLifecycle()
+            if (!searching && recentSearches.isNotEmpty()) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = Scena.Gutter),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    items(recentSearches, key = { "rs_$it" }) { query ->
+                        androidx.compose.foundation.layout.Row(
+                            Modifier
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .clickable { viewModel.submitSearch(query) }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.History, null, Modifier.size(16.dp), tint = scena.ink2)
+                            androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
+                            Text(query, style = MaterialTheme.typography.labelLarge, color = scena.ink, maxLines = 1)
+                        }
+                    }
+                    item(key = "rs_clear") {
+                        androidx.compose.material3.TextButton(onClick = viewModel::clearRecentSearches) {
+                            Text(stringResource(R.string.online_clear_history))
+                        }
+                    }
+                }
+            }
         }
         item(key = "moods") {
             OnlineMoodChips(

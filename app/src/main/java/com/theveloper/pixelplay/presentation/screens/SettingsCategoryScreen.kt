@@ -570,6 +570,7 @@ fun SettingsCategoryScreen(
                                     description = stringResource(R.string.fluido_palette_subtitle),
                                     options = buildMap {
                                         put(com.theveloper.pixelplay.data.preferences.AppPalette.FLUIDO, stringResource(R.string.fluido_palette_fluido))
+                                        put(com.theveloper.pixelplay.data.preferences.AppPalette.AMOLED, stringResource(R.string.fluido_palette_amoled))
                                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                                             put(com.theveloper.pixelplay.data.preferences.AppPalette.DYNAMIC, stringResource(R.string.fluido_palette_dynamic))
                                         }

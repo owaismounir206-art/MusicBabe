@@ -43,7 +43,27 @@ data class OnlineSearchState(
 @HiltViewModel
 class OnlineViewModel @Inject constructor(
     private val repository: OnlineMusicRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
 ) : ViewModel() {
+    private val historyPrefs = context.getSharedPreferences("online_search_history", android.content.Context.MODE_PRIVATE)
+    private val _recentSearches = MutableStateFlow(loadHistory())
+    /** The last searches, newest first. */
+    val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
+
+    private fun loadHistory(): List<String> =
+        historyPrefs.getString("items", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
+
+    private fun saveSearch(query: String) {
+        val list = (listOf(query.trim()) + _recentSearches.value.filterNot { it.equals(query.trim(), true) }).take(12)
+        _recentSearches.value = list
+        historyPrefs.edit().putString("items", list.joinToString("\n")).apply()
+    }
+
+    fun clearRecentSearches() {
+        _recentSearches.value = emptyList()
+        historyPrefs.edit().remove("items").apply()
+    }
+
 
     private val _home = MutableStateFlow(OnlineHomeState())
     val home: StateFlow<OnlineHomeState> = _home.asStateFlow()
@@ -125,6 +145,7 @@ class OnlineViewModel @Inject constructor(
     }
 
     private suspend fun runSearch(query: String) {
+        saveSearch(query)
         _search.update { it.copy(loading = true) }
         val results = repository.search(query.trim())
         _search.update { if (it.query == query) it.copy(loading = false, results = results) else it }

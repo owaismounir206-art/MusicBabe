@@ -122,4 +122,8 @@
     <string name="yt_replies">%1$d risposte</string>
     <string name="explore_new_releases">Novità</string>
     <string name="explore_charts">Classifiche</string>
+    <string name="samples_title">Samples</string>
+    <string name="samples_full">Brano intero</string>
+    <string name="fluido_palette_amoled">Nero (AMOLED)</string>
+    <string name="online_clear_history">Cancella</string>
 </resources>

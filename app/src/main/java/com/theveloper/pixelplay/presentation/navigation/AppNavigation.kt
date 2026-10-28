@@ -243,6 +243,9 @@ fun AppNavigation(
                     com.theveloper.pixelplay.presentation.screens.account.YouTubeAccountScreen(navController, playerViewModel)
                 }
             }
+            composable(Screen.Samples.route) {
+                com.theveloper.pixelplay.presentation.screens.online.SamplesScreen(navController, playerViewModel)
+            }
             composable(Screen.YouTubeSignIn.route) {
                 com.theveloper.pixelplay.presentation.screens.account.YouTubeSignInScreen(navController)
             }

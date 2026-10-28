@@ -294,7 +294,8 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(LocalShowScrollbar provides showScrollbar) {
                 PixelPlayTheme(
                     darkTheme = useDarkTheme,
-                    useDynamicColor = appPalette == AppPalette.DYNAMIC
+                    useDynamicColor = appPalette == AppPalette.DYNAMIC,
+                    pureBlack = appPalette == AppPalette.AMOLED
                 ) {
                     var contentVisible by remember { mutableStateOf(false) }
                     val contentAlpha by animateFloatAsState(
@@ -642,6 +643,7 @@ class MainActivity : ComponentActivity() {
                 Screen.MusicVideos.route,
                 Screen.YouTubeAccount.route,
                 Screen.YouTubeSignIn.route,
+                Screen.Samples.route,
                 Screen.EditTransition.route,
                 Screen.Experimental.route,
                 Screen.ArtistSettings.route,
