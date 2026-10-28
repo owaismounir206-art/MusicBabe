@@ -54,6 +54,22 @@ fun YouTubeTrack.toSong(): com.theveloper.pixelplay.data.model.Song = com.thevel
     sampleRate = 44_100
 )
 
+data class YouTubeVideoDetails(
+    val likeCount: Long?,
+    val viewCount: Long?,
+    val uploadDate: String?,
+    val channelId: String?,
+)
+
+data class YouTubeComment(
+    val author: String,
+    val avatarUrl: String?,
+    val text: String,
+    val likeCount: Int?,
+    val date: String,
+    val replyCount: Int,
+)
+
 /** A playable stream URL plus the User-Agent googlevideo ties it to. */
 data class YouTubeStream(val url: String, val userAgent: String?, val mimeType: String?)
 
@@ -252,6 +268,37 @@ class YouTubeExtractor @Inject constructor() {
             }
             .maxByOrNull { it.height }
             ?.let { YouTubeStream(it.content, userAgentFor(it.content), it.format?.mimeType) }
+    }
+
+    /** Likes, views and upload date of a video, as YouTube shows them under the player. */
+    suspend fun details(videoId: String): YouTubeVideoDetails = withContext(Dispatchers.IO) {
+        val info = streamInfo(videoId)
+        YouTubeVideoDetails(
+            likeCount = info.likeCount.takeIf { it >= 0 },
+            viewCount = info.viewCount.takeIf { it >= 0 },
+            uploadDate = info.textualUploadDate,
+            channelId = runCatching { info.uploaderUrl?.substringAfter("/channel/", "")?.substringBefore('?') }
+                .getOrNull()?.takeIf { it.startsWith("UC") }
+        )
+    }
+
+    /** The first page of comments of a video. */
+    suspend fun comments(videoId: String): List<YouTubeComment> = withContext(Dispatchers.IO) {
+        require(isValidVideoId(videoId)) { "Invalid YouTube video id" }
+        ensureInit()
+        val info = org.schabi.newpipe.extractor.comments.CommentsInfo.getInfo(
+            ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId"
+        )
+        info.relatedItems.map { c ->
+            YouTubeComment(
+                author = c.uploaderName.orEmpty(),
+                avatarUrl = c.uploaderAvatars.maxByOrNull { it.width }?.url,
+                text = c.commentText?.content.orEmpty().replace(Regex("<[^>]+>"), ""),
+                likeCount = c.likeCount.takeIf { it >= 0 },
+                date = c.textualUploadDate.orEmpty(),
+                replyCount = c.replyCount.takeIf { it > 0 } ?: 0
+            )
+        }
     }
 
     private fun streamInfo(videoId: String): StreamInfo {

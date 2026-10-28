@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -161,6 +165,9 @@ fun OnlineScreen(
                 HeaderIcon(Icons.Rounded.AutoAwesome, stringResource(R.string.home_for_you)) {
                     navController.navigate(Screen.ForYou.route)
                 }
+                HeaderIcon(Icons.Rounded.AccountCircle, stringResource(R.string.account_title)) {
+                    navController.navigate(Screen.YouTubeAccount.route)
+                }
                 HeaderIcon(Icons.Rounded.Settings, stringResource(R.string.home_settings)) {
                     navController.navigate(Screen.Settings.route)
                 }
@@ -204,6 +211,48 @@ fun OnlineScreen(
                     }
                 }
                 Spacer(Modifier.height(28.dp))
+            }
+        }
+        if (searching && search.suggestions.isNotEmpty()) {
+            item(key = "suggestions") {
+                Column(Modifier.padding(horizontal = Scena.Gutter).padding(bottom = 16.dp)) {
+                    search.suggestions.forEach { suggestion ->
+                        androidx.compose.foundation.layout.Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .clickable { viewModel.submitSearch(suggestion) }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Search, null, tint = scena.ink2, modifier = Modifier.size(20.dp))
+                            androidx.compose.foundation.layout.Spacer(Modifier.width(14.dp))
+                            Text(suggestion, style = MaterialTheme.typography.bodyLarge, color = scena.ink, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+        if (!searching) {
+            item(key = "explore") {
+                androidx.compose.foundation.layout.Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Scena.Gutter)
+                        .padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ExploreTile(stringResource(R.string.explore_new_releases), Icons.Rounded.NewReleases, Modifier.weight(1f)) {
+                        actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                            kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
+                            title = context.getString(R.string.explore_new_releases), browseId = "FEmusic_new_releases"))
+                    }
+                    ExploreTile(stringResource(R.string.explore_charts), Icons.AutoMirrored.Rounded.TrendingUp, Modifier.weight(1f)) {
+                        actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                            kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
+                            title = context.getString(R.string.explore_charts), browseId = "FEmusic_charts"))
+                    }
+                }
             }
         }
         if (searching) {
@@ -396,5 +445,22 @@ private fun RecentSongCard(song: com.theveloper.pixelplay.data.model.Song, onCli
         Spacer(Modifier.height(6.dp))
         Text(song.title, style = MaterialTheme.typography.titleSmall, color = scena.ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Text(song.displayArtist, style = MaterialTheme.typography.bodySmall, color = scena.ink2, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** A tile of "Explore": new releases, charts. */
+@Composable
+private fun ExploreTile(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    androidx.compose.foundation.layout.Row(
+        modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+        androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.scena.ink, maxLines = 1)
     }
 }

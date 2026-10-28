@@ -640,6 +640,8 @@ class MainActivity : ComponentActivity() {
                 Screen.Stats.route,
                 Screen.OnlineCollection.route,
                 Screen.MusicVideos.route,
+                Screen.YouTubeAccount.route,
+                Screen.YouTubeSignIn.route,
                 Screen.EditTransition.route,
                 Screen.Experimental.route,
                 Screen.ArtistSettings.route,

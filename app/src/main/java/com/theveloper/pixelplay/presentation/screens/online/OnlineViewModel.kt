@@ -37,6 +37,7 @@ data class OnlineSearchState(
     val query: String = "",
     val loading: Boolean = false,
     val results: OnlineSearchResults? = null,
+    val suggestions: List<String> = emptyList(),
 )
 
 @HiltViewModel
@@ -103,6 +104,9 @@ class OnlineViewModel @Inject constructor(
             return
         }
         searchJob = viewModelScope.launch {
+            delay(200)
+            val suggestions = repository.searchSuggestions(query.trim())
+            _search.update { if (it.query == query) it.copy(suggestions = suggestions) else it }
             delay(450)
             runSearch(query)
         }
