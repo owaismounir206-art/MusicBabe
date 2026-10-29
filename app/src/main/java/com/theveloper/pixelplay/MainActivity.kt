@@ -535,6 +535,20 @@ class MainActivity : ComponentActivity() {
     private fun MainAppContent(playerViewModel: PlayerViewModel, mainViewModel: MainViewModel) {
         Trace.beginSection("MainActivity.MainAppContent")
         val navController = rememberNavController()
+        val welcomePrefs = remember { getSharedPreferences("welcome", MODE_PRIVATE) }
+        var showWelcome by remember { mutableStateOf(!welcomePrefs.getBoolean("seen", false)) }
+        if (showWelcome) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {},
+                title = { androidx.compose.material3.Text(getString(R.string.welcome_title)) },
+                text = { androidx.compose.material3.Text(getString(R.string.welcome_body)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        welcomePrefs.edit().putBoolean("seen", true).apply(); showWelcome = false
+                    }) { androidx.compose.material3.Text(getString(R.string.welcome_start)) }
+                }
+            )
+        }
         val isSyncing by mainViewModel.isSyncing.collectAsStateWithLifecycle()
         val isLibraryEmpty by mainViewModel.isLibraryEmpty.collectAsStateWithLifecycle()
         val hasCompletedInitialSync by mainViewModel.hasCompletedInitialSync.collectAsStateWithLifecycle()

@@ -59,6 +59,8 @@ data class YouTubeVideoDetails(
     val viewCount: Long?,
     val uploadDate: String?,
     val channelId: String?,
+    /** Chapters of the video: (start in ms, title). */
+    val chapters: List<Pair<Long, String>> = emptyList(),
 )
 
 data class YouTubeComment(
@@ -261,7 +263,7 @@ class YouTubeExtractor @Inject constructor() {
      * The video to save: H.264 in MP4 (what MediaMuxer and every player handle), the highest up to
      * [maxHeight]; video only, the audio is added by the downloader.
      */
-    suspend fun resolveVideoForDownload(videoId: String, maxHeight: Int = 1080): YouTubeStream? = withContext(Dispatchers.IO) {
+    suspend fun resolveVideoForDownload(videoId: String, maxHeight: Int = YouTubeQuality.downloadHeight): YouTubeStream? = withContext(Dispatchers.IO) {
         val info = streamInfo(videoId)
         info.videoOnlyStreams
             .filter {
@@ -280,7 +282,8 @@ class YouTubeExtractor @Inject constructor() {
             viewCount = info.viewCount.takeIf { it >= 0 },
             uploadDate = info.textualUploadDate,
             channelId = runCatching { info.uploaderUrl?.substringAfter("/channel/", "")?.substringBefore('?') }
-                .getOrNull()?.takeIf { it.startsWith("UC") }
+                .getOrNull()?.takeIf { it.startsWith("UC") },
+            chapters = runCatching { info.streamSegments.map { it.startTimeSeconds * 1000L to it.title } }.getOrDefault(emptyList())
         )
     }
 
@@ -408,6 +411,7 @@ private class OkHttpNewPipeDownloader(private val client: OkHttpClient) : Downlo
 object YouTubeQuality {
     @Volatile var lowAudioAlways = false
     @Volatile var videoMaxHeight = 720
+    @Volatile var downloadHeight = 1080
     @Volatile var dataSaver = false
     @Volatile var isMetered: () -> Boolean = { false }
 

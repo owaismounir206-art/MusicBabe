@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.screens.account
 
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.webkit.CookieManager
@@ -138,6 +141,18 @@ class YouTubeAccountViewModel @Inject constructor(
             _liked.value = account.likedSongs()
             _history.value = account.history()
             _loading.value = false
+        }
+    }
+
+    private val _subscribed = MutableStateFlow<Set<String>>(emptySet())
+    val subscribed: StateFlow<Set<String>> = _subscribed.asStateFlow()
+
+    fun toggleSubscribe(channelId: String) {
+        val now = channelId !in _subscribed.value
+        viewModelScope.launch {
+            if (account.subscribe(channelId, now)) {
+                _subscribed.value = if (now) _subscribed.value + channelId else _subscribed.value - channelId
+            }
         }
     }
 
@@ -354,6 +369,14 @@ fun YouTubeActionsRow(
                 transparent = true
             ) { viewModel.rate(videoId, YouTubeRating.DISLIKE) {} }
         }
+        val signedIn by viewModel.isSignedIn.collectAsStateWithLifecycle()
+        val subs by viewModel.subscribed.collectAsStateWithLifecycle()
+        info?.channelId?.takeIf { signedIn }?.let { channel ->
+            ActionPill(
+                if (channel in subs) Icons.Rounded.Check else Icons.Rounded.Add,
+                stringResource(if (channel in subs) R.string.yt_subscribed else R.string.yt_subscribe)
+            ) { viewModel.toggleSubscribe(channel) }
+        }
         ActionPill(Icons.AutoMirrored.Rounded.Comment, stringResource(R.string.yt_comments)) {
             viewModel.loadComments(videoId); showComments = true
         }
@@ -363,6 +386,14 @@ fun YouTubeActionsRow(
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
         }
         ActionPill(Icons.Rounded.Download, stringResource(R.string.save_stream_title), onClick = onSave)
+    }
+    info?.chapters?.takeIf { it.isNotEmpty() }?.let { chapters ->
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chapters.forEach { (start, name) ->
+                val label = "%d:%02d %s".format(start / 60_000, (start / 1000) % 60, name)
+                ActionPill(Icons.Rounded.PlayArrow, label) { playerViewModel.seekTo(start) }
+            }
+        }
     }
     if (showComments) CommentsSheet(viewModel, onDismiss = { showComments = false })
 }

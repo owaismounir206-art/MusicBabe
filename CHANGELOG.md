@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-29
+
+### Added
+- Welcome screen on first start.
+- Smart playlists (recently added, long, short, before 2000, favorites, for this time of day)
+  and a duplicate finder, in the listening options.
+- Last.fm scrobbling with your own API key.
+- Subscribe to the channel from the player; video chapters you can jump to.
+- Podcasts and Live in the online home; concerts of the artist (Bandsintown).
+- Download a whole online album or playlist; search inside long lists; top result in search.
+- Save lyric lines, report wrong lyrics on LRCLIB, search a song by a lyric line in quotes
+  (Gemini).
+- Audio visualizer, monthly music recap, save liked online songs on Wi-Fi, saved video quality.
+
 ## [2.3.0] - 2026-10-29
 
 ### Added

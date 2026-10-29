@@ -148,7 +148,15 @@ class OnlineViewModel @Inject constructor(
     private suspend fun runSearch(query: String) {
         saveSearch(query)
         _search.update { it.copy(loading = true) }
-        val results = repository.search(query.trim())
+        // A lyric line in quotes: Gemini names the song, then it is searched.
+        val trimmed = query.trim()
+        val lyricLine = trimmed.removeSurrounding("\"").takeIf { trimmed.length > 8 && trimmed.startsWith("\"") && trimmed.endsWith("\"") }
+        val effective = lyricLine?.let { line ->
+            if (!gemini.hasKey()) null
+            else gemini.ask("Which song contains the lyric \"$line\"? Answer only as: Artist - Title. If unsure, answer: UNKNOWN")
+                .getOrNull()?.lines()?.firstOrNull()?.trim()?.takeUnless { it.contains("UNKNOWN", true) }
+        } ?: trimmed
+        val results = repository.search(effective)
         _search.update { if (it.query == query) it.copy(loading = false, results = results) else it }
     }
 }

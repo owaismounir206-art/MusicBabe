@@ -206,6 +206,7 @@ class PlayerViewModel @Inject constructor(
     private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
     private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor,
     private val geminiQuick: com.theveloper.pixelplay.data.ai.GeminiQuick,
+    val lastFm: com.theveloper.pixelplay.data.lastfm.LastFmScrobbler,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -3373,9 +3374,113 @@ class PlayerViewModel @Inject constructor(
                 if (day != playedTodayDay) { playedToday.clear(); playedTodayDay = day }
                 val queue = queueFlow.value
                 val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
-                if (_skipPlayedToday.value && id in playedToday && !heardAll) nextSong() else playedToday += id
+                if (_skipPlayedToday.value && id in playedToday && !heardAll) { nextSong(); return@collect }
+                playedToday += id
+                scrobbleTransition()
             }
         }
+    }
+
+    private var scrobbleCandidate: Pair<com.theveloper.pixelplay.data.model.Song, Long>? = null
+
+    /** Last.fm: the song that ended counts when heard for half its length or 4 minutes. */
+    private fun scrobbleTransition() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val now = System.currentTimeMillis()
+        val previous = scrobbleCandidate
+        scrobbleCandidate = song to now
+        if (lastFm.userName == null) return
+        viewModelScope.launch {
+            if (previous != null) {
+                val (p, startedAt) = previous
+                val heard = now - startedAt
+                if (p.duration > 30_000 && (heard > p.duration / 2 || heard > 240_000)) {
+                    lastFm.scrobble(p.artist, p.title, p.album, startedAt / 1000)
+                }
+            }
+            lastFm.nowPlaying(song.artist, song.title, song.album)
+        }
+    }
+
+    /** Saves a whole album or playlist from the Online zone as .m4a, song by song. */
+    fun downloadAllOnline(items: List<com.theveloper.pixelplay.data.online.OnlineSongItem>) {
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.online_download_all_started, items.size)) }
+        items.forEach { item ->
+            val track = OnlineTrack(
+                id = kotlin.math.abs(item.videoId.hashCode().toLong()),
+                title = item.title,
+                artistName = item.artist,
+                albumTitle = item.album,
+                albumCoverUrl = item.thumbnailUrl,
+                durationSeconds = item.durationSeconds.toInt(),
+                youtubeVideoId = item.videoId
+            )
+            songDownloadManager.startYouTubeDownload(track, item.videoId, com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A)
+        }
+    }
+
+    /** Lyric lines you saved, newest first ("artist – title: line"). */
+    private val _savedLyrics = MutableStateFlow<List<String>>(emptyList())
+    val savedLyrics: StateFlow<List<String>> = _savedLyrics.asStateFlow()
+
+    fun saveCurrentLyricLine() {
+        val state = stablePlayerState.value
+        val song = state.currentSong ?: return
+        val position = livePlaybackPositionMs()
+        val line = state.lyrics?.synced?.lastOrNull { it.time <= position }?.line?.takeIf { it.isNotBlank() } ?: return
+        val entry = "${song.artist} – ${song.title}: $line"
+        _savedLyrics.value = (listOf(entry) + _savedLyrics.value.filterNot { it == entry }).take(200)
+        extrasPrefs.edit().putString("saved_lyrics", _savedLyrics.value.joinToString("\n")).apply()
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_lyric_saved)) }
+    }
+
+    /** Wrong lyrics: opens LRCLIB, where anyone can publish corrected synced lyrics. */
+    fun reportWrongLyrics() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val url = "https://lrclib.net/search/" + android.net.Uri.encode("${song.artist} ${song.title}")
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** The audio session of the player, for the visualizer. */
+    val audioSessionId: StateFlow<Int> get() = dualPlayerEngine.activeAudioSessionId
+
+    private val _downloadHeight = MutableStateFlow(1080)
+    val downloadHeight: StateFlow<Int> = _downloadHeight.asStateFlow()
+    fun setDownloadHeight(height: Int) {
+        _downloadHeight.value = height
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.downloadHeight = height
+        extrasPrefs.edit().putInt("download_height", height).apply()
+    }
+
+    private val _autoDownloadFavorites = MutableStateFlow(false)
+    /** Online songs you like are saved to the phone when on Wi-Fi. */
+    val autoDownloadFavorites: StateFlow<Boolean> = _autoDownloadFavorites.asStateFlow()
+    fun setAutoDownloadFavorites(enabled: Boolean) {
+        _autoDownloadFavorites.value = enabled
+        extrasPrefs.edit().putBoolean("auto_download_favorites", enabled).apply()
+        if (enabled) downloadFavoritesOnWifi()
+    }
+
+    private fun downloadFavoritesOnWifi() {
+        if (com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered()) return
+        val done = extrasPrefs.getStringSet("auto_downloaded", emptySet()).orEmpty()
+        val todo = allSongsFlow.value.filter {
+            it.isFavorite && it.id !in done &&
+                com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(it.contentUriString)
+        }.mapNotNull { song ->
+            val id = song.contentUriString.removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+                .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId) ?: return@mapNotNull null
+            song to id
+        }
+        if (todo.isEmpty()) return
+        todo.forEach { (song, id) ->
+            songDownloadManager.startYouTubeDownload(
+                OnlineTrack(id = kotlin.math.abs(id.hashCode().toLong()), title = song.title, artistName = song.artist,
+                    albumTitle = "", albumCoverUrl = song.albumArtUriString, durationSeconds = (song.duration / 1000).toInt(), youtubeVideoId = id),
+                id, com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A
+            )
+        }
+        extrasPrefs.edit().putStringSet("auto_downloaded", done + todo.map { it.first.id }).apply()
     }
 
     /** Lyrics text size, 0.8×–1.6×. */
@@ -3434,8 +3539,12 @@ class PlayerViewModel @Inject constructor(
         com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
         setStreamQuality(extrasPrefs.getBoolean("low_audio", false), extrasPrefs.getInt("video_height", 720), extrasPrefs.getBoolean("data_saver", false))
         _skipPlayedToday.value = extrasPrefs.getBoolean("skip_played_today", false)
+        _savedLyrics.value = extrasPrefs.getString("saved_lyrics", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
         watchPlayedToday()
+        setDownloadHeight(extrasPrefs.getInt("download_height", 1080))
+        _autoDownloadFavorites.value = extrasPrefs.getBoolean("auto_download_favorites", false)
+        if (_autoDownloadFavorites.value) downloadFavoritesOnWifi()
         _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)
         _volumeLeveling.value = extrasPrefs.getBoolean("leveling", false)
         dualPlayerEngine.setSkipSilence(_skipSilence.value)
