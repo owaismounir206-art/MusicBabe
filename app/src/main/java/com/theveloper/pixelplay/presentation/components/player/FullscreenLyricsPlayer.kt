@@ -256,6 +256,7 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
         }
         return
     }
+    val perWord = remember(lines) { lines.any { !it.words.isNullOrEmpty() } }
     val listState = rememberLazyListState()
     // The current line follows the live position: [position] is a plain value, so it is a key
     // here (a derivedStateOf would keep the first position forever and freeze the lyrics).
@@ -264,13 +265,22 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
     LaunchedEffect(current) {
         if (current >= 0) {
             val offsetPx = with(density) { 96.dp.roundToPx() }
-            listState.animateScrollToItem(current, scrollOffset = -offsetPx)
+            listState.animateScrollToItem(current + 1, scrollOffset = -offsetPx)
         }
     }
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(top = 96.dp, bottom = 400.dp)
     ) {
+        item(key = "timing") {
+            // How the lyrics are timed: per word (real word times) or per line.
+            Text(
+                stringResource(if (perWord) R.string.lyrics_scena_timing_word else R.string.lyrics_scena_timing_line),
+                color = Color.White.copy(alpha = 0.55f),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)
+            )
+        }
         itemsIndexed(lines, key = { index, line -> "${line.time}_$index" }) { index, line ->
             if (line.line.isBlank()) {
                 Text("• • •", color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp))
