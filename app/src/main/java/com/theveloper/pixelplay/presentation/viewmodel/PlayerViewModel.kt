@@ -3648,7 +3648,20 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_alarm_set, String.format("%02d:%02d", hour, minute))) }
     }
 
+    private var discordWatch: kotlinx.coroutines.Job? = null
+    private fun watchDiscord() {
+        com.theveloper.pixelplay.data.discord.DiscordPresence.init(context)
+        discordWatch?.cancel()
+        discordWatch = viewModelScope.launch {
+            stablePlayerState.map { (it.currentSong?.title to it.currentSong?.artist) to it.isPlaying }.distinctUntilChanged().collect { (song, playing) ->
+                if (com.theveloper.pixelplay.data.stats.GuestMode.enabled) return@collect
+                com.theveloper.pixelplay.data.discord.DiscordPresence.update(song.first.takeIf { playing }, song.second)
+            }
+        }
+    }
+
     fun restorePlaybackExtras() {
+        watchDiscord()
         val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
         com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
         setStreamQuality(extrasPrefs.getBoolean("low_audio", false), extrasPrefs.getInt("video_height", 720), extrasPrefs.getBoolean("data_saver", false))

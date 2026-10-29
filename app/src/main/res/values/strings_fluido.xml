@@ -218,10 +218,18 @@
     <string name="extras_tv_none">Connect a TV or monitor (HDMI or screen mirroring) first.</string>
     <string name="account_switch_to">Switch to %1$s</string>
     <string name="account_add">Add another account</string>
-    <string name="yt_write_comment">Write a comment on YouTube</string>
     <string name="account_collaborate">Invite friends to a playlist (collaborate)</string>
     <string name="extras_line_timing">Timing of the current line</string>
     <string name="folders_all">All</string>
     <string name="folders_organize">Folders…</string>
     <string name="folders_name">Folder name</string>
+    <string name="yt_write_comment">Add a comment…</string>
+    <string name="yt_comment_send">Send</string>
+    <string name="yt_comment_sent">Comment posted</string>
+    <string name="yt_comment_failed">The comment could not be posted (comments off, or YouTube refused it)</string>
+    <string name="discord_status">Discord status "Listening to"</string>
+    <string name="discord_on">Your Discord profile shows what you are listening to.</string>
+    <string name="discord_connecting">Connecting to Discord…</string>
+    <string name="discord_warning">At your own risk: Discord does not allow your account token in other apps and may suspend the account. The token stays encrypted on this phone and goes only to Discord. Never share it with anyone.</string>
+    <string name="discord_enable">Turn on</string>
 </resources>

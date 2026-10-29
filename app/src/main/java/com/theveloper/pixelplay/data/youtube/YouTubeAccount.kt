@@ -190,17 +190,33 @@ class YouTubeAccount @Inject constructor(
 
     // ─── InnerTube ───────────────────────────────────────────────────────────────────────────
 
+    /** Writes a comment under a video with the signed-in account (YouTube's web API). */
+    suspend fun writeComment(videoId: String, text: String): Boolean = runCatching {
+        val watch = post("next", web = true) { put("videoId", videoId) }.toString()
+        val sectionAt = watch.indexOf("comment-item-section").takeIf { it >= 0 } ?: error("No comments section")
+        val token = Regex("\"token\":\"([^\"]+)\"").findAll(watch.substring(0, sectionAt)).lastOrNull()?.groupValues?.get(1) ?: error("No comments section")
+        val section = post("next", web = true) { put("continuation", token) }.toString()
+        val params = Regex("\"createCommentParams\":\"([^\"]+)\"").find(section)?.groupValues?.get(1) ?: error("Comments closed")
+        val result = post("comment/create_comment", web = true) {
+            put("commentText", text)
+            put("createCommentParams", params)
+        }.toString()
+        "createCommentAction" in result || "STATUS_SUCCEEDED" in result
+    }.onFailure { Timber.w(it, "Comment failed") }.getOrDefault(false)
+
     private suspend fun post(
         endpoint: String,
         authenticated: Boolean = true,
+        web: Boolean = false,
         body: JsonObjectBuilder.() -> Unit
     ): JsonElement = withContext(Dispatchers.IO) {
         val locale = Locale.getDefault()
+        val origin = if (web) "https://www.youtube.com" else ORIGIN
         val payload: JsonObject = buildJsonObject {
             putJsonObject("context") {
                 putJsonObject("client") {
-                    put("clientName", "WEB_REMIX")
-                    put("clientVersion", CLIENT_VERSION)
+                    put("clientName", if (web) "WEB" else "WEB_REMIX")
+                    put("clientVersion", if (web) WEB_CLIENT_VERSION else CLIENT_VERSION)
                     put("hl", locale.language.ifBlank { "en" })
                     put("gl", locale.country.ifBlank { "US" })
                 }
@@ -208,19 +224,19 @@ class YouTubeAccount @Inject constructor(
             body()
         }
         val builder = Request.Builder()
-            .url("https://music.youtube.com/youtubei/v1/$endpoint?prettyPrint=false")
+            .url("$origin/youtubei/v1/$endpoint?prettyPrint=false")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
             .header("User-Agent", YouTubeExtractor.WEB_USER_AGENT)
-            .header("Origin", ORIGIN)
-            .header("Referer", "$ORIGIN/")
-            .header("X-Origin", ORIGIN)
-            .header("X-YouTube-Client-Name", "67")
-            .header("X-YouTube-Client-Version", CLIENT_VERSION)
+            .header("Origin", origin)
+            .header("Referer", "$origin/")
+            .header("X-Origin", origin)
+            .header("X-YouTube-Client-Name", if (web) "1" else "67")
+            .header("X-YouTube-Client-Version", if (web) WEB_CLIENT_VERSION else CLIENT_VERSION)
         val cookie = if (authenticated) cookie() else null
         if (cookie != null) {
             builder.header("Cookie", cookie)
             builder.header("X-Goog-AuthUser", "0")
-            sapisidHash(cookie)?.let { builder.header("Authorization", it) }
+            sapisidHash(cookie, origin)?.let { builder.header("Authorization", it) }
         }
         extractor.httpClient.newCall(builder.build()).execute().use { response ->
             if (response.code == 401 || response.code == 403) {
@@ -232,18 +248,19 @@ class YouTubeAccount @Inject constructor(
     }
 
     /** The header the web player signs its requests with: SHA-1 of time, SAPISID and origin. */
-    private fun sapisidHash(cookie: String): String? {
+    private fun sapisidHash(cookie: String, origin: String = ORIGIN): String? {
         val sapisid = cookie.split(';').map { it.trim() }
             .firstOrNull { it.startsWith("SAPISID=") || it.startsWith("__Secure-3PAPISID=") }
             ?.substringAfter('=') ?: return null
         val time = System.currentTimeMillis() / 1000
-        val digest = MessageDigest.getInstance("SHA-1").digest("$time $sapisid $ORIGIN".toByteArray())
+        val digest = MessageDigest.getInstance("SHA-1").digest("$time $sapisid $origin".toByteArray())
         return "SAPISIDHASH ${time}_" + digest.joinToString("") { "%02x".format(it) }
     }
 
     companion object {
         private const val PREFS = "youtube_account"
         private const val KEY_COOKIE = "cookie"
+        const val WEB_CLIENT_VERSION = "2.20251020.01.00"
         private const val KEY_SAVED = "saved_accounts"
         private const val KEY_NAME = "name"
         private const val ORIGIN = "https://music.youtube.com"
