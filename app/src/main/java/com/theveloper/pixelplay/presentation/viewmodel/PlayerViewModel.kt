@@ -1040,6 +1040,7 @@ class PlayerViewModel @Inject constructor(
 
     init {
         observeOnlineRadio()
+        observeLibraryRadio()
         viewModelScope.launch { kotlinx.coroutines.delay(1_500); runCatching { restorePlaybackExtras() }.onFailure { Timber.w(it, "Listening extras not restored") } }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
@@ -3300,6 +3301,49 @@ class PlayerViewModel @Inject constructor(
      * Online radio: when an online song is the last one in the queue, YouTube's "up next" songs
      * are appended, so listening goes on instead of stopping after a single search result.
      */
+    /**
+     * Library radio: when a phone song is the last one in the queue, songs of the same artist and
+     * genre (then any) from the library follow, so listening never stops.
+     */
+    private fun observeLibraryRadio() {
+        val extended = mutableSetOf<String>()
+        combine(
+            stablePlayerState.map { it.currentSong to it.currentMediaItemIndex }.distinctUntilChanged(),
+            queueFlow
+        ) { (song, index), queue -> Triple(song, index, queue) }
+            .filter { (song, index, queue) ->
+                song != null && !com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(song.contentUriString) &&
+                    queue.isNotEmpty() && index >= queue.size - 1 && song.id !in extended
+            }
+            .mapLatest { (song, _, queue) -> kotlinx.coroutines.delay(ONLINE_RADIO_DELAY_MS); song!! to queue }
+            .onEach { (song, queue) ->
+                extended += song.id
+                val inQueue = queue.map { it.id }.toSet()
+                val pool = allSongsFlow.value.filter { it.id !in inQueue }
+                val similar = (pool.filter { it.artist == song.artist }.shuffled().take(4) +
+                    pool.filter { !song.genre.isNullOrBlank() && it.genre == song.genre }.shuffled().take(8) +
+                    pool.shuffled().take(4)).distinctBy { it.id }.take(10)
+                similar.forEach { addSongToQueue(it) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /** Hands-free commands from the voice button: "next", "pause", "play X"… (Italian and English). */
+    fun handleVoiceCommand(text: String): Boolean {
+        val t = text.lowercase().trim()
+        fun any(vararg w: String) = w.any { t == it || t.startsWith("$it ") }
+        when {
+            any("next", "skip", "prossima", "prossimo", "avanti", "salta") -> nextSong()
+            any("previous", "back", "precedente", "indietro") -> previousSong()
+            any("pause", "stop", "pausa", "ferma") -> if (stablePlayerState.value.isPlaying) playPause()
+            any("play", "resume", "riprendi", "continua") && t.split(" ").size == 1 -> if (!stablePlayerState.value.isPlaying) playPause()
+            any("shuffle", "casuale", "mescola") -> shuffleAllSongs()
+            any("like", "mi piace", "preferito") -> toggleFavorite()
+            else -> return false
+        }
+        return true
+    }
+
     private fun observeOnlineRadio() {
         val extended = mutableSetOf<String>()
         combine(
