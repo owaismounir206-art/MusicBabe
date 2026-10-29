@@ -515,7 +515,7 @@ fun LyricsSheet(
 
     // Font Scaling
     val fontScale by animateFloatAsState(
-        targetValue = if (immersiveMode) 1.4f else 1f,
+        targetValue = (if (immersiveMode) 1.4f else 1f) * com.theveloper.pixelplay.presentation.viewmodel.LyricsTextScale.value,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "fontScale"
     )

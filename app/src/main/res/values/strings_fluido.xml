@@ -149,4 +149,14 @@
     <string name="extras_meaning_ask">Explain with AI</string>
     <string name="extras_meaning_loading">Writing…</string>
     <string name="extras_meaning_failed">Could not explain this song (a Gemini key is needed).</string>
+    <string name="extras_skip_today">Skip songs heard today</string>
+    <string name="extras_skip_today_desc">Songs you already heard today are skipped in the queue.</string>
+    <string name="extras_lyrics_size">Lyrics text size</string>
+    <string name="extras_share_queue">Share the queue</string>
+    <string name="extras_credits">Credits and samples</string>
+    <string name="extras_low_audio">Low audio quality</string>
+    <string name="extras_low_audio_desc">Online songs use the lightest stream.</string>
+    <string name="extras_data_saver">Data saver</string>
+    <string name="extras_data_saver_desc">On mobile data: low audio and 360p videos.</string>
+    <string name="extras_video_quality">Music video quality</string>
 </resources>

@@ -3352,7 +3352,72 @@ class PlayerViewModel @Inject constructor(
     private val _volumeLeveling = MutableStateFlow(false)
     val volumeLeveling: StateFlow<Boolean> = _volumeLeveling.asStateFlow()
 
+    private val _skipPlayedToday = MutableStateFlow(false)
+    /** Songs already heard today are skipped when they come up in the queue. */
+    val skipPlayedToday: StateFlow<Boolean> = _skipPlayedToday.asStateFlow()
+    private val playedToday = mutableSetOf<String>()
+    private var playedTodayDay = -1
+    private var playedTodayWatch: kotlinx.coroutines.Job? = null
+
+    fun setSkipPlayedToday(enabled: Boolean) {
+        _skipPlayedToday.value = enabled
+        extrasPrefs.edit().putBoolean("skip_played_today", enabled).apply()
+    }
+
+    private fun watchPlayedToday() {
+        playedTodayWatch?.cancel()
+        playedTodayWatch = viewModelScope.launch {
+            stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged().collect { id ->
+                id ?: return@collect
+                val day = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
+                if (day != playedTodayDay) { playedToday.clear(); playedTodayDay = day }
+                val queue = queueFlow.value
+                val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
+                if (_skipPlayedToday.value && id in playedToday && !heardAll) nextSong() else playedToday += id
+            }
+        }
+    }
+
+    /** Lyrics text size, 0.8×–1.6×. */
+    fun setLyricsTextScale(scale: Float) {
+        LyricsTextScale.value = scale
+        extrasPrefs.edit().putFloat("lyrics_scale", scale).apply()
+    }
+
+    /** Shares the queue as a list with a YouTube Music link for every song. */
+    fun shareQueue() {
+        val queue = queueFlow.value.take(100)
+        if (queue.isEmpty()) return
+        val text = queue.joinToString("\n") { song ->
+            "${song.artist} – ${song.title}  https://music.youtube.com/search?q=" +
+                android.net.Uri.encode("${song.artist} ${song.title}")
+        }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(android.content.Intent.createChooser(send, null).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    private val _streamQuality = MutableStateFlow(Triple(false, 720, false))
+    /** (low audio, video height, data saver). */
+    val streamQuality: StateFlow<Triple<Boolean, Int, Boolean>> = _streamQuality.asStateFlow()
+
+    fun setStreamQuality(lowAudio: Boolean = _streamQuality.value.first, videoHeight: Int = _streamQuality.value.second, dataSaver: Boolean = _streamQuality.value.third) {
+        _streamQuality.value = Triple(lowAudio, videoHeight, dataSaver)
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.lowAudioAlways = lowAudio
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.videoMaxHeight = videoHeight
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.dataSaver = dataSaver
+        extrasPrefs.edit().putBoolean("low_audio", lowAudio).putInt("video_height", videoHeight).putBoolean("data_saver", dataSaver).apply()
+    }
+
     fun restorePlaybackExtras() {
+        val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
+        setStreamQuality(extrasPrefs.getBoolean("low_audio", false), extrasPrefs.getInt("video_height", 720), extrasPrefs.getBoolean("data_saver", false))
+        _skipPlayedToday.value = extrasPrefs.getBoolean("skip_played_today", false)
+        LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
+        watchPlayedToday()
         _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)
         _volumeLeveling.value = extrasPrefs.getBoolean("leveling", false)
         dualPlayerEngine.setSkipSilence(_skipSilence.value)
@@ -3422,6 +3487,20 @@ class PlayerViewModel @Inject constructor(
     private val _songMeaning = MutableStateFlow<String?>(null)
     /** What the song is about, written by Gemini; "" while it is being written. */
     val songMeaning: StateFlow<String?> = _songMeaning.asStateFlow()
+
+    /** Credits (writers, producers, label, samples) of the current song, written by Gemini. */
+    fun creditsForCurrentSong() {
+        val song = stablePlayerState.value.currentSong ?: return
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            _songMeaning.value = geminiQuick.ask(
+                "In $language, list the credits of the song \"${song.title}\" by ${song.artist}: songwriters, producers, " +
+                    "featured artists, label, release year, songs it samples and songs that sampled it. " +
+                    "One short line each; write 'unknown' instead of guessing."
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
 
     fun explainCurrentSong() {
         val song = stablePlayerState.value.currentSong ?: return
@@ -3672,3 +3751,8 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
 }
 
 private const val ONLINE_RADIO_DELAY_MS = 3_000L
+
+/** Lyrics text size chosen in the listening options (read by every lyrics view). */
+object LyricsTextScale {
+    var value by androidx.compose.runtime.mutableFloatStateOf(1f)
+}

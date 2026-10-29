@@ -149,4 +149,14 @@
     <string name="extras_meaning_ask">Spiegalo con l\'AI</string>
     <string name="extras_meaning_loading">Sto scrivendo…</string>
     <string name="extras_meaning_failed">Non riesco a spiegare questo brano (serve una chiave Gemini).</string>
+    <string name="extras_skip_today">Salta i brani ascoltati oggi</string>
+    <string name="extras_skip_today_desc">I brani che hai già sentito oggi vengono saltati nella coda.</string>
+    <string name="extras_lyrics_size">Dimensione del testo</string>
+    <string name="extras_share_queue">Condividi la coda</string>
+    <string name="extras_credits">Crediti e campionamenti</string>
+    <string name="extras_low_audio">Audio a bassa qualità</string>
+    <string name="extras_low_audio_desc">I brani online usano il flusso più leggero.</string>
+    <string name="extras_data_saver">Risparmio dati</string>
+    <string name="extras_data_saver_desc">Con i dati mobili: audio leggero e video a 360p.</string>
+    <string name="extras_video_quality">Qualità dei video musicali</string>
 </resources>

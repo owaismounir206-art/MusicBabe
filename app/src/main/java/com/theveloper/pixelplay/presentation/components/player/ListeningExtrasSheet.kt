@@ -39,6 +39,28 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             Text(stringResource(R.string.extras_title), style = MaterialTheme.typography.titleLarge)
             SwitchRow(stringResource(R.string.extras_skip_silence), stringResource(R.string.extras_skip_silence_desc), skipSilence, playerViewModel::setSkipSilence)
             SwitchRow(stringResource(R.string.extras_leveling), stringResource(R.string.extras_leveling_desc), leveling, playerViewModel::setVolumeLeveling)
+            val skipToday by playerViewModel.skipPlayedToday.collectAsStateWithLifecycle()
+            SwitchRow(stringResource(R.string.extras_skip_today), stringResource(R.string.extras_skip_today_desc), skipToday, playerViewModel::setSkipPlayedToday)
+            Column {
+                Text(stringResource(R.string.extras_lyrics_size), style = MaterialTheme.typography.titleMedium)
+                androidx.compose.material3.Slider(
+                    value = com.theveloper.pixelplay.presentation.viewmodel.LyricsTextScale.value,
+                    onValueChange = playerViewModel::setLyricsTextScale,
+                    valueRange = 0.8f..1.6f
+                )
+            }
+            val quality by playerViewModel.streamQuality.collectAsStateWithLifecycle()
+            SwitchRow(stringResource(R.string.extras_low_audio), stringResource(R.string.extras_low_audio_desc), quality.first) { playerViewModel.setStreamQuality(lowAudio = it) }
+            SwitchRow(stringResource(R.string.extras_data_saver), stringResource(R.string.extras_data_saver_desc), quality.third) { playerViewModel.setStreamQuality(dataSaver = it) }
+            Column {
+                Text(stringResource(R.string.extras_video_quality), style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    listOf(360, 480, 720, 1080).forEach { h ->
+                        FilterChip(selected = quality.second == h, onClick = { playerViewModel.setStreamQuality(videoHeight = h) }, label = { Text("${h}p") })
+                    }
+                }
+            }
+            OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -63,8 +85,9 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             Column {
                 Text(stringResource(R.string.extras_meaning), style = MaterialTheme.typography.titleMedium)
                 when (val m = meaning) {
-                    null -> OutlinedButton(onClick = playerViewModel::explainCurrentSong, modifier = Modifier.padding(top = 8.dp)) {
-                        Text(stringResource(R.string.extras_meaning_ask))
+                    null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        OutlinedButton(onClick = playerViewModel::explainCurrentSong) { Text(stringResource(R.string.extras_meaning_ask)) }
+                        OutlinedButton(onClick = playerViewModel::creditsForCurrentSong) { Text(stringResource(R.string.extras_credits)) }
                     }
                     "" -> Text(stringResource(R.string.extras_meaning_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     else -> Text(m, style = MaterialTheme.typography.bodyMedium)
