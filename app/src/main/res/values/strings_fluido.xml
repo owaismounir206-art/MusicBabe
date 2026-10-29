@@ -235,4 +235,5 @@
     <string name="online_collaborate">Collaborate</string>
     <string name="online_collaborate_message">Add your songs to "%1$s": paste this code in the MusicBabe search, add songs and share it back.</string>
     <string name="online_collaborate_add">Add the song playing</string>
+    <string name="extras_tap_sync">Next line starts now</string>
 </resources>

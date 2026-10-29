@@ -235,4 +235,5 @@
     <string name="online_collaborate">Collabora</string>
     <string name="online_collaborate_message">Aggiungi i tuoi brani a "%1$s": incolla questo codice nella ricerca di MusicBabe, aggiungi i brani e rimandamelo.</string>
     <string name="online_collaborate_add">Aggiungi il brano in ascolto</string>
+    <string name="extras_tap_sync">La prossima riga parte ora</string>
 </resources>
