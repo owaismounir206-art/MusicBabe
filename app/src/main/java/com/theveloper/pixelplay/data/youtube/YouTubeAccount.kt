@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.data.youtube
 
+import kotlinx.serialization.builtins.serializer
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -96,8 +97,7 @@ class YouTubeAccount @Inject constructor(
 
     private fun rememberAccount(name: String, cookies: String) {
         val all = loadSaved() + (name to cookies)
-        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(
-            kotlinx.serialization.builtins.serializer<String>(), kotlinx.serialization.builtins.serializer<String>()), all)).apply()
+        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()), all)).apply()
         _savedAccounts.value = all.keys.toList()
     }
 
@@ -116,8 +116,7 @@ class YouTubeAccount @Inject constructor(
     fun signOut() {
         val current = _accountName.value
         val rest = loadSaved() - (current ?: "")
-        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(
-            kotlinx.serialization.builtins.serializer<String>(), kotlinx.serialization.builtins.serializer<String>()), rest)).apply()
+        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(String.serializer(), String.serializer()), rest)).apply()
         _savedAccounts.value = rest.keys.toList()
         prefs.edit().remove(KEY_COOKIE).remove(KEY_NAME).apply()
         _isSignedIn.value = false
