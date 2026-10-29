@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-30
+
+### Changed
+- Lyrics rework:
+  - Full screen lyrics follow the song again (they stood still) and say whether they are
+    timed per word or per line.
+  - Lyrics with the real time of every word are searched first for every song (AMLL TTML DB,
+    NetEase per-word lyrics), then line lyrics from LRCLIB.
+  - Lines without real word times light whole instead of guessed word by word.
+  - Sync with Gemini sends the song in 40-second pieces: timings no longer drift towards
+    the end.
+  - On-device sync listens to the voice range only, made louder, so quiet vocals are found.
+
+### Added
+- Tap to sync: "Next line starts now" in the listening options, to time lyrics by hand.
+
 ## [2.7.0] - 2026-10-29
 
 ### Added
