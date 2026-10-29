@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.screens.account
 
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.webkit.CookieManager
@@ -138,6 +140,18 @@ class YouTubeAccountViewModel @Inject constructor(
             _liked.value = account.likedSongs()
             _history.value = account.history()
             _loading.value = false
+        }
+    }
+
+    private val _subscribed = MutableStateFlow<Set<String>>(emptySet())
+    val subscribed: StateFlow<Set<String>> = _subscribed.asStateFlow()
+
+    fun toggleSubscribe(channelId: String) {
+        val now = channelId !in _subscribed.value
+        viewModelScope.launch {
+            if (account.subscribe(channelId, now)) {
+                _subscribed.value = if (now) _subscribed.value + channelId else _subscribed.value - channelId
+            }
         }
     }
 
@@ -353,6 +367,14 @@ fun YouTubeActionsRow(
                 label = null,
                 transparent = true
             ) { viewModel.rate(videoId, YouTubeRating.DISLIKE) {} }
+        }
+        val signedIn by viewModel.isSignedIn.collectAsStateWithLifecycle()
+        val subs by viewModel.subscribed.collectAsStateWithLifecycle()
+        info?.channelId?.takeIf { signedIn }?.let { channel ->
+            ActionPill(
+                if (channel in subs) Icons.Rounded.Check else Icons.Rounded.Add,
+                stringResource(if (channel in subs) R.string.yt_subscribed else R.string.yt_subscribe)
+            ) { viewModel.toggleSubscribe(channel) }
         }
         ActionPill(Icons.AutoMirrored.Rounded.Comment, stringResource(R.string.yt_comments)) {
             viewModel.loadComments(videoId); showComments = true

@@ -180,4 +180,6 @@
     <string name="lastfm_user">Nome utente</string>
     <string name="lastfm_password">Password</string>
     <string name="lastfm_sign_out">Scollega</string>
+    <string name="yt_subscribe">Iscriviti</string>
+    <string name="yt_subscribed">Iscritto</string>
 </resources>
