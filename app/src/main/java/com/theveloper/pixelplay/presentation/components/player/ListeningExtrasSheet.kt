@@ -118,6 +118,8 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             MonthlyRecapSection(library)
             SwitchRow(stringResource(R.string.extras_subtitles), stringResource(R.string.extras_subtitles_desc), VideoSubtitles.enabled) { VideoSubtitles.enabled = it }
             OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
+            SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc),
+                com.theveloper.pixelplay.presentation.components.MovingCover.enabled) { com.theveloper.pixelplay.presentation.components.MovingCover.enabled = it }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
