@@ -182,4 +182,8 @@
     <string name="lastfm_sign_out">Scollega</string>
     <string name="yt_subscribe">Iscriviti</string>
     <string name="yt_subscribed">Iscritto</string>
+    <string name="explore_podcasts">Podcast</string>
+    <string name="explore_live">Live</string>
+    <string name="explore_live_query">concerto live</string>
+    <string name="extras_concerts">Concerti di %1$s</string>
 </resources>

@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import androidx.compose.material.icons.rounded.Podcasts
+import androidx.compose.material.icons.rounded.LiveTv
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -316,6 +318,23 @@ fun OnlineScreen(
                         actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
                             kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
                             title = context.getString(R.string.explore_charts), browseId = "FEmusic_charts"))
+                    }
+                }
+                androidx.compose.foundation.layout.Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Scena.Gutter)
+                        .padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ExploreTile(stringResource(R.string.explore_podcasts), Icons.Rounded.Podcasts, Modifier.weight(1f)) {
+                        actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                            kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
+                            title = context.getString(R.string.explore_podcasts), browseId = "FEmusic_non_music_audio"))
+                    }
+                    ExploreTile(stringResource(R.string.explore_live), Icons.Rounded.LiveTv, Modifier.weight(1f)) {
+                        viewModel.onQueryChange(context.getString(R.string.explore_live_query))
+                        viewModel.submitSearch()
                     }
                 }
             }

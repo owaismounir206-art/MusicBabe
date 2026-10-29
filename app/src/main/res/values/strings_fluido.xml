@@ -182,4 +182,8 @@
     <string name="lastfm_sign_out">Disconnect</string>
     <string name="yt_subscribe">Subscribe</string>
     <string name="yt_subscribed">Subscribed</string>
+    <string name="explore_podcasts">Podcasts</string>
+    <string name="explore_live">Live</string>
+    <string name="explore_live_query">live concert</string>
+    <string name="extras_concerts">Concerts of %1$s</string>
 </resources>

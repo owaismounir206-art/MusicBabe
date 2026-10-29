@@ -76,6 +76,13 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 Text(playerViewModel.lastFm.userName?.let { stringResource(R.string.lastfm_signed_in, it) } ?: stringResource(R.string.lastfm_connect))
             }
             if (showLastFm) LastFmDialog(playerViewModel.lastFm) { showLastFm = false }
+            val current = playerViewModel.stablePlayerState.collectAsStateWithLifecycle().value.currentSong
+            if (current != null) {
+                OutlinedButton(onClick = {
+                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://www.bandsintown.com/search?search_term=" + android.net.Uri.encode(current.artist))))
+                }) { Text(stringResource(R.string.extras_concerts, current.artist)) }
+            }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
