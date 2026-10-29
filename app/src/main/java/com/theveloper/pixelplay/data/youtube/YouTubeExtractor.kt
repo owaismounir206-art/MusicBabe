@@ -59,6 +59,8 @@ data class YouTubeVideoDetails(
     val viewCount: Long?,
     val uploadDate: String?,
     val channelId: String?,
+    /** Chapters of the video: (start in ms, title). */
+    val chapters: List<Pair<Long, String>> = emptyList(),
 )
 
 data class YouTubeComment(
@@ -280,7 +282,8 @@ class YouTubeExtractor @Inject constructor() {
             viewCount = info.viewCount.takeIf { it >= 0 },
             uploadDate = info.textualUploadDate,
             channelId = runCatching { info.uploaderUrl?.substringAfter("/channel/", "")?.substringBefore('?') }
-                .getOrNull()?.takeIf { it.startsWith("UC") }
+                .getOrNull()?.takeIf { it.startsWith("UC") },
+            chapters = runCatching { info.streamSegments.map { it.startTimeSeconds * 1000L to it.title } }.getOrDefault(emptyList())
         )
     }
 

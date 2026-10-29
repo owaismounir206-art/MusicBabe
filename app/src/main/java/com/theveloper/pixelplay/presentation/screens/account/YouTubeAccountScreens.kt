@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.account
 
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import android.annotation.SuppressLint
@@ -385,6 +386,14 @@ fun YouTubeActionsRow(
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
         }
         ActionPill(Icons.Rounded.Download, stringResource(R.string.save_stream_title), onClick = onSave)
+    }
+    info?.chapters?.takeIf { it.isNotEmpty() }?.let { chapters ->
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            chapters.forEach { (start, name) ->
+                val label = "%d:%02d %s".format(start / 60_000, (start / 1000) % 60, name)
+                ActionPill(Icons.Rounded.PlayArrow, label) { playerViewModel.seekTo(start) }
+            }
+        }
     }
     if (showComments) CommentsSheet(viewModel, onDismiss = { showComments = false })
 }
