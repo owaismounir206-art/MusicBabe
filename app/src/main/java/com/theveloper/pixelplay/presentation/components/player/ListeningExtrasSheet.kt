@@ -120,6 +120,7 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             SwitchRow(stringResource(R.string.extras_subtitles), stringResource(R.string.extras_subtitles_desc), VideoSubtitles.enabled) { VideoSubtitles.enabled = it }
             val lockLyrics by playerViewModel.lockScreenLyrics.collectAsStateWithLifecycle()
             SwitchRow(stringResource(R.string.extras_lock_lyrics), stringResource(R.string.extras_lock_lyrics_desc), lockLyrics, playerViewModel::setLockScreenLyrics)
+            TvLyricsButton(playerViewModel)
             OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
             SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc),
                 com.theveloper.pixelplay.presentation.components.MovingCover.enabled) { com.theveloper.pixelplay.presentation.components.MovingCover.enabled = it }
@@ -226,4 +227,38 @@ private fun LastFmDialog(lastFm: com.theveloper.pixelplay.data.lastfm.LastFmScro
             }
         }
     )
+}
+
+/** Shows the lyrics on a connected TV (second screen) while this button's screen stays open. */
+@Composable
+private fun TvLyricsButton(playerViewModel: PlayerViewModel) {
+    val activity = androidx.compose.ui.platform.LocalContext.current
+    var presentation by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(TvLyricsHolder.presentation) }
+    val noTv = stringResource(R.string.extras_tv_none)
+    OutlinedButton(onClick = {
+        val open = presentation
+        if (open != null) { open.dismiss(); TvLyricsHolder.presentation = null; presentation = null; return@OutlinedButton }
+        val display = com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation.findDisplay(activity)
+        if (display == null) { android.widget.Toast.makeText(activity, noTv, android.widget.Toast.LENGTH_LONG).show(); return@OutlinedButton }
+        val p = com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation(activity, display)
+        runCatching { p.show() }.onSuccess { TvLyricsHolder.presentation = p; presentation = p }
+    }) { Text(stringResource(if (presentation != null) R.string.extras_tv_stop else R.string.extras_tv)) }
+    val p = presentation
+    if (p != null) {
+        androidx.compose.runtime.LaunchedEffect(p) {
+            while (true) {
+                val state = playerViewModel.stablePlayerState.value
+                val synced = state.lyrics?.synced.orEmpty()
+                val pos = playerViewModel.livePlaybackPositionMs()
+                val i = synced.indexOfLast { it.time <= pos }
+                p.show(state.currentSong?.let { "${it.artist} – ${it.title}" }.orEmpty(),
+                    synced.getOrNull(i)?.line.orEmpty(), synced.getOrNull(i + 1)?.line.orEmpty())
+                kotlinx.coroutines.delay(200)
+            }
+        }
+    }
+}
+
+private object TvLyricsHolder {
+    var presentation: com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation? = null
 }

@@ -213,4 +213,7 @@
     <string name="account_uploads">I tuoi caricamenti</string>
     <string name="extras_lock_lyrics">Testo sulla schermata di blocco</string>
     <string name="extras_lock_lyrics_desc">La riga cantata appare in una notifica silenziosa, anche a schermo bloccato.</string>
+    <string name="extras_tv">Testo sulla TV</string>
+    <string name="extras_tv_stop">Togli il testo dalla TV</string>
+    <string name="extras_tv_none">Collega prima una TV o un monitor (HDMI o duplicazione dello schermo).</string>
 </resources>
