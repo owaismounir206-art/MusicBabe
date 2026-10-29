@@ -159,6 +159,10 @@ class MusicVideosViewModel @Inject constructor(
         }
     }
 
+    fun setCover(video: LocalMusicVideo, image: android.net.Uri) {
+        viewModelScope.launch { repository.setCover(video.uri, image) }
+    }
+
     fun remove(video: LocalMusicVideo) {
         viewModelScope.launch { repository.remove(video.uri) }
     }
@@ -272,10 +276,18 @@ fun MusicVideosScreen(
         )
     }
 
+    val coverTarget = remember { mutableStateOf<LocalMusicVideo?>(null) }
+    val coverPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    ) { uri -> val v = coverTarget.value; if (uri != null && v != null) viewModel.setCover(v, uri) }
     editing?.let { video ->
         EditVideoDialog(
             video = video,
             onDismiss = { editing = null },
+            onPickCover = {
+                coverTarget.value = video
+                coverPicker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
             onSave = { title, artist ->
                 viewModel.rename(video, title, artist)
                 editing = null
@@ -376,7 +388,7 @@ private fun VideoRow(
 }
 
 @Composable
-private fun EditVideoDialog(video: LocalMusicVideo, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+private fun EditVideoDialog(video: LocalMusicVideo, onDismiss: () -> Unit, onPickCover: () -> Unit = {}, onSave: (String, String) -> Unit) {
     var title by remember(video.uri) { mutableStateOf(video.title) }
     var artist by remember(video.uri) { mutableStateOf(video.artist) }
     AlertDialog(
@@ -391,6 +403,11 @@ private fun EditVideoDialog(video: LocalMusicVideo, onDismiss: () -> Unit, onSav
         confirmButton = {
             TextButton(onClick = { onSave(title, artist) }, enabled = title.isNotBlank()) { Text(stringResource(R.string.videos_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
+        dismissButton = {
+            androidx.compose.foundation.layout.Row {
+                TextButton(onClick = onPickCover) { Text(stringResource(R.string.videos_cover)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+            }
+        }
     )
 }

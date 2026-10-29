@@ -171,7 +171,7 @@ class PlaybackStatsRepository @Inject constructor(
         durationMs: Long,
         timestamp: Long = System.currentTimeMillis()
     ) = withContext(Dispatchers.IO) {
-        if (songId.isBlank()) return@withContext
+        if (songId.isBlank() || GuestMode.enabled) return@withContext
         val coercedTimestamp = timestamp.coerceAtLeast(0L)
         val coercedDuration = durationMs.coerceAtLeast(0L)
         val start = (coercedTimestamp - coercedDuration).coerceAtLeast(0L)
@@ -1130,4 +1130,9 @@ enum class StatsTimeRange(val displayName: String) {
     MONTH("Month to Date"),
     YEAR("Year to Date"),
     ALL("All Time")
+}
+
+/** Guest mode: nothing played is remembered (stats, search history, Last.fm, "heard today"). */
+object GuestMode {
+    @Volatile var enabled = false
 }

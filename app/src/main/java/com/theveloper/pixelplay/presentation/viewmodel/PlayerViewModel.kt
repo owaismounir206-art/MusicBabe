@@ -3375,7 +3375,7 @@ class PlayerViewModel @Inject constructor(
                 val queue = queueFlow.value
                 val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
                 if (_skipPlayedToday.value && id in playedToday && !heardAll) { nextSong(); return@collect }
-                playedToday += id
+                if (!com.theveloper.pixelplay.data.stats.GuestMode.enabled) playedToday += id
                 scrobbleTransition()
             }
         }
@@ -3389,7 +3389,7 @@ class PlayerViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val previous = scrobbleCandidate
         scrobbleCandidate = song to now
-        if (lastFm.userName == null) return
+        if (lastFm.userName == null || com.theveloper.pixelplay.data.stats.GuestMode.enabled) return
         viewModelScope.launch {
             if (previous != null) {
                 val (p, startedAt) = previous
@@ -3481,6 +3481,66 @@ class PlayerViewModel @Inject constructor(
             )
         }
         extrasPrefs.edit().putStringSet("auto_downloaded", done + todo.map { it.first.id }).apply()
+    }
+
+    private var floatingJob: kotlinx.coroutines.Job? = null
+
+    /** Lyrics in a bubble over other apps (asks for the overlay permission the first time). */
+    fun toggleFloatingLyrics() {
+        val service = android.content.Intent(context, com.theveloper.pixelplay.presentation.floating.FloatingLyricsService::class.java)
+        if (com.theveloper.pixelplay.presentation.floating.FloatingLyricsService.running.value) {
+            context.stopService(service); floatingJob?.cancel(); return
+        }
+        if (!android.provider.Settings.canDrawOverlays(context)) {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        context.startService(service)
+        floatingJob?.cancel()
+        floatingJob = viewModelScope.launch {
+            while (true) {
+                val state = stablePlayerState.value
+                val pos = livePlaybackPositionMs()
+                com.theveloper.pixelplay.presentation.floating.FloatingLyricsService.line.value =
+                    state.lyrics?.synced?.lastOrNull { it.time <= pos }?.line ?: state.currentSong?.let { "${it.artist} – ${it.title}" }.orEmpty()
+                kotlinx.coroutines.delay(250)
+            }
+        }
+    }
+
+    private var lockLyricsJob: kotlinx.coroutines.Job? = null
+    private val _lockScreenLyrics = MutableStateFlow(false)
+    /** The sung line in a silent notification, visible on the lock screen. */
+    val lockScreenLyrics: StateFlow<Boolean> = _lockScreenLyrics.asStateFlow()
+
+    fun setLockScreenLyrics(enabled: Boolean) {
+        _lockScreenLyrics.value = enabled
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        lockLyricsJob?.cancel()
+        if (!enabled) { nm.cancel(LYRICS_NOTIFICATION_ID); return }
+        nm.createNotificationChannel(android.app.NotificationChannel("lyrics", context.getString(R.string.extras_lock_lyrics),
+            android.app.NotificationManager.IMPORTANCE_LOW).apply { lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC; setSound(null, null) })
+        lockLyricsJob = viewModelScope.launch {
+            var last = ""
+            while (true) {
+                val state = stablePlayerState.value
+                val pos = livePlaybackPositionMs()
+                val line = state.lyrics?.synced?.lastOrNull { it.time <= pos }?.line.orEmpty()
+                if (line != last && state.currentSong != null) {
+                    last = line
+                    val n = androidx.core.app.NotificationCompat.Builder(context, "lyrics")
+                        .setSmallIcon(R.drawable.monochrome_player)
+                        .setContentTitle(line.ifBlank { "♪" })
+                        .setContentText("${state.currentSong.artist} – ${state.currentSong.title}")
+                        .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                        .setOnlyAlertOnce(true).setSilent(true).setOngoing(state.isPlaying)
+                        .build()
+                    runCatching { nm.notify(LYRICS_NOTIFICATION_ID, n) }
+                }
+                kotlinx.coroutines.delay(300)
+            }
+        }
     }
 
     /** Lyrics text size, 0.8×–1.6×. */
@@ -3625,6 +3685,20 @@ class PlayerViewModel @Inject constructor(
                 "In $language, list the credits of the song \"${song.title}\" by ${song.artist}: songwriters, producers, " +
                     "featured artists, label, release year, songs it samples and songs that sampled it. " +
                     "One short line each; write 'unknown' instead of guessing."
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
+
+    /** Release calendar: announced and recent releases of the current artist (Gemini). */
+    fun upcomingReleasesForArtist() {
+        val song = stablePlayerState.value.currentSong ?: return
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            val today = java.time.LocalDate.now()
+            _songMeaning.value = geminiQuick.ask(
+                "Today is $today. In $language, list the latest and the announced upcoming releases (albums, singles, tours) " +
+                    "of ${song.artist}, with dates, newest first. Say clearly when your information may be out of date."
             ).getOrElse { context.getString(R.string.extras_meaning_failed) }
         }
     }
@@ -3878,6 +3952,8 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
 }
 
 private const val ONLINE_RADIO_DELAY_MS = 3_000L
+
+private const val LYRICS_NOTIFICATION_ID = 47110
 
 /** Lyrics text size chosen in the listening options (read by every lyrics view). */
 object LyricsTextScale {

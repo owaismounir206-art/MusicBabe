@@ -111,6 +111,10 @@ class YouTubeAccount @Inject constructor(
     suspend fun likedSongs(): List<OnlineSongItem> =
         runCatching { YouTubeMusicParser.listSongs(browse("VLLM")) }.getOrDefault(emptyList())
 
+    /** Songs the user uploaded to YouTube Music. */
+    suspend fun uploads(): List<OnlineSongItem> =
+        runCatching { YouTubeMusicParser.listSongs(browse("FEmusic_library_privately_owned_tracks")) }.getOrDefault(emptyList())
+
     /** Listening history of the account. */
     suspend fun history(): List<OnlineSongItem> =
         runCatching { YouTubeMusicParser.listSongs(browse("FEmusic_history")) }.getOrDefault(emptyList())

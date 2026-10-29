@@ -181,6 +181,15 @@ class LocalMusicVideoRepository @Inject constructor(
 
     suspend fun rename(uri: String, title: String, artist: String) = update(uri) { it.copy(title = title.trim(), artist = artist.trim()) }
 
+    /** Uses a picture chosen by the user as the cover of the video. */
+    suspend fun setCover(uri: String, image: Uri) = withContext(Dispatchers.IO) {
+        val bitmap = runCatching {
+            context.contentResolver.openInputStream(image)?.use { android.graphics.BitmapFactory.decodeStream(it) }
+        }.getOrNull() ?: return@withContext
+        val path = saveThumbnail("cover_${uri}_${System.currentTimeMillis()}", bitmap) ?: return@withContext
+        update(uri) { it.copy(thumbnailPath = path) }
+    }
+
     suspend fun saveLyrics(songId: String, lyrics: String) {
         val video = bySongId(songId) ?: return
         update(video.uri) { it.copy(lyrics = lyrics) }

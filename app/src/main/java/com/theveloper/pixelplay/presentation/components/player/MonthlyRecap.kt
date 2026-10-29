@@ -47,11 +47,14 @@ class MonthlyRecapViewModel @Inject constructor(
                 s.topArtists.take(3).joinToString(", ") { it.artist }.takeIf { it.isNotBlank() }?.let { appendLine("★ $it") }
                 s.topGenres.take(3).joinToString(", ") { it.genre }.takeIf { it.isNotBlank() }?.let { appendLine("♫ $it") }
             }
-            _recap.value = facts
+            // Listening calendar: minutes for every day of the month.
+            val calendar = s.timeline.filter { it.playCount > 0 }
+                .joinToString("\n") { "📅 ${it.label}: ${it.totalDurationMs / 60_000} min · ${it.playCount} ▶" }
+            _recap.value = facts + if (calendar.isNotBlank()) "\n$calendar\n" else ""
             if (gemini.hasKey()) {
                 val language = java.util.Locale.getDefault().displayLanguage
                 gemini.ask("In $language, write 3 warm, playful sentences summing up this person's month in music:\n$facts")
-                    .onSuccess { _recap.value = facts + "\n" + it }
+                    .onSuccess { _recap.value = _recap.value + "\n" + it }
             }
         }
     }

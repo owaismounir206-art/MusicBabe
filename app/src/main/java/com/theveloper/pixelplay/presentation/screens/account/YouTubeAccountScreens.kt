@@ -128,6 +128,8 @@ class YouTubeAccountViewModel @Inject constructor(
     val playlists: StateFlow<List<OnlineCollectionItem>> = _playlists.asStateFlow()
     private val _liked = MutableStateFlow<List<OnlineSongItem>>(emptyList())
     val liked: StateFlow<List<OnlineSongItem>> = _liked.asStateFlow()
+    private val _uploads = MutableStateFlow<List<OnlineSongItem>>(emptyList())
+    val uploads: StateFlow<List<OnlineSongItem>> = _uploads.asStateFlow()
     private val _history = MutableStateFlow<List<OnlineSongItem>>(emptyList())
     val history: StateFlow<List<OnlineSongItem>> = _history.asStateFlow()
     private val _loading = MutableStateFlow(false)
@@ -139,6 +141,7 @@ class YouTubeAccountViewModel @Inject constructor(
             _loading.value = true
             _playlists.value = account.playlists()
             _liked.value = account.likedSongs()
+            _uploads.value = account.uploads()
             _history.value = account.history()
             _loading.value = false
         }
@@ -245,6 +248,7 @@ fun YouTubeAccountScreen(
     val name by viewModel.accountName.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val liked by viewModel.liked.collectAsStateWithLifecycle()
+    val uploads by viewModel.uploads.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val actions = rememberOnlineActions(playerViewModel, navController)
@@ -306,6 +310,17 @@ fun YouTubeAccountScreen(
             }
             items(liked.take(30), key = { "l_" + it.videoId }) { song ->
                 OnlineSongRow(song, onClick = { actions.playSongs(liked, liked.indexOf(song), "liked") }, actions = actions,
+                    modifier = Modifier.padding(horizontal = Scena.Gutter - 4.dp))
+            }
+            item { Spacer(Modifier.height(28.dp)) }
+        }
+        if (uploads.isNotEmpty()) {
+            item {
+                val title = stringResource(R.string.account_uploads)
+                OnlineSectionHeader(title = title, onPlayAll = { actions.playSongs(uploads, 0, title) })
+            }
+            items(uploads.take(30), key = { "u_" + it.videoId }) { song ->
+                OnlineSongRow(song, onClick = { actions.playSongs(uploads, uploads.indexOf(song), "uploads") }, actions = actions,
                     modifier = Modifier.padding(horizontal = Scena.Gutter - 4.dp))
             }
             item { Spacer(Modifier.height(28.dp)) }

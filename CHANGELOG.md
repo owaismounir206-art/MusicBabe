@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-29
+
+### Added
+- Lyrics everywhere: as subtitles on music videos, floating over other apps, on the lock
+  screen (silent notification) and on a connected TV or monitor.
+- Moving cover in the player.
+- New from your artists on the home; release calendar of the artist (Gemini).
+- Listening calendar in the monthly recap.
+- Choose the cover of a phone video.
+- Your YouTube Music uploads in the account page.
+- Guest mode: nothing played is remembered.
+
+### Changed
+- Deleting songs moves them to the system trash (restorable for 30 days) on Android 11+.
+
 ## [2.4.0] - 2026-10-29
 
 ### Added

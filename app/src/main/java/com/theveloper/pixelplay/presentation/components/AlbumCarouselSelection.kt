@@ -1,5 +1,10 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -222,10 +227,26 @@ fun AlbumCarouselSection(
                             onClick = { onAlbumClick(song) }
                         )
                 ) { // Enforce 1:1 aspect ratio for the item itself
+                    val moving = MovingCover.enabled && isFocusedItem
+                    val drift = androidx.compose.animation.core.rememberInfiniteTransition(label = "coverDrift")
+                    val t by drift.animateFloat(
+                        0f, 1f,
+                        androidx.compose.animation.core.infiniteRepeatable(
+                            androidx.compose.animation.core.tween(14_000, easing = androidx.compose.animation.core.LinearEasing),
+                            androidx.compose.animation.core.RepeatMode.Reverse
+                        ), label = "coverDriftT"
+                    )
                     OptimizedAlbumArt(
                         uri = song.albumArtUriString,
                         title = song.title,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().clipToBounds().graphicsLayer {
+                            if (moving) {
+                                // Slow zoom and pan, like an animated cover.
+                                scaleX = 1.08f + 0.08f * t; scaleY = scaleX
+                                translationX = (t - 0.5f) * size.width * 0.06f
+                                translationY = (0.5f - t) * size.height * 0.04f
+                            }
+                        },
                         targetSize = targetSize,
                         placeholderModel = if (song.albumArtUriString?.startsWith("telegram_art") == true) {
                              "${song.albumArtUriString}?quality=thumb"
@@ -260,4 +281,9 @@ private fun buildQueueOccurrenceKeys(queue: ImmutableList<Song>): List<String> {
         occurrencesBySongId[song.id] = occurrence + 1
         "queue_carousel_${song.id}_${occurrence}_${song.albumArtUriString.orEmpty().hashCode()}_$index"
     }
+}
+
+/** The player cover slowly zooms and drifts (listening options). */
+object MovingCover {
+    var enabled by androidx.compose.runtime.mutableStateOf(false)
 }

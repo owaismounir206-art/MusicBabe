@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.components.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -116,6 +117,17 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             }
             val library by playerViewModel.allSongsFlow.collectAsStateWithLifecycle()
             MonthlyRecapSection(library)
+            SwitchRow(stringResource(R.string.extras_subtitles), stringResource(R.string.extras_subtitles_desc), VideoSubtitles.enabled) { VideoSubtitles.enabled = it }
+            val lockLyrics by playerViewModel.lockScreenLyrics.collectAsStateWithLifecycle()
+            SwitchRow(stringResource(R.string.extras_lock_lyrics), stringResource(R.string.extras_lock_lyrics_desc), lockLyrics, playerViewModel::setLockScreenLyrics)
+            TvLyricsButton(playerViewModel)
+            OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
+            SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc),
+                com.theveloper.pixelplay.presentation.components.MovingCover.enabled) { com.theveloper.pixelplay.presentation.components.MovingCover.enabled = it }
+            var guest by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.theveloper.pixelplay.data.stats.GuestMode.enabled) }
+            SwitchRow(stringResource(R.string.extras_guest), stringResource(R.string.extras_guest_desc), guest) {
+                guest = it; com.theveloper.pixelplay.data.stats.GuestMode.enabled = it
+            }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
@@ -141,9 +153,10 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             Column {
                 Text(stringResource(R.string.extras_meaning), style = MaterialTheme.typography.titleMedium)
                 when (val m = meaning) {
-                    null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
                         OutlinedButton(onClick = playerViewModel::explainCurrentSong) { Text(stringResource(R.string.extras_meaning_ask)) }
                         OutlinedButton(onClick = playerViewModel::creditsForCurrentSong) { Text(stringResource(R.string.extras_credits)) }
+                        OutlinedButton(onClick = playerViewModel::upcomingReleasesForArtist) { Text(stringResource(R.string.extras_releases)) }
                     }
                     "" -> Text(stringResource(R.string.extras_meaning_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     else -> Text(m, style = MaterialTheme.typography.bodyMedium)
@@ -214,4 +227,38 @@ private fun LastFmDialog(lastFm: com.theveloper.pixelplay.data.lastfm.LastFmScro
             }
         }
     )
+}
+
+/** Shows the lyrics on a connected TV (second screen) while this button's screen stays open. */
+@Composable
+private fun TvLyricsButton(playerViewModel: PlayerViewModel) {
+    val activity = androidx.compose.ui.platform.LocalContext.current
+    var presentation by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(TvLyricsHolder.presentation) }
+    val noTv = stringResource(R.string.extras_tv_none)
+    OutlinedButton(onClick = {
+        val open = presentation
+        if (open != null) { open.dismiss(); TvLyricsHolder.presentation = null; presentation = null; return@OutlinedButton }
+        val display = com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation.findDisplay(activity)
+        if (display == null) { android.widget.Toast.makeText(activity, noTv, android.widget.Toast.LENGTH_LONG).show(); return@OutlinedButton }
+        val p = com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation(activity, display)
+        runCatching { p.show() }.onSuccess { TvLyricsHolder.presentation = p; presentation = p }
+    }) { Text(stringResource(if (presentation != null) R.string.extras_tv_stop else R.string.extras_tv)) }
+    val p = presentation
+    if (p != null) {
+        androidx.compose.runtime.LaunchedEffect(p) {
+            while (true) {
+                val state = playerViewModel.stablePlayerState.value
+                val synced = state.lyrics?.synced.orEmpty()
+                val pos = playerViewModel.livePlaybackPositionMs()
+                val i = synced.indexOfLast { it.time <= pos }
+                p.show(state.currentSong?.let { "${it.artist} – ${it.title}" }.orEmpty(),
+                    synced.getOrNull(i)?.line.orEmpty(), synced.getOrNull(i + 1)?.line.orEmpty())
+                kotlinx.coroutines.delay(200)
+            }
+        }
+    }
+}
+
+private object TvLyricsHolder {
+    var presentation: com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation? = null
 }

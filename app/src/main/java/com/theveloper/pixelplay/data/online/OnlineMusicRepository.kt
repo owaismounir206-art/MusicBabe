@@ -99,6 +99,23 @@ class OnlineMusicRepository @Inject constructor(
         }.awaitAll().filterNotNull()
     }
 
+    /** New songs of the user's artists: this year's releases found on YouTube Music. */
+    suspend fun newFromArtists(seeds: Seeds, title: String): OnlineShelf? = coroutineScope {
+        val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val songs = seeds.artists.take(5).map { artist ->
+            async {
+                runCatching {
+                    extractor.searchSongs("$artist new $year", 5)
+                        .map { it.toOnlineSong() }
+                        .filter { it.artist.contains(artist, ignoreCase = true) }
+                        .take(3)
+                }.getOrDefault(emptyList())
+            }
+        }.awaitAll().flatten().distinctBy { it.videoId }
+        if (songs.size < 3) null
+        else OnlineShelf(id = "new_from_artists", title = title, items = songs, style = OnlineShelfStyle.SONG_LIST)
+    }
+
     /** "Music videos for you": official videos of the user's artists, or the hits without history. */
     suspend fun musicVideos(seeds: Seeds): OnlineShelf? = coroutineScope {
         val queries = seeds.artists.take(3).ifEmpty { listOf(localizedQuery("top music videos")) }

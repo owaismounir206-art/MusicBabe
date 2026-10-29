@@ -200,4 +200,20 @@
     <string name="online_top_result">Top result</string>
     <string name="extras_recap">Your month in music</string>
     <string name="extras_recap_show">Show the recap</string>
+    <string name="extras_subtitles">Lyrics as subtitles</string>
+    <string name="extras_subtitles_desc">The current line appears on the music video.</string>
+    <string name="extras_floating_lyrics">Floating lyrics over other apps</string>
+    <string name="extras_moving_cover">Moving cover</string>
+    <string name="extras_moving_cover_desc">The cover slowly zooms and drifts while it plays.</string>
+    <string name="online_new_from_artists">New from your artists</string>
+    <string name="extras_releases">Release calendar</string>
+    <string name="videos_cover">Cover</string>
+    <string name="extras_guest">Guest mode</string>
+    <string name="extras_guest_desc">Someone else is listening: nothing is added to your stats, history or Last.fm until you turn it off.</string>
+    <string name="account_uploads">Your uploads</string>
+    <string name="extras_lock_lyrics">Lyrics on the lock screen</string>
+    <string name="extras_lock_lyrics_desc">The sung line shows in a silent notification, also on the lock screen.</string>
+    <string name="extras_tv">Lyrics on the TV</string>
+    <string name="extras_tv_stop">Stop lyrics on the TV</string>
+    <string name="extras_tv_none">Connect a TV or monitor (HDMI or screen mirroring) first.</string>
 </resources>

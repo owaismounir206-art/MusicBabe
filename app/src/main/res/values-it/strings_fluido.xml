@@ -200,4 +200,20 @@
     <string name="online_top_result">Risultato principale</string>
     <string name="extras_recap">Il tuo mese in musica</string>
     <string name="extras_recap_show">Mostra il riepilogo</string>
+    <string name="extras_subtitles">Testo come sottotitoli</string>
+    <string name="extras_subtitles_desc">La riga cantata appare sul video musicale.</string>
+    <string name="extras_floating_lyrics">Testo fluttuante sopra le altre app</string>
+    <string name="extras_moving_cover">Copertina in movimento</string>
+    <string name="extras_moving_cover_desc">La copertina si muove e si ingrandisce piano mentre suona.</string>
+    <string name="online_new_from_artists">Novità dai tuoi artisti</string>
+    <string name="extras_releases">Calendario uscite</string>
+    <string name="videos_cover">Copertina</string>
+    <string name="extras_guest">Modalità ospite</string>
+    <string name="extras_guest_desc">Ascolta qualcun altro: nulla finisce nelle tue statistiche, nella cronologia o su Last.fm finché non la spegni.</string>
+    <string name="account_uploads">I tuoi caricamenti</string>
+    <string name="extras_lock_lyrics">Testo sulla schermata di blocco</string>
+    <string name="extras_lock_lyrics_desc">La riga cantata appare in una notifica silenziosa, anche a schermo bloccato.</string>
+    <string name="extras_tv">Testo sulla TV</string>
+    <string name="extras_tv_stop">Togli il testo dalla TV</string>
+    <string name="extras_tv_none">Collega prima una TV o un monitor (HDMI o duplicazione dello schermo).</string>
 </resources>

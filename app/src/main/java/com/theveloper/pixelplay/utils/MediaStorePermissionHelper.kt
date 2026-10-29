@@ -296,7 +296,8 @@ object MediaStorePermissionHelper {
         uris: Collection<Uri>
     ): IntentSender? {
         return try {
-            MediaStore.createDeleteRequest(context.contentResolver, uris).intentSender
+            // To the system trash: the song can be restored for 30 days from the Files app.
+            MediaStore.createTrashRequest(context.contentResolver, uris, true).intentSender
         } catch (_: Throwable) {
             null
         }
