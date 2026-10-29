@@ -3597,6 +3597,21 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.shiftLine(song, lyrics, index, deltaMs)
     }
 
+    /**
+     * Tap to sync: the next line starts now. Tapping on every line as it is sung times a song
+     * by hand; each tap is saved with the lyrics.
+     */
+    fun tapSyncNextLyricLine() {
+        val state = stablePlayerState.value
+        val song = state.currentSong ?: return
+        val lyrics = state.lyrics ?: return
+        val synced = lyrics.synced ?: return
+        val pos = livePlaybackPositionMs()
+        val index = (synced.indexOfLast { it.time <= pos } + 1).coerceAtMost(synced.lastIndex)
+        if (index < 0) return
+        lyricsStateHolder.shiftLine(song, lyrics, index, (pos - synced[index].time).toInt())
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale

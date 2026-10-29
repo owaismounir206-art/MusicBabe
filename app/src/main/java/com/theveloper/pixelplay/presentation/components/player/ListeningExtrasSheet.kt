@@ -104,6 +104,7 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedButton(onClick = { playerViewModel.shiftCurrentLyricLine(-250) }) { Text("−0.25 s") }
                     OutlinedButton(onClick = { playerViewModel.shiftCurrentLyricLine(250) }) { Text("+0.25 s") }
+                    OutlinedButton(onClick = playerViewModel::tapSyncNextLyricLine) { Text(stringResource(R.string.extras_tap_sync)) }
                 }
             }
             val saved by playerViewModel.savedLyrics.collectAsStateWithLifecycle()

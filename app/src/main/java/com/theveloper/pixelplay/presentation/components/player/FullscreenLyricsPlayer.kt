@@ -76,7 +76,6 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.ui.theme.FluidText
 import com.theveloper.pixelplay.ui.theme.Scena
 import com.theveloper.pixelplay.ui.theme.scenaDisplay
-import com.theveloper.pixelplay.utils.WordTimingEstimator
 
 /**
  * Full screen, landscape: the music video (or the cover) with the controls on the left, the
@@ -115,6 +114,11 @@ fun FullscreenLyricsPlayer(playerViewModel: PlayerViewModel, onDismiss: () -> Un
 @Composable
 private fun FullscreenContent(playerViewModel: PlayerViewModel, onDismiss: () -> Unit) {
     val state by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    // Fast position updates while the full screen is open (the player sheet may be gone).
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        playerViewModel.setSliderUiMounted(true)
+        onDispose { playerViewModel.setSliderUiMounted(false) }
+    }
     val position by playerViewModel.currentPlaybackPosition.collectAsStateWithLifecycle()
     val offset by playerViewModel.currentSongLyricsSyncOffset.collectAsStateWithLifecycle()
     val videoVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
@@ -235,7 +239,6 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
     val lyrics = state.lyrics
     val lines = remember(lyrics) {
         lyrics?.synced?.takeIf { it.isNotEmpty() }
-            ?.let { WordTimingEstimator.estimate(it) }
             ?.let(::withInstrumentalBreaks)
     }
     val style = remember { TextStyle(fontSize = 26.sp) }
@@ -253,19 +256,31 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
         }
         return
     }
+    val perWord = remember(lines) { lines.any { !it.words.isNullOrEmpty() } }
     val listState = rememberLazyListState()
-    val current by remember(lines) { derivedStateOf { resolveCurrentLineIndex(lines, position) } }
+    // The current line follows the live position: [position] is a plain value, so it is a key
+    // here (a derivedStateOf would keep the first position forever and freeze the lyrics).
+    val current = remember(lines, position) { resolveCurrentLineIndex(lines, position) }
     val density = LocalDensity.current
     LaunchedEffect(current) {
         if (current >= 0) {
             val offsetPx = with(density) { 96.dp.roundToPx() }
-            listState.animateScrollToItem(current, scrollOffset = -offsetPx)
+            listState.animateScrollToItem(current + 1, scrollOffset = -offsetPx)
         }
     }
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(top = 96.dp, bottom = 400.dp)
     ) {
+        item(key = "timing") {
+            // How the lyrics are timed: per word (real word times) or per line.
+            Text(
+                stringResource(if (perWord) R.string.lyrics_scena_timing_word else R.string.lyrics_scena_timing_line),
+                color = Color.White.copy(alpha = 0.55f),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)
+            )
+        }
         itemsIndexed(lines, key = { index, line -> "${line.time}_$index" }) { index, line ->
             if (line.line.isBlank()) {
                 Text("• • •", color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp))

@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.data.lyrics.align
 
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
@@ -75,6 +78,10 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
             // A song streamed from YouTube: its audio (an .m4a of a few MB) is downloaded for the request.
             if (uri.scheme == com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.SCHEME) {
                 val audio = downloadYouTubeAudio(song)
+                val file = java.io.File(context.cacheDir, "lyrics_yt_audio.m4a").apply { writeBytes(audio) }
+                try {
+                    chunked(apiKey, model, Uri.fromFile(file), song, lyricsLines)?.let { return@runCatching it }
+                } finally { file.delete() }
                 return@runCatching request(apiKey, model, audio, "audio/mp4", song, lyricsLines)
             }
             if (uri.scheme != "content" && uri.scheme != "file") throw AudioAlignmentException.NotLocal()
@@ -87,6 +94,9 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
                 } ?: throw AudioAlignmentException.Unsupported()
             } else null
             val audio = try {
+                // In pieces first (precise to the end of the song); the whole file as fallback.
+                chunked(apiKey, model, extracted?.let { Uri.fromFile(it) } ?: uri, song, lyricsLines)
+                    ?.let { return@runCatching it }
                 readAudio(extracted?.let { Uri.fromFile(it) } ?: uri)
             } finally {
                 extracted?.delete()
@@ -99,13 +109,58 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
         }
     }
 
+    /**
+     * The song in overlapping 40-second pieces (WAV, 16 kHz mono), sent a few at a time. Gemini
+     * places only the lines sung in each piece, with times inside the piece; they are moved to
+     * song time and each piece keeps only the lines that start in its own 30 seconds, so timings
+     * cannot drift towards the end of a long song. Null when the audio cannot be decoded.
+     */
+    private suspend fun chunked(apiKey: String, model: String, uri: Uri, song: Song, lyricsLines: List<String>?): List<SyncedLine>? {
+        val pcm = runCatching { WhisperAudioDecoder.decode(context, uri) }.getOrNull() ?: return null
+        val rate = WhisperAudioDecoder.SAMPLE_RATE
+        val totalMs = pcm.size * 1000L / rate
+        if (totalMs < 20_000) return null
+        VocalFocus.normalize(pcm)
+        val starts = (0L until totalMs step CHUNK_STEP_MS).toList()
+        val pieces = kotlinx.coroutines.coroutineScope {
+            val gate = kotlinx.coroutines.sync.Semaphore(3)
+            starts.mapIndexed { index, startMs ->
+                async {
+                    gate.withPermit {
+                        val endMs = minOf(totalMs, startMs + CHUNK_LENGTH_MS)
+                        val wav = VocalFocus.wav(pcm, (startMs * rate / 1000).toInt(), (endMs * rate / 1000).toInt(), rate)
+                        val lines = runCatching {
+                            request(apiKey, model, wav, "audio/wav", song, lyricsLines, startMs to endMs)
+                        }.getOrElse { e -> if (e is CloudLyricsException) throw e else emptyList() }
+                        val coreEnd = if (index == starts.lastIndex) Long.MAX_VALUE else startMs + CHUNK_STEP_MS
+                        lines.map { it.shiftedBy(startMs.toInt()) }
+                            .filter { it.time >= startMs && it.time < coreEnd }
+                    }
+                }
+            }.awaitAll()
+        }
+        val merged = pieces.flatten().sortedBy { it.time }
+            .fold(mutableListOf<SyncedLine>()) { acc, line ->
+                // The same line heard at the edge of two pieces is kept once.
+                val last = acc.lastOrNull()
+                if (last != null && last.line == line.line && line.time - last.time < 1_500) acc else acc.apply { add(line) }
+            }
+        return merged.takeIf { it.size >= 3 }
+    }
+
+    private fun SyncedLine.shiftedBy(offsetMs: Int) = copy(
+        time = time + offsetMs,
+        words = words?.map { it.copy(time = it.time + offsetMs) }
+    )
+
     private fun request(
         apiKey: String,
         model: String,
         audio: ByteArray,
         mimeType: String,
         song: Song,
-        lyricsLines: List<String>?
+        lyricsLines: List<String>?,
+        window: Pair<Long, Long>? = null
     ): List<SyncedLine> {
         val body = buildJsonObject {
             putJsonArray("contents") {
@@ -119,7 +174,8 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
                             }
                         })
                         add(buildJsonObject {
-                            put("text", if (lyricsLines.isNullOrEmpty()) prompt(song) else alignPrompt(song, lyricsLines))
+                            val base = if (lyricsLines.isNullOrEmpty()) prompt(song) else alignPrompt(song, lyricsLines)
+                            put("text", if (window == null) base else base + "\n" + windowNote(window))
                         })
                     }
                 })
@@ -143,6 +199,7 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
             answerText(raw)
         }
         val lines = parseAnswer(text)
+        if (window != null) return lines.orEmpty() // an instrumental piece has no lines
         if (lines.isNullOrEmpty()) throw AudioAlignmentException.NoSpeech()
         return lines
     }
@@ -245,7 +302,16 @@ class GeminiAudioLyricsTranscriber @Inject constructor(
         - No comments, no instrumental markers.
     """.trimIndent()
 
+    private fun windowNote(window: Pair<Long, Long>) = """
+        IMPORTANT: the attached audio is only the part of the song from ${window.first / 1000} s to ${window.second / 1000} s.
+        Return only the lines (and their words) that are sung in this audio, and measure every "start"
+        and "end" from the beginning of this audio (0 = its first instant), not from the start of the song.
+        If nothing is sung, answer {"format":"mblrc","version":1,"lines":[]}.
+    """.trimIndent()
+
     private companion object {
+        const val CHUNK_LENGTH_MS = 40_000L
+        const val CHUNK_STEP_MS = 30_000L
         const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
         const val DEFAULT_MODEL = "gemini-3.1-flash-lite"
         /** Inline requests are capped at 20 MB including the base64 overhead and the prompt. */

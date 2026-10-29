@@ -650,16 +650,12 @@ fun LyricsSheet(
         if (scena.bg.luminance() < 0.5f) Color.White else Color.Black.copy(alpha = 0.92f)
     }
     val hasWordTimings = remember(lyrics) { lyrics?.synced?.any { it.words != null } == true }
-    // Lines without real word timings get estimated ones (shared in proportion to word length),
-    // so every song lights word by word; the chip says when the timings are an estimate.
+    // Only real word timings light word by word; lines timed per line light whole. Guessed word
+    // times (spread by word length) ran ahead or behind the singer, which looked broken.
     val displaySyncedLines = remember(lyrics) {
-        lyrics?.synced
-            ?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.estimate(it) }
-            ?.let(::withInstrumentalBreaks)
+        lyrics?.synced?.let(::withInstrumentalBreaks)
     }
-    val hasEstimatedWordTimings = remember(lyrics) {
-        lyrics?.synced?.let { com.theveloper.pixelplay.utils.WordTimingEstimator.canEstimate(it) } == true
-    }
+    val hasEstimatedWordTimings = false
 
     Scaffold(
         modifier = modifier

@@ -81,7 +81,9 @@ class LyricsAudioAlignmentService @Inject constructor(
 
         _progress.value = 0
         val model = ensureModel()
+        // The voice range only, louder: quiet vocals under a loud mix are heard (and placed) again.
         val pcm = WhisperAudioDecoder.decode(context, uri)
+            .let { VocalFocus.voiceBand(it, WhisperAudioDecoder.SAMPLE_RATE) }
         if (pcm.isEmpty()) throw AudioAlignmentException.NoSpeech()
         _progress.value = 5
 
