@@ -3402,6 +3402,45 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** Saves a whole album or playlist from the Online zone as .m4a, song by song. */
+    fun downloadAllOnline(items: List<com.theveloper.pixelplay.data.online.OnlineSongItem>) {
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.online_download_all_started, items.size)) }
+        items.forEach { item ->
+            val track = OnlineTrack(
+                id = kotlin.math.abs(item.videoId.hashCode().toLong()),
+                title = item.title,
+                artistName = item.artist,
+                albumTitle = item.album,
+                albumCoverUrl = item.thumbnailUrl,
+                durationSeconds = item.durationSeconds.toInt(),
+                youtubeVideoId = item.videoId
+            )
+            songDownloadManager.startYouTubeDownload(track, item.videoId, com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A)
+        }
+    }
+
+    /** Lyric lines you saved, newest first ("artist – title: line"). */
+    private val _savedLyrics = MutableStateFlow<List<String>>(emptyList())
+    val savedLyrics: StateFlow<List<String>> = _savedLyrics.asStateFlow()
+
+    fun saveCurrentLyricLine() {
+        val state = stablePlayerState.value
+        val song = state.currentSong ?: return
+        val position = livePlaybackPositionMs()
+        val line = state.lyrics?.synced?.lastOrNull { it.time <= position }?.line?.takeIf { it.isNotBlank() } ?: return
+        val entry = "${song.artist} – ${song.title}: $line"
+        _savedLyrics.value = (listOf(entry) + _savedLyrics.value.filterNot { it == entry }).take(200)
+        extrasPrefs.edit().putString("saved_lyrics", _savedLyrics.value.joinToString("\n")).apply()
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_lyric_saved)) }
+    }
+
+    /** Wrong lyrics: opens LRCLIB, where anyone can publish corrected synced lyrics. */
+    fun reportWrongLyrics() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val url = "https://lrclib.net/search/" + android.net.Uri.encode("${song.artist} ${song.title}")
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale
@@ -3458,6 +3497,7 @@ class PlayerViewModel @Inject constructor(
         com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
         setStreamQuality(extrasPrefs.getBoolean("low_audio", false), extrasPrefs.getInt("video_height", 720), extrasPrefs.getBoolean("data_saver", false))
         _skipPlayedToday.value = extrasPrefs.getBoolean("skip_played_today", false)
+        _savedLyrics.value = extrasPrefs.getString("saved_lyrics", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
         watchPlayedToday()
         _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)

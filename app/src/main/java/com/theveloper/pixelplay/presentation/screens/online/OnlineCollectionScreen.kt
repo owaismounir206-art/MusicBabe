@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -133,6 +134,12 @@ fun OnlineCollectionScreen(
                                 icon = Icons.Rounded.Shuffle,
                                 outlined = true,
                                 onClick = { playerViewModel.playSongsShuffled(songs.map { it.toSong() }, queueName = title, startAtZero = true) }
+                            )
+                            FluidPillButton(
+                                text = stringResource(R.string.online_download_all),
+                                icon = Icons.Rounded.Download,
+                                outlined = true,
+                                onClick = { playerViewModel.downloadAllOnline(songs) }
                             )
                         }
                     }

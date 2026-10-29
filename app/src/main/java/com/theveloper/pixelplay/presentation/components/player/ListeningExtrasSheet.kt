@@ -83,6 +83,15 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                         android.net.Uri.parse("https://www.bandsintown.com/search?search_term=" + android.net.Uri.encode(current.artist))))
                 }) { Text(stringResource(R.string.extras_concerts, current.artist)) }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = playerViewModel::saveCurrentLyricLine) { Text(stringResource(R.string.extras_save_lyric)) }
+                OutlinedButton(onClick = playerViewModel::reportWrongLyrics) { Text(stringResource(R.string.extras_report_lyrics)) }
+            }
+            val saved by playerViewModel.savedLyrics.collectAsStateWithLifecycle()
+            if (saved.isNotEmpty()) {
+                Text(stringResource(R.string.extras_saved_lyrics), style = MaterialTheme.typography.titleMedium)
+                saved.take(20).forEach { Text("“$it”", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)

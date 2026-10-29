@@ -186,4 +186,10 @@
     <string name="explore_live">Live</string>
     <string name="explore_live_query">concerto live</string>
     <string name="extras_concerts">Concerti di %1$s</string>
+    <string name="online_download_all">Scarica</string>
+    <string name="online_download_all_started">Salvo %1$d brani nel telefono</string>
+    <string name="extras_save_lyric">Salva questa riga</string>
+    <string name="extras_report_lyrics">Testo sbagliato?</string>
+    <string name="extras_saved_lyrics">Righe salvate</string>
+    <string name="extras_lyric_saved">Riga salvata</string>
 </resources>
