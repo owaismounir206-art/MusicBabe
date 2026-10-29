@@ -39,6 +39,17 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(stringResource(R.string.extras_title), style = MaterialTheme.typography.titleLarge)
+            val session by playerViewModel.audioSessionId.collectAsStateWithLifecycle()
+            var mic by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            val ctx0 = androidx.compose.ui.platform.LocalContext.current
+            val micLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { mic = it }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                mic = androidx.core.content.ContextCompat.checkSelfPermission(ctx0, android.Manifest.permission.RECORD_AUDIO) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            if (mic && session != 0) AudioVisualizer(session)
+            else OutlinedButton(onClick = { micLauncher.launch(android.Manifest.permission.RECORD_AUDIO) }) { Text(stringResource(R.string.extras_visualizer)) }
             SwitchRow(stringResource(R.string.extras_skip_silence), stringResource(R.string.extras_skip_silence_desc), skipSilence, playerViewModel::setSkipSilence)
             SwitchRow(stringResource(R.string.extras_leveling), stringResource(R.string.extras_leveling_desc), leveling, playerViewModel::setVolumeLeveling)
             val skipToday by playerViewModel.skipPlayedToday.collectAsStateWithLifecycle()

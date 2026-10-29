@@ -3441,6 +3441,9 @@ class PlayerViewModel @Inject constructor(
         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    /** The audio session of the player, for the visualizer. */
+    val audioSessionId: StateFlow<Int> get() = dualPlayerEngine.activeAudioSessionId
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale

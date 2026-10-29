@@ -192,4 +192,6 @@
     <string name="extras_report_lyrics">Wrong lyrics?</string>
     <string name="extras_saved_lyrics">Saved lines</string>
     <string name="extras_lyric_saved">Line saved</string>
+    <string name="online_filter_songs">Search in this list</string>
+    <string name="extras_visualizer">Show the visualizer</string>
 </resources>

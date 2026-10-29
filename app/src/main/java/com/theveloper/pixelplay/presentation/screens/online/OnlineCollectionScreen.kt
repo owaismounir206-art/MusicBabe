@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +72,10 @@ fun OnlineCollectionScreen(
     val subtitle = page?.subtitle?.takeIf { it.isNotBlank() } ?: item.subtitle
     val art = page?.thumbnailUrl ?: item.thumbnailUrl
     val songs = page?.songs.orEmpty()
+    var filter by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val shown = androidx.compose.runtime.remember(songs, filter) {
+        if (filter.isBlank()) songs else songs.filter { it.title.contains(filter, true) || it.artist.contains(filter, true) }
+    }
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomPadding = 32.dp + (if (stablePlayerState.currentSong != null) MiniPlayerHeight else 0.dp) +
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -157,10 +162,17 @@ fun OnlineCollectionScreen(
                     )
                 }
                 else -> {
-                    itemsIndexed(songs, key = { index, song -> "${song.videoId}_$index" }) { index, song ->
+                    if (songs.size > 8) item(key = "filter") {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = filter, onValueChange = { filter = it }, singleLine = true,
+                            placeholder = { Text(stringResource(R.string.online_filter_songs)) },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+                        )
+                    }
+                    itemsIndexed(shown, key = { index, song -> "${song.videoId}_$index" }) { index, song ->
                         OnlineSongRow(
                             song = song,
-                            onClick = { actions.playSongs(songs, index, title) },
+                            onClick = { actions.playSongs(shown, index, title) },
                             actions = actions,
                             modifier = Modifier.padding(horizontal = Scena.Gutter - 4.dp)
                         )

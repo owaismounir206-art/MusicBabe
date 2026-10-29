@@ -192,4 +192,6 @@
     <string name="extras_report_lyrics">Testo sbagliato?</string>
     <string name="extras_saved_lyrics">Righe salvate</string>
     <string name="extras_lyric_saved">Riga salvata</string>
+    <string name="online_filter_songs">Cerca in questo elenco</string>
+    <string name="extras_visualizer">Mostra il visualizzatore</string>
 </resources>
