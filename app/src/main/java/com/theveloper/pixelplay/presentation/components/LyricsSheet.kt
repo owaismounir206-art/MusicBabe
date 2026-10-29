@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.components
 
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.combinedClickable
 import com.theveloper.pixelplay.utils.LyricShareCard
@@ -1934,8 +1935,12 @@ fun LyricLineRow(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = horizontalAlignment
         ) {
+            // Backing vocals in parentheses, "(oh-eh)", are smaller and fainter than the lead.
+            val styledLine = remember(sanitizedLine, lineColor) {
+                backingVocalsStyled(sanitizedLine, lineColor.copy(alpha = lineColor.alpha * 0.6f))
+            }
             Text(
-                text = sanitizedLine,
+                text = styledLine,
                 style = lineTextStyle,
                 color = lineColor,
                 textAlign = textAlign,
@@ -2693,3 +2698,22 @@ internal fun LyricsStageBackdrop(artUri: String?, ground: Color, modifier: Modif
         )
     }
 }
+
+private val BackingVocalsRegex = Regex("\\([^()]*\\)")
+
+internal fun backingVocalsStyled(line: String, faint: Color): androidx.compose.ui.text.AnnotatedString =
+    androidx.compose.ui.text.buildAnnotatedString {
+        var last = 0
+        for (match in BackingVocalsRegex.findAll(line)) {
+            append(line.substring(last, match.range.first))
+            withStyle(androidx.compose.ui.text.SpanStyle(
+                fontSize = androidx.compose.ui.unit.TextUnit(0.78f, androidx.compose.ui.unit.TextUnitType.Em),
+                color = faint,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+            )) {
+                append(match.value)
+            }
+            last = match.range.last + 1
+        }
+        append(line.substring(last))
+    }
