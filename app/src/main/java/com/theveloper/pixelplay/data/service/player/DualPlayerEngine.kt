@@ -1185,7 +1185,41 @@ class DualPlayerEngine @Inject constructor(
         playerB?.let(::applyAudioOffloadPreferences)
     }
 
+    /** Skips silent stretches (intros, outros, gaps) in every song. */
+    fun setSkipSilence(enabled: Boolean) {
+        PlaybackExtras.skipSilence = enabled
+        if (::playerA.isInitialized) playerA.skipSilenceEnabled = enabled
+        playerB?.skipSilenceEnabled = enabled
+    }
+
+    private var leveler: android.media.audiofx.DynamicsProcessing? = null
+
+    /**
+     * Volume levelling: a compressor and limiter on the output, so quiet and loud songs play at a
+     * similar loudness (the effect of ReplayGain without tags).
+     */
+    fun setVolumeLeveling(enabled: Boolean) {
+        PlaybackExtras.leveling = enabled
+        runCatching { leveler?.release() }
+        leveler = null
+        if (!enabled || !::playerA.isInitialized) return
+        leveler = runCatching {
+            val config = android.media.audiofx.DynamicsProcessing.Config.Builder(
+                android.media.audiofx.DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                2, false, 0, true, 1, false, 0, true
+            ).build()
+            android.media.audiofx.DynamicsProcessing(0, playerA.audioSessionId, config).apply {
+                for (ch in 0 until 2) {
+                    setMbcBandAllChannelsTo(0, android.media.audiofx.DynamicsProcessing.MbcBand(true, 20000f, 3f, 80f, 4f, -24f, 0f, -90f, 1f, 0f, 6f))
+                    setLimiterAllChannelsTo(android.media.audiofx.DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -2f, 0f))
+                }
+                enabled = true
+            }
+        }.onFailure { Timber.w(it, "Volume levelling unavailable") }.getOrNull()
+    }
+
     private fun applyAudioOffloadPreferences(player: ExoPlayer) {
+        player.skipSilenceEnabled = PlaybackExtras.skipSilence
         val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
             .setAudioOffloadMode(
                 if (audioOffloadEnabled && !KaraokeMode.enabled.value) {
@@ -1604,4 +1638,10 @@ class DualPlayerEngine @Inject constructor(
         playerB = null
         isReleased = true
     }
+}
+
+/** Playback options that outlive a player rebuild. */
+object PlaybackExtras {
+    @Volatile var skipSilence: Boolean = false
+    @Volatile var leveling: Boolean = false
 }

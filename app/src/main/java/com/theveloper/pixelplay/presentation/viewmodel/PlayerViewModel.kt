@@ -1038,6 +1038,7 @@ class PlayerViewModel @Inject constructor(
 
     init {
         observeOnlineRadio()
+        viewModelScope.launch { kotlinx.coroutines.delay(1_500); restorePlaybackExtras() }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
         dailyMixStateHolder.initialize(viewModelScope)
@@ -3341,6 +3342,81 @@ class PlayerViewModel @Inject constructor(
     private val _isFullscreenLyrics = MutableStateFlow(false)
     /** Landscape full screen: video or cover on the left, lyrics on the right. */
     val isFullscreenLyrics: StateFlow<Boolean> = _isFullscreenLyrics.asStateFlow()
+
+    // ─── Listening extras ────────────────────────────────────────────────────────────────
+    private val extrasPrefs by lazy { context.getSharedPreferences("playback_extras", android.content.Context.MODE_PRIVATE) }
+
+    private val _skipSilence = MutableStateFlow(false)
+    val skipSilence: StateFlow<Boolean> = _skipSilence.asStateFlow()
+    private val _volumeLeveling = MutableStateFlow(false)
+    val volumeLeveling: StateFlow<Boolean> = _volumeLeveling.asStateFlow()
+
+    fun restorePlaybackExtras() {
+        _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)
+        _volumeLeveling.value = extrasPrefs.getBoolean("leveling", false)
+        dualPlayerEngine.setSkipSilence(_skipSilence.value)
+        if (_volumeLeveling.value) dualPlayerEngine.setVolumeLeveling(true)
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        _skipSilence.value = enabled
+        extrasPrefs.edit().putBoolean("skip_silence", enabled).apply()
+        dualPlayerEngine.setSkipSilence(enabled)
+    }
+
+    fun setVolumeLeveling(enabled: Boolean) {
+        _volumeLeveling.value = enabled
+        extrasPrefs.edit().putBoolean("leveling", enabled).apply()
+        dualPlayerEngine.setVolumeLeveling(enabled)
+    }
+
+    /** A–B repeat: the part between the two marks plays in a loop (to learn a song). */
+    private val _abRepeat = MutableStateFlow<Pair<Long?, Long?>>(null to null)
+    val abRepeat: StateFlow<Pair<Long?, Long?>> = _abRepeat.asStateFlow()
+    private var abJob: kotlinx.coroutines.Job? = null
+
+    fun markAbRepeat() {
+        val position = livePlaybackPositionMs()
+        val (a, b) = _abRepeat.value
+        _abRepeat.value = when {
+            a == null -> position to null
+            b == null && position > a + 1000 -> a to position
+            else -> null to null
+        }
+        abJob?.cancel()
+        val (start, end) = _abRepeat.value
+        if (start != null && end != null) {
+            abJob = viewModelScope.launch {
+                while (true) {
+                    if (livePlaybackPositionMs() >= end) seekTo(start)
+                    kotlinx.coroutines.delay(100)
+                }
+            }
+        }
+    }
+
+    /** Pauses after [minutes], fading the volume out over the last 20 seconds. */
+    private var fadeJob: kotlinx.coroutines.Job? = null
+    fun startFadeSleepTimer(minutes: Int) {
+        fadeJob?.cancel()
+        fadeJob = viewModelScope.launch {
+            val total = minutes * 60_000L
+            kotlinx.coroutines.delay((total - 20_000L).coerceAtLeast(0))
+            val controller = mediaController ?: return@launch
+            for (step in 20 downTo 0) {
+                controller.volume = step / 20f
+                kotlinx.coroutines.delay(1_000)
+            }
+            controller.pause()
+            controller.volume = 1f
+        }
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_fade_set, minutes)) }
+    }
+
+    fun cancelFadeSleepTimer() {
+        fadeJob?.cancel()
+        mediaController?.volume = 1f
+    }
 
     fun setFullscreenLyrics(enabled: Boolean) {
         _isFullscreenLyrics.value = enabled

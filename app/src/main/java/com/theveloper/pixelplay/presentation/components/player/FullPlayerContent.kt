@@ -127,6 +127,7 @@ import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.Tune
 import com.theveloper.pixelplay.data.model.isOnlineTrack
 import com.theveloper.pixelplay.data.model.OnlineTrack
 import androidx.compose.material3.Slider
@@ -1682,6 +1683,17 @@ private fun SongMetadataDisplaySection(
                         contentDescription = stringResource(R.string.fullscreen_open)
                     )
                 }
+
+                var showExtras by remember { mutableStateOf(false) }
+                FilledIconButton(
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = chipColor, contentColor = chipContentColor),
+                    onClick = { showExtras = true }
+                ) {
+                    Icon(imageVector = Icons.Rounded.Tune, contentDescription = stringResource(R.string.extras_title))
+                }
+                if (showExtras) ListeningExtrasSheet(playerViewModel, onDismiss = { showExtras = false })
                 Box(
                     modifier = Modifier
                         .size(PlayerActionSize)

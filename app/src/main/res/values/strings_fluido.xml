@@ -126,4 +126,17 @@
     <string name="samples_full">Full song</string>
     <string name="fluido_palette_amoled">Black (AMOLED)</string>
     <string name="online_clear_history">Clear</string>
+    <string name="extras_title">Listening options</string>
+    <string name="extras_skip_silence">Skip silences</string>
+    <string name="extras_skip_silence_desc">Silent intros, outros and gaps are skipped.</string>
+    <string name="extras_leveling">Even out the volume</string>
+    <string name="extras_leveling_desc">Quiet and loud songs play at a similar loudness.</string>
+    <string name="extras_ab">A–B repeat</string>
+    <string name="extras_ab_set_a">Tap A where the part starts.</string>
+    <string name="extras_ab_set_b">Now tap B where it ends.</string>
+    <string name="extras_ab_active">The part between A and B repeats.</string>
+    <string name="extras_ab_clear">Stop repeating</string>
+    <string name="extras_fade">Sleep timer with fade out</string>
+    <string name="extras_off">Off</string>
+    <string name="extras_fade_set">Music fades out in %1$d minutes</string>
 </resources>

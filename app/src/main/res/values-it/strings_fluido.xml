@@ -126,4 +126,17 @@
     <string name="samples_full">Brano intero</string>
     <string name="fluido_palette_amoled">Nero (AMOLED)</string>
     <string name="online_clear_history">Cancella</string>
+    <string name="extras_title">Opzioni di ascolto</string>
+    <string name="extras_skip_silence">Salta i silenzi</string>
+    <string name="extras_skip_silence_desc">Intro, finali e pause silenziose vengono saltati.</string>
+    <string name="extras_leveling">Livella il volume</string>
+    <string name="extras_leveling_desc">Brani bassi e forti suonano a un volume simile.</string>
+    <string name="extras_ab">Ripeti A–B</string>
+    <string name="extras_ab_set_a">Tocca A dove inizia la parte.</string>
+    <string name="extras_ab_set_b">Ora tocca B dove finisce.</string>
+    <string name="extras_ab_active">La parte tra A e B si ripete.</string>
+    <string name="extras_ab_clear">Smetti di ripetere</string>
+    <string name="extras_fade">Timer di spegnimento con dissolvenza</string>
+    <string name="extras_off">Spento</string>
+    <string name="extras_fade_set">La musica si spegne sfumando tra %1$d minuti</string>
 </resources>
