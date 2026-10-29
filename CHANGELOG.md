@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-29
+
+### Added
+- Several YouTube Music accounts: switch between them without signing in again.
+- Write comments and invite friends to collaborate on playlists through YouTube.
+- Share what you are listening to on Discord.
+- Playlist folders in the Library.
+- Move the current lyric line earlier or later (saved with the lyrics).
+
 ## [2.5.0] - 2026-10-29
 
 ### Added
