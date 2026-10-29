@@ -81,10 +81,44 @@ class YouTubeAccount @Inject constructor(
         val name = runCatching { fetchAccountName() }.getOrNull()
         prefs.edit().putString(KEY_NAME, name).apply()
         _accountName.value = name ?: ""
+        rememberAccount(name ?: "Account", cookies)
         return true
     }
 
+    // ─── Several accounts ────────────────────────────────────────────────────────────────────
+    private val _savedAccounts = MutableStateFlow(loadSaved().keys.toList())
+    /** Accounts signed in on this phone; switching needs no new sign-in. */
+    val savedAccounts: StateFlow<List<String>> = _savedAccounts.asStateFlow()
+
+    private fun loadSaved(): Map<String, String> = runCatching {
+        json.decodeFromString<Map<String, String>>(prefs.getString(KEY_SAVED, null) ?: "{}")
+    }.getOrDefault(emptyMap())
+
+    private fun rememberAccount(name: String, cookies: String) {
+        val all = loadSaved() + (name to cookies)
+        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(
+            kotlinx.serialization.builtins.serializer<String>(), kotlinx.serialization.builtins.serializer<String>()), all)).apply()
+        _savedAccounts.value = all.keys.toList()
+    }
+
+    fun switchTo(name: String) {
+        val cookies = loadSaved()[name] ?: return
+        prefs.edit().putString(KEY_COOKIE, cookies).putString(KEY_NAME, name).apply()
+        _isSignedIn.value = true
+        _accountName.value = name
+    }
+
+    /** Signs out of the current account only; the web cookies are cleared for adding another one. */
+    fun prepareAddAccount() {
+        runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
+    }
+
     fun signOut() {
+        val current = _accountName.value
+        val rest = loadSaved() - (current ?: "")
+        prefs.edit().putString(KEY_SAVED, json.encodeToString(kotlinx.serialization.builtins.MapSerializer(
+            kotlinx.serialization.builtins.serializer<String>(), kotlinx.serialization.builtins.serializer<String>()), rest)).apply()
+        _savedAccounts.value = rest.keys.toList()
         prefs.edit().remove(KEY_COOKIE).remove(KEY_NAME).apply()
         _isSignedIn.value = false
         _accountName.value = null
@@ -211,6 +245,7 @@ class YouTubeAccount @Inject constructor(
     companion object {
         private const val PREFS = "youtube_account"
         private const val KEY_COOKIE = "cookie"
+        private const val KEY_SAVED = "saved_accounts"
         private const val KEY_NAME = "name"
         private const val ORIGIN = "https://music.youtube.com"
         private const val CLIENT_VERSION = "1.20251015.03.00"

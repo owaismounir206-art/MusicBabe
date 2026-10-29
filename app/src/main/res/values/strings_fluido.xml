@@ -216,4 +216,8 @@
     <string name="extras_tv">Lyrics on the TV</string>
     <string name="extras_tv_stop">Stop lyrics on the TV</string>
     <string name="extras_tv_none">Connect a TV or monitor (HDMI or screen mirroring) first.</string>
+    <string name="account_switch_to">Switch to %1$s</string>
+    <string name="account_add">Add another account</string>
+    <string name="yt_write_comment">Write a comment on YouTube</string>
+    <string name="account_collaborate">Invite friends to a playlist (collaborate)</string>
 </resources>

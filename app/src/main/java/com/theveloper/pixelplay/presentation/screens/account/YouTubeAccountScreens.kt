@@ -164,6 +164,9 @@ class YouTubeAccountViewModel @Inject constructor(
     }
 
     fun signOut() = account.signOut()
+    val savedAccounts = account.savedAccounts
+    fun switchTo(name: String) { account.switchTo(name); loadLibrary() }
+    fun prepareAddAccount() = account.prepareAddAccount()
 
     // ─── Player: likes, counts, comments ─────────────────────────────────────────────────
 
@@ -286,6 +289,17 @@ fun YouTubeAccountScreen(
                         onClick = { navController.navigate(Screen.YouTubeSignIn.route) }
                     )
                 }
+                val saved by viewModel.savedAccounts.collectAsStateWithLifecycle()
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    saved.filter { it != name }.forEach { other ->
+                        androidx.compose.material3.AssistChip(onClick = { viewModel.switchTo(other) },
+                            label = { Text(stringResource(R.string.account_switch_to, other)) })
+                    }
+                    if (signedIn) androidx.compose.material3.AssistChip(onClick = {
+                        viewModel.prepareAddAccount(); navController.navigate(Screen.YouTubeSignIn.route)
+                    }, label = { Text(stringResource(R.string.account_add)) })
+                }
                 Spacer(Modifier.height(28.dp))
             }
         }
@@ -293,6 +307,11 @@ fun YouTubeAccountScreen(
         if (playlists.isNotEmpty()) {
             item {
                 OnlineSectionHeader(title = stringResource(R.string.account_playlists))
+                val c = LocalContext.current
+                androidx.compose.material3.TextButton(
+                    onClick = { c.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://music.youtube.com/library/playlists"))) },
+                    modifier = Modifier.padding(horizontal = Scena.Gutter - 8.dp)
+                ) { Text(stringResource(R.string.account_collaborate)) }
                 Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Scena.Gutter),
@@ -400,6 +419,13 @@ fun YouTubeActionsRow(
             val text = "${song.title} – ${song.artist}\nhttps://music.youtube.com/watch?v=$videoId"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
         }
+        ActionPill(Icons.Rounded.Share, "Discord") {
+            val text = "🎧 ${song.title} – ${song.artist}\nhttps://music.youtube.com/watch?v=$videoId"
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text).setPackage("com.discord")
+            runCatching { context.startActivity(send) }.onFailure {
+                context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.discord")))
+            }
+        }
         ActionPill(Icons.Rounded.Download, stringResource(R.string.save_stream_title), onClick = onSave)
     }
     info?.chapters?.takeIf { it.isNotEmpty() }?.let { chapters ->
@@ -410,7 +436,7 @@ fun YouTubeActionsRow(
             }
         }
     }
-    if (showComments) CommentsSheet(viewModel, onDismiss = { showComments = false })
+    if (showComments) CommentsSheet(viewModel, videoId, onDismiss = { showComments = false })
 }
 
 @Composable
@@ -434,13 +460,19 @@ private fun ActionPill(icon: ImageVector, label: String?, transparent: Boolean =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CommentsSheet(viewModel: YouTubeAccountViewModel, onDismiss: () -> Unit) {
+private fun CommentsSheet(viewModel: YouTubeAccountViewModel, videoId: String, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
             stringResource(R.string.yt_comments), style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
         )
+        // Writing goes through YouTube itself (app or site), signed in with your account.
+        androidx.compose.material3.OutlinedButton(
+            onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$videoId"))) },
+            modifier = Modifier.padding(horizontal = 20.dp)
+        ) { Text(stringResource(R.string.yt_write_comment)) }
         val list = comments
         when {
             list == null -> CenteredLoading()
