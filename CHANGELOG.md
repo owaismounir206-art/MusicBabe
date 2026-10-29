@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-10-29
+
+### Added
+- Radio for phone songs: when the queue ends, similar songs from your library follow.
+- Voice commands from the microphone button: "prossima", "pausa", "riprendi", "indietro",
+  "casuale", "mi piace", "metti <brano>" (and the English ones).
+
 ## [2.6.0] - 2026-10-29
 
 ### Added

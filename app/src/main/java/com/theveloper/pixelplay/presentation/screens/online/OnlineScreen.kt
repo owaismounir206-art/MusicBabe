@@ -191,11 +191,29 @@ fun OnlineScreen(
             Spacer(Modifier.height(16.dp))
         }
         item(key = "search") {
+            var pendingVoicePlay by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+            androidx.compose.runtime.LaunchedEffect(search.results, pendingVoicePlay) {
+                val q = pendingVoicePlay ?: return@LaunchedEffect
+                val first = search.results?.songs?.firstOrNull() ?: return@LaunchedEffect
+                if (search.query == q) { actions.playSongs(search.results!!.songs, 0, q); pendingVoicePlay = null }
+            }
             val voiceLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
             ) { result ->
                 result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-                    ?.let { viewModel.submitSearch(it) }
+                    ?.let { spoken ->
+                        // "metti X" / "play X" plays the first hit; commands control the player.
+                        val playPrefix = listOf("metti ", "suona ", "play ").firstOrNull { spoken.lowercase().startsWith(it) }
+                        when {
+                            playerViewModel.handleVoiceCommand(spoken) -> Unit
+                            playPrefix != null -> {
+                                val q = spoken.drop(playPrefix.length)
+                                viewModel.submitSearch(q)
+                                pendingVoicePlay = q
+                            }
+                            else -> viewModel.submitSearch(spoken)
+                        }
+                    }
             }
             OnlineSearchBar(
                 query = search.query,
