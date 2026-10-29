@@ -6,6 +6,8 @@
 
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -679,9 +681,58 @@ fun LibraryPlaylistsTab(
     onPlaylistSelectionToggle: (com.theveloper.pixelplay.data.model.Playlist) -> Unit = {},
     onPlaylistOptionsClick: () -> Unit = {}
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val folderPrefs = androidx.compose.runtime.remember { ctx.getSharedPreferences("playlist_folders", android.content.Context.MODE_PRIVATE) }
+    var folders by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(folderPrefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap())
+    }
+    var openFolder by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var organizing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val shown = openFolder?.let { f -> filteredPlaylists.filter { folders[it.id] == f } } ?: filteredPlaylists
+    androidx.compose.foundation.layout.Column {
+    androidx.compose.foundation.layout.Row(
+        Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+    ) {
+        androidx.compose.material3.FilterChip(selected = openFolder == null, onClick = { openFolder = null },
+            label = { Text(stringResource(R.string.folders_all)) })
+        folders.values.distinct().sorted().forEach { f ->
+            androidx.compose.material3.FilterChip(selected = openFolder == f, onClick = { openFolder = f }, label = { Text("📁 $f") })
+        }
+        androidx.compose.material3.AssistChip(onClick = { organizing = true }, label = { Text(stringResource(R.string.folders_organize)) })
+    }
+    if (organizing) {
+        var name by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(openFolder.orEmpty()) }
+        val picked = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { organizing = false },
+            title = { Text(stringResource(R.string.folders_organize)) },
+            text = {
+                androidx.compose.foundation.layout.Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                    androidx.compose.material3.OutlinedTextField(name, { name = it }, singleLine = true, label = { Text(stringResource(R.string.folders_name)) })
+                    filteredPlaylists.forEach { pl ->
+                        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(checked = picked[pl.id] ?: (folders[pl.id] == name && name.isNotBlank()), onCheckedChange = { picked[pl.id] = it })
+                            Text(pl.name)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    val f = name.trim()
+                    val edit = folderPrefs.edit()
+                    picked.forEach { (id, on) -> if (on && f.isNotEmpty()) edit.putString(id, f) else if (!on && folders[id] == f) edit.remove(id) }
+                    edit.apply()
+                    folders = folderPrefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap()
+                    organizing = false
+                }) { Text(stringResource(R.string.videos_save)) }
+            }
+        )
+    }
     PlaylistContainer(
         playlistUiState = playlistUiState,
-        filteredPlaylists = filteredPlaylists,
+        filteredPlaylists = shown,
         currentSortOption = playlistUiState.currentPlaylistSortOption,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -693,4 +744,5 @@ fun LibraryPlaylistsTab(
         onPlaylistLongPress = onPlaylistLongPress,
         onPlaylistSelectionToggle = onPlaylistSelectionToggle
     )
+    }
 }

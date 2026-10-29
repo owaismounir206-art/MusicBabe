@@ -162,6 +162,22 @@ class LyricsStateHolder @Inject constructor(
     /**
      * Cancel any ongoing lyrics loading.
      */
+    /** Moves one synced line (and its words) earlier or later by [deltaMs], and saves the lyrics. */
+    fun shiftLine(song: Song, lyrics: Lyrics, index: Int, deltaMs: Int) {
+        val synced = lyrics.synced ?: return
+        val line = synced.getOrNull(index) ?: return
+        val moved = line.copy(
+            time = (line.time + deltaMs).coerceAtLeast(0),
+            words = line.words?.map { it.copy(time = (it.time + deltaMs).coerceAtLeast(0)) }
+        )
+        val updated = lyrics.copy(synced = synced.toMutableList().also { it[index] = moved }.sortedBy { it.time })
+        scope?.launch {
+            val raw = com.theveloper.pixelplay.utils.LyricsUtils.toLrcString(updated)
+            runCatching { persistLyrics(song, raw) }
+            _songUpdates.emit(song.copy(lyrics = raw) to updated)
+        }
+    }
+
     fun cancelLoading() {
         loadingJob?.cancel()
     }

@@ -3543,6 +3543,16 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** The line being sung now moves earlier (negative) or later; saved with the lyrics. */
+    fun shiftCurrentLyricLine(deltaMs: Int) {
+        val state = stablePlayerState.value
+        val song = state.currentSong ?: return
+        val lyrics = state.lyrics ?: return
+        val pos = livePlaybackPositionMs()
+        val index = lyrics.synced?.indexOfLast { it.time <= pos }?.takeIf { it >= 0 } ?: return
+        lyricsStateHolder.shiftLine(song, lyrics, index, deltaMs)
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale

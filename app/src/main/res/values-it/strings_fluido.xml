@@ -220,4 +220,8 @@
     <string name="account_add">Aggiungi un altro account</string>
     <string name="yt_write_comment">Scrivi un commento su YouTube</string>
     <string name="account_collaborate">Invita amici in una playlist (collabora)</string>
+    <string name="extras_line_timing">Tempo della riga attuale</string>
+    <string name="folders_all">Tutte</string>
+    <string name="folders_organize">Cartelle…</string>
+    <string name="folders_name">Nome della cartella</string>
 </resources>

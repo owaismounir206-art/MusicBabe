@@ -220,4 +220,8 @@
     <string name="account_add">Add another account</string>
     <string name="yt_write_comment">Write a comment on YouTube</string>
     <string name="account_collaborate">Invite friends to a playlist (collaborate)</string>
+    <string name="extras_line_timing">Timing of the current line</string>
+    <string name="folders_all">All</string>
+    <string name="folders_organize">Folders…</string>
+    <string name="folders_name">Folder name</string>
 </resources>
