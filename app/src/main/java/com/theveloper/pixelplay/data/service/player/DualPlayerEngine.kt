@@ -1213,7 +1213,7 @@ class DualPlayerEngine @Inject constructor(
                     setMbcBandAllChannelsTo(0, android.media.audiofx.DynamicsProcessing.MbcBand(true, 20000f, 3f, 80f, 4f, -24f, 0f, -90f, 1f, 0f, 6f))
                     setLimiterAllChannelsTo(android.media.audiofx.DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -2f, 0f))
                 }
-                enabled = true
+                setEnabled(true)
             }
         }.onFailure { Timber.w(it, "Volume levelling unavailable") }.getOrNull()
     }

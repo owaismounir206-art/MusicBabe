@@ -60,6 +60,12 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                     }
                 }
             }
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            OutlinedButton(onClick = {
+                val now = java.util.Calendar.getInstance()
+                android.app.TimePickerDialog(ctx, { _, h, m -> playerViewModel.setMusicAlarm(h, m) },
+                    now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), true).show()
+            }) { Text(stringResource(R.string.extras_alarm)) }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)

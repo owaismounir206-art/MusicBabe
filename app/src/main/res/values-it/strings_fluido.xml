@@ -159,4 +159,6 @@
     <string name="extras_data_saver">Risparmio dati</string>
     <string name="extras_data_saver_desc">Con i dati mobili: audio leggero e video a 360p.</string>
     <string name="extras_video_quality">Qualità dei video musicali</string>
+    <string name="extras_alarm">Sveglia con la musica</string>
+    <string name="extras_alarm_set">Sveglia musicale alle %1$s</string>
 </resources>

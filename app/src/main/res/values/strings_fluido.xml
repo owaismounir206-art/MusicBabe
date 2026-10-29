@@ -159,4 +159,6 @@
     <string name="extras_data_saver">Data saver</string>
     <string name="extras_data_saver_desc">On mobile data: low audio and 360p videos.</string>
     <string name="extras_video_quality">Music video quality</string>
+    <string name="extras_alarm">Wake up with music</string>
+    <string name="extras_alarm_set">Music alarm set for %1$s</string>
 </resources>

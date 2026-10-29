@@ -3411,6 +3411,24 @@ class PlayerViewModel @Inject constructor(
         extrasPrefs.edit().putBoolean("low_audio", lowAudio).putInt("video_height", videoHeight).putBoolean("data_saver", dataSaver).apply()
     }
 
+    /** Music alarm: at [hour]:[minute] the app opens and plays the whole library shuffled. */
+    fun setMusicAlarm(hour: Int, minute: Int) {
+        val alarms = context.getSystemService(android.app.AlarmManager::class.java)
+        val open = android.content.Intent(context, com.theveloper.pixelplay.MainActivity::class.java)
+            .setAction(com.theveloper.pixelplay.MainActivityIntentContract.ACTION_SHUFFLE_ALL)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pending = android.app.PendingIntent.getActivity(context, 4711, open,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        val at = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, hour); set(java.util.Calendar.MINUTE, minute); set(java.util.Calendar.SECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }.timeInMillis
+        val canExact = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        if (canExact) alarms.setAlarmClock(android.app.AlarmManager.AlarmClockInfo(at, pending), pending)
+        else alarms.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pending)
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_alarm_set, String.format("%02d:%02d", hour, minute))) }
+    }
+
     fun restorePlaybackExtras() {
         val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
         com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
