@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-29
+
+### Added
+- Write YouTube comments from the app (signed in to YouTube Music).
+- Discord "Listening to" status on your profile, opt-in with your own token and a clear
+  warning (Discord's terms do not allow it; the account is at your risk).
+- Collaborative playlists: share an online list as a code, friends paste it in the search,
+  add the song they are playing and send it back; the lists merge.
+
 ## [2.6.1] - 2026-10-29
 
 ### Added
