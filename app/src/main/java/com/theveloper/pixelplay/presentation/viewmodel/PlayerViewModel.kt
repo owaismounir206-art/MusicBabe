@@ -3655,6 +3655,20 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** Release calendar: announced and recent releases of the current artist (Gemini). */
+    fun upcomingReleasesForArtist() {
+        val song = stablePlayerState.value.currentSong ?: return
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            val today = java.time.LocalDate.now()
+            _songMeaning.value = geminiQuick.ask(
+                "Today is $today. In $language, list the latest and the announced upcoming releases (albums, singles, tours) " +
+                    "of ${song.artist}, with dates, newest first. Say clearly when your information may be out of date."
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
+
     fun explainCurrentSong() {
         val song = stablePlayerState.value.currentSong ?: return
         val lyrics = stablePlayerState.value.lyrics

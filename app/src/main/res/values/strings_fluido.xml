@@ -206,4 +206,5 @@
     <string name="extras_moving_cover">Moving cover</string>
     <string name="extras_moving_cover_desc">The cover slowly zooms and drifts while it plays.</string>
     <string name="online_new_from_artists">New from your artists</string>
+    <string name="extras_releases">Release calendar</string>
 </resources>

@@ -206,4 +206,5 @@
     <string name="extras_moving_cover">Copertina in movimento</string>
     <string name="extras_moving_cover_desc">La copertina si muove e si ingrandisce piano mentre suona.</string>
     <string name="online_new_from_artists">Novità dai tuoi artisti</string>
+    <string name="extras_releases">Calendario uscite</string>
 </resources>

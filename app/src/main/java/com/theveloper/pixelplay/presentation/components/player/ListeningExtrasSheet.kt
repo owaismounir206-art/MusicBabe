@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.components.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -145,9 +146,10 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             Column {
                 Text(stringResource(R.string.extras_meaning), style = MaterialTheme.typography.titleMedium)
                 when (val m = meaning) {
-                    null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
                         OutlinedButton(onClick = playerViewModel::explainCurrentSong) { Text(stringResource(R.string.extras_meaning_ask)) }
                         OutlinedButton(onClick = playerViewModel::creditsForCurrentSong) { Text(stringResource(R.string.extras_credits)) }
+                        OutlinedButton(onClick = playerViewModel::upcomingReleasesForArtist) { Text(stringResource(R.string.extras_releases)) }
                     }
                     "" -> Text(stringResource(R.string.extras_meaning_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     else -> Text(m, style = MaterialTheme.typography.bodyMedium)
