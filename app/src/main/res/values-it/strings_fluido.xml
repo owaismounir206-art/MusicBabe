@@ -218,10 +218,21 @@
     <string name="extras_tv_none">Collega prima una TV o un monitor (HDMI o duplicazione dello schermo).</string>
     <string name="account_switch_to">Passa a %1$s</string>
     <string name="account_add">Aggiungi un altro account</string>
-    <string name="yt_write_comment">Scrivi un commento su YouTube</string>
     <string name="account_collaborate">Invita amici in una playlist (collabora)</string>
     <string name="extras_line_timing">Tempo della riga attuale</string>
     <string name="folders_all">Tutte</string>
     <string name="folders_organize">Cartelle…</string>
     <string name="folders_name">Nome della cartella</string>
+    <string name="yt_write_comment">Aggiungi un commento…</string>
+    <string name="yt_comment_send">Invia</string>
+    <string name="yt_comment_sent">Commento pubblicato</string>
+    <string name="yt_comment_failed">Non è stato possibile pubblicare il commento (commenti disattivati o rifiutato da YouTube)</string>
+    <string name="discord_status">Stato Discord "In ascolto"</string>
+    <string name="discord_on">Il tuo profilo Discord mostra cosa stai ascoltando.</string>
+    <string name="discord_connecting">Connessione a Discord…</string>
+    <string name="discord_warning">A tuo rischio: Discord non permette di usare il token del tuo account in altre app e può sospendere l\'account. Il token resta cifrato in questo telefono e va solo a Discord. Non darlo mai a nessuno.</string>
+    <string name="discord_enable">Attiva</string>
+    <string name="online_collaborate">Collabora</string>
+    <string name="online_collaborate_message">Aggiungi i tuoi brani a "%1$s": incolla questo codice nella ricerca di MusicBabe, aggiungi i brani e rimandamelo.</string>
+    <string name="online_collaborate_add">Aggiungi il brano in ascolto</string>
 </resources>

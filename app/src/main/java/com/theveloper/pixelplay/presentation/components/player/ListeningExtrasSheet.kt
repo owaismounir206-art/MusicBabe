@@ -135,6 +135,9 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             SwitchRow(stringResource(R.string.extras_guest), stringResource(R.string.extras_guest_desc), guest) {
                 guest = it; com.theveloper.pixelplay.data.stats.GuestMode.enabled = it
             }
+            var showDiscord by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            OutlinedButton(onClick = { showDiscord = true }) { Text(stringResource(R.string.discord_status)) }
+            if (showDiscord) DiscordDialog { showDiscord = false }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
@@ -268,4 +271,30 @@ private fun TvLyricsButton(playerViewModel: PlayerViewModel) {
 
 private object TvLyricsHolder {
     var presentation: com.theveloper.pixelplay.presentation.floating.TvLyricsPresentation? = null
+}
+
+@Composable
+private fun DiscordDialog(onDismiss: () -> Unit) {
+    val presence = com.theveloper.pixelplay.data.discord.DiscordPresence
+    val connected by presence.connected.collectAsStateWithLifecycle()
+    var token by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.discord_status)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (presence.isEnabled) {
+                    Text(stringResource(if (connected) R.string.discord_on else R.string.discord_connecting))
+                } else {
+                    Text(stringResource(R.string.discord_warning), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.OutlinedTextField(token, { token = it }, singleLine = true, label = { Text("Token") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                }
+            }
+        },
+        confirmButton = {
+            if (presence.isEnabled) androidx.compose.material3.TextButton(onClick = { presence.disable(); onDismiss() }) { Text(stringResource(R.string.lastfm_sign_out)) }
+            else androidx.compose.material3.TextButton(enabled = token.isNotBlank(), onClick = { presence.enable(token); onDismiss() }) { Text(stringResource(R.string.discord_enable)) }
+        }
+    )
 }

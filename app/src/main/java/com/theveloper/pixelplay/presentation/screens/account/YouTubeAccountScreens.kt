@@ -164,6 +164,9 @@ class YouTubeAccountViewModel @Inject constructor(
     }
 
     fun signOut() = account.signOut()
+    fun writeComment(videoId: String, text: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(account.writeComment(videoId, text)) }
+    }
     val savedAccounts = account.savedAccounts
     fun switchTo(name: String) { account.switchTo(name); loadLibrary() }
     fun prepareAddAccount() = account.prepareAddAccount()
@@ -468,11 +471,27 @@ private fun CommentsSheet(viewModel: YouTubeAccountViewModel, videoId: String, o
             stringResource(R.string.yt_comments), style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
         )
-        // Writing goes through YouTube itself (app or site), signed in with your account.
-        androidx.compose.material3.OutlinedButton(
-            onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$videoId"))) },
-            modifier = Modifier.padding(horizontal = 20.dp)
-        ) { Text(stringResource(R.string.yt_write_comment)) }
+        val signedIn by viewModel.isSignedIn.collectAsStateWithLifecycle()
+        if (signedIn) {
+            var draft by remember { mutableStateOf("") }
+            var sending by remember { mutableStateOf(false) }
+            val sent = stringResource(R.string.yt_comment_sent)
+            val failed = stringResource(R.string.yt_comment_failed)
+            Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedTextField(
+                    draft, { draft = it }, modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.yt_write_comment)) }, maxLines = 4
+                )
+                androidx.compose.material3.TextButton(enabled = draft.isNotBlank() && !sending, onClick = {
+                    sending = true
+                    viewModel.writeComment(videoId, draft.trim()) { ok ->
+                        sending = false
+                        android.widget.Toast.makeText(ctx, if (ok) sent else failed, android.widget.Toast.LENGTH_SHORT).show()
+                        if (ok) { draft = ""; viewModel.loadComments(videoId) }
+                    }
+                }) { Text(stringResource(R.string.yt_comment_send)) }
+            }
+        }
         val list = comments
         when {
             list == null -> CenteredLoading()

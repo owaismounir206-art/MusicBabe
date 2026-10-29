@@ -220,7 +220,12 @@ fun OnlineScreen(
                 onQueryChange = viewModel::onQueryChange,
                 onSearch = {
                     val q = search.query.trim()
-                    if ("open.spotify.com/" in q) {
+                    if (q.startsWith("mbpl:")) {
+                        actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                            kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
+                            title = "MusicBabe", url = q))
+                        viewModel.clearSearch()
+                    } else if ("open.spotify.com/" in q) {
                         actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
                             kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
                             title = "Spotify", url = q))
