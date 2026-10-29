@@ -3375,7 +3375,7 @@ class PlayerViewModel @Inject constructor(
                 val queue = queueFlow.value
                 val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
                 if (_skipPlayedToday.value && id in playedToday && !heardAll) { nextSong(); return@collect }
-                playedToday += id
+                if (!com.theveloper.pixelplay.data.stats.GuestMode.enabled) playedToday += id
                 scrobbleTransition()
             }
         }
@@ -3389,7 +3389,7 @@ class PlayerViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val previous = scrobbleCandidate
         scrobbleCandidate = song to now
-        if (lastFm.userName == null) return
+        if (lastFm.userName == null || com.theveloper.pixelplay.data.stats.GuestMode.enabled) return
         viewModelScope.launch {
             if (previous != null) {
                 val (p, startedAt) = previous

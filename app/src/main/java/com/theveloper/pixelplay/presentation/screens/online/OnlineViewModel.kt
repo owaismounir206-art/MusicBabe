@@ -56,6 +56,7 @@ class OnlineViewModel @Inject constructor(
         historyPrefs.getString("items", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
 
     private fun saveSearch(query: String) {
+        if (com.theveloper.pixelplay.data.stats.GuestMode.enabled) return
         val list = (listOf(query.trim()) + _recentSearches.value.filterNot { it.equals(query.trim(), true) }).take(12)
         _recentSearches.value = list
         historyPrefs.edit().putString("items", list.joinToString("\n")).apply()

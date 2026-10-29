@@ -208,4 +208,6 @@
     <string name="online_new_from_artists">New from your artists</string>
     <string name="extras_releases">Release calendar</string>
     <string name="videos_cover">Cover</string>
+    <string name="extras_guest">Guest mode</string>
+    <string name="extras_guest_desc">Someone else is listening: nothing is added to your stats, history or Last.fm until you turn it off.</string>
 </resources>

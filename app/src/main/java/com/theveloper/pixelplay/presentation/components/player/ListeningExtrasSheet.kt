@@ -121,6 +121,10 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
             SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc),
                 com.theveloper.pixelplay.presentation.components.MovingCover.enabled) { com.theveloper.pixelplay.presentation.components.MovingCover.enabled = it }
+            var guest by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.theveloper.pixelplay.data.stats.GuestMode.enabled) }
+            SwitchRow(stringResource(R.string.extras_guest), stringResource(R.string.extras_guest_desc), guest) {
+                guest = it; com.theveloper.pixelplay.data.stats.GuestMode.enabled = it
+            }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
