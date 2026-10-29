@@ -194,4 +194,7 @@
     <string name="extras_lyric_saved">Line saved</string>
     <string name="online_filter_songs">Search in this list</string>
     <string name="extras_visualizer">Show the visualizer</string>
+    <string name="extras_auto_download">Save liked online songs</string>
+    <string name="extras_auto_download_desc">On Wi-Fi, online songs you like are saved to the phone.</string>
+    <string name="extras_download_quality">Saved video quality</string>
 </resources>

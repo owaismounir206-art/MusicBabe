@@ -3444,6 +3444,45 @@ class PlayerViewModel @Inject constructor(
     /** The audio session of the player, for the visualizer. */
     val audioSessionId: StateFlow<Int> get() = dualPlayerEngine.activeAudioSessionId
 
+    private val _downloadHeight = MutableStateFlow(1080)
+    val downloadHeight: StateFlow<Int> = _downloadHeight.asStateFlow()
+    fun setDownloadHeight(height: Int) {
+        _downloadHeight.value = height
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.downloadHeight = height
+        extrasPrefs.edit().putInt("download_height", height).apply()
+    }
+
+    private val _autoDownloadFavorites = MutableStateFlow(false)
+    /** Online songs you like are saved to the phone when on Wi-Fi. */
+    val autoDownloadFavorites: StateFlow<Boolean> = _autoDownloadFavorites.asStateFlow()
+    fun setAutoDownloadFavorites(enabled: Boolean) {
+        _autoDownloadFavorites.value = enabled
+        extrasPrefs.edit().putBoolean("auto_download_favorites", enabled).apply()
+        if (enabled) downloadFavoritesOnWifi()
+    }
+
+    private fun downloadFavoritesOnWifi() {
+        if (com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered()) return
+        val done = extrasPrefs.getStringSet("auto_downloaded", emptySet()).orEmpty()
+        val todo = allSongsFlow.value.filter {
+            it.isFavorite && it.id !in done &&
+                com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(it.contentUriString)
+        }.mapNotNull { song ->
+            val id = song.contentUriString.removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+                .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId) ?: return@mapNotNull null
+            song to id
+        }
+        if (todo.isEmpty()) return
+        todo.forEach { (song, id) ->
+            songDownloadManager.startYouTubeDownload(
+                OnlineTrack(id = kotlin.math.abs(id.hashCode().toLong()), title = song.title, artistName = song.artist,
+                    albumTitle = "", albumCoverUrl = song.albumArtUriString, durationSeconds = (song.duration / 1000).toInt(), youtubeVideoId = id),
+                id, com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A
+            )
+        }
+        extrasPrefs.edit().putStringSet("auto_downloaded", done + todo.map { it.first.id }).apply()
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale
@@ -3503,6 +3542,9 @@ class PlayerViewModel @Inject constructor(
         _savedLyrics.value = extrasPrefs.getString("saved_lyrics", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
         watchPlayedToday()
+        setDownloadHeight(extrasPrefs.getInt("download_height", 1080))
+        _autoDownloadFavorites.value = extrasPrefs.getBoolean("auto_download_favorites", false)
+        if (_autoDownloadFavorites.value) downloadFavoritesOnWifi()
         _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)
         _volumeLeveling.value = extrasPrefs.getBoolean("leveling", false)
         dualPlayerEngine.setSkipSilence(_skipSilence.value)

@@ -103,6 +103,17 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 Text(stringResource(R.string.extras_saved_lyrics), style = MaterialTheme.typography.titleMedium)
                 saved.take(20).forEach { Text("“$it”", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
+            val autoFav by playerViewModel.autoDownloadFavorites.collectAsStateWithLifecycle()
+            SwitchRow(stringResource(R.string.extras_auto_download), stringResource(R.string.extras_auto_download_desc), autoFav, playerViewModel::setAutoDownloadFavorites)
+            val dlHeight by playerViewModel.downloadHeight.collectAsStateWithLifecycle()
+            Column {
+                Text(stringResource(R.string.extras_download_quality), style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    listOf(480, 720, 1080).forEach { h ->
+                        FilterChip(selected = dlHeight == h, onClick = { playerViewModel.setDownloadHeight(h) }, label = { Text("${h}p") })
+                    }
+                }
+            }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
