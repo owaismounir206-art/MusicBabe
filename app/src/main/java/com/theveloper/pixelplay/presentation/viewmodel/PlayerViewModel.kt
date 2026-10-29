@@ -1039,7 +1039,7 @@ class PlayerViewModel @Inject constructor(
 
     init {
         observeOnlineRadio()
-        viewModelScope.launch { kotlinx.coroutines.delay(1_500); restorePlaybackExtras() }
+        viewModelScope.launch { kotlinx.coroutines.delay(1_500); runCatching { restorePlaybackExtras() }.onFailure { Timber.w(it, "Listening extras not restored") } }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
         dailyMixStateHolder.initialize(viewModelScope)
