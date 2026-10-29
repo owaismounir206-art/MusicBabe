@@ -211,4 +211,6 @@
     <string name="extras_guest">Guest mode</string>
     <string name="extras_guest_desc">Someone else is listening: nothing is added to your stats, history or Last.fm until you turn it off.</string>
     <string name="account_uploads">Your uploads</string>
+    <string name="extras_lock_lyrics">Lyrics on the lock screen</string>
+    <string name="extras_lock_lyrics_desc">The sung line shows in a silent notification, also on the lock screen.</string>
 </resources>

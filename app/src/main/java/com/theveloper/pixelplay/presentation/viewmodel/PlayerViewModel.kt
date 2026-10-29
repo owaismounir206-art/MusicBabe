@@ -3509,6 +3509,40 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private var lockLyricsJob: kotlinx.coroutines.Job? = null
+    private val _lockScreenLyrics = MutableStateFlow(false)
+    /** The sung line in a silent notification, visible on the lock screen. */
+    val lockScreenLyrics: StateFlow<Boolean> = _lockScreenLyrics.asStateFlow()
+
+    fun setLockScreenLyrics(enabled: Boolean) {
+        _lockScreenLyrics.value = enabled
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        lockLyricsJob?.cancel()
+        if (!enabled) { nm.cancel(LYRICS_NOTIFICATION_ID); return }
+        nm.createNotificationChannel(android.app.NotificationChannel("lyrics", context.getString(R.string.extras_lock_lyrics),
+            android.app.NotificationManager.IMPORTANCE_LOW).apply { lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC; setSound(null, null) })
+        lockLyricsJob = viewModelScope.launch {
+            var last = ""
+            while (true) {
+                val state = stablePlayerState.value
+                val pos = livePlaybackPositionMs()
+                val line = state.lyrics?.synced?.lastOrNull { it.time <= pos }?.line.orEmpty()
+                if (line != last && state.currentSong != null) {
+                    last = line
+                    val n = androidx.core.app.NotificationCompat.Builder(context, "lyrics")
+                        .setSmallIcon(R.drawable.monochrome_player)
+                        .setContentTitle(line.ifBlank { "♪" })
+                        .setContentText("${state.currentSong.artist} – ${state.currentSong.title}")
+                        .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                        .setOnlyAlertOnce(true).setSilent(true).setOngoing(state.isPlaying)
+                        .build()
+                    runCatching { nm.notify(LYRICS_NOTIFICATION_ID, n) }
+                }
+                kotlinx.coroutines.delay(300)
+            }
+        }
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale
@@ -3918,6 +3952,8 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
 }
 
 private const val ONLINE_RADIO_DELAY_MS = 3_000L
+
+private const val LYRICS_NOTIFICATION_ID = 47110
 
 /** Lyrics text size chosen in the listening options (read by every lyrics view). */
 object LyricsTextScale {

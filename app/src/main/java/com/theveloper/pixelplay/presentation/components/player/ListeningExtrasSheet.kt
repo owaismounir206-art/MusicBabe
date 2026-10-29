@@ -118,6 +118,8 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             val library by playerViewModel.allSongsFlow.collectAsStateWithLifecycle()
             MonthlyRecapSection(library)
             SwitchRow(stringResource(R.string.extras_subtitles), stringResource(R.string.extras_subtitles_desc), VideoSubtitles.enabled) { VideoSubtitles.enabled = it }
+            val lockLyrics by playerViewModel.lockScreenLyrics.collectAsStateWithLifecycle()
+            SwitchRow(stringResource(R.string.extras_lock_lyrics), stringResource(R.string.extras_lock_lyrics_desc), lockLyrics, playerViewModel::setLockScreenLyrics)
             OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
             SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc),
                 com.theveloper.pixelplay.presentation.components.MovingCover.enabled) { com.theveloper.pixelplay.presentation.components.MovingCover.enabled = it }
