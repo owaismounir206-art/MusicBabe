@@ -99,6 +99,13 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 OutlinedButton(onClick = playerViewModel::saveCurrentLyricLine) { Text(stringResource(R.string.extras_save_lyric)) }
                 OutlinedButton(onClick = playerViewModel::reportWrongLyrics) { Text(stringResource(R.string.extras_report_lyrics)) }
             }
+            Column {
+                Text(stringResource(R.string.extras_line_timing), style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    OutlinedButton(onClick = { playerViewModel.shiftCurrentLyricLine(-250) }) { Text("−0.25 s") }
+                    OutlinedButton(onClick = { playerViewModel.shiftCurrentLyricLine(250) }) { Text("+0.25 s") }
+                }
+            }
             val saved by playerViewModel.savedLyrics.collectAsStateWithLifecycle()
             if (saved.isNotEmpty()) {
                 Text(stringResource(R.string.extras_saved_lyrics), style = MaterialTheme.typography.titleMedium)

@@ -216,4 +216,12 @@
     <string name="extras_tv">Testo sulla TV</string>
     <string name="extras_tv_stop">Togli il testo dalla TV</string>
     <string name="extras_tv_none">Collega prima una TV o un monitor (HDMI o duplicazione dello schermo).</string>
+    <string name="account_switch_to">Passa a %1$s</string>
+    <string name="account_add">Aggiungi un altro account</string>
+    <string name="yt_write_comment">Scrivi un commento su YouTube</string>
+    <string name="account_collaborate">Invita amici in una playlist (collabora)</string>
+    <string name="extras_line_timing">Tempo della riga attuale</string>
+    <string name="folders_all">Tutte</string>
+    <string name="folders_organize">Cartelle…</string>
+    <string name="folders_name">Nome della cartella</string>
 </resources>
