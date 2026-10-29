@@ -76,7 +76,6 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.ui.theme.FluidText
 import com.theveloper.pixelplay.ui.theme.Scena
 import com.theveloper.pixelplay.ui.theme.scenaDisplay
-import com.theveloper.pixelplay.utils.WordTimingEstimator
 
 /**
  * Full screen, landscape: the music video (or the cover) with the controls on the left, the
@@ -240,7 +239,6 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
     val lyrics = state.lyrics
     val lines = remember(lyrics) {
         lyrics?.synced?.takeIf { it.isNotEmpty() }
-            ?.let { WordTimingEstimator.estimate(it) }
             ?.let(::withInstrumentalBreaks)
     }
     val style = remember { TextStyle(fontSize = 26.sp) }

@@ -420,6 +420,8 @@ class LyricsRepositoryImpl @Inject constructor(
             fetchLyricsFromAPI(song)
         }
 
+        val fetchWordTimed: suspend () -> Lyrics? = { fetchWordTimedLyrics(song) }
+
         // Livello 3: NetEase reverse public lyrics scraper (no-auth, no API key, fail-safe).
         val fetchFromNetease: suspend () -> Lyrics? = {
             fetchFromNeteaseLyrics(song)
@@ -430,6 +432,7 @@ class LyricsRepositoryImpl @Inject constructor(
         // follows the free 4-tier hierarchy: local sidecar -> embedded ID3 -> LrcLib -> NetEase.
         val sourceFetchers: List<Pair<String, suspend () -> Lyrics?>> = when (sourcePreference) {
             LyricsSourcePreference.API_FIRST -> listOf(
+                "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
                 "NetEase" to fetchFromNetease,
                 "Embedded" to fetchFromEmbedded,
@@ -437,6 +440,7 @@ class LyricsRepositoryImpl @Inject constructor(
             )
             LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
                 "Embedded" to fetchFromEmbedded,
+                "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
                 "NetEase" to fetchFromNetease,
                 "Local" to fetchFromLocal
@@ -444,6 +448,7 @@ class LyricsRepositoryImpl @Inject constructor(
             LyricsSourcePreference.LOCAL_FIRST -> listOf(
                 "Local" to fetchFromLocal,
                 "Embedded" to fetchFromEmbedded,
+                "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
                 "NetEase" to fetchFromNetease
             )
@@ -458,7 +463,7 @@ class LyricsRepositoryImpl @Inject constructor(
             try {
                 val lyrics = fetcher()
                 if (lyrics != null && lyrics.isValid()) {
-                    val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || lyrics.areFromRemote
+                    val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || sourceName == "WordTimed" || lyrics.areFromRemote
 
                     if (!lyrics.synced.isNullOrEmpty()) {
                         Log.d(TAG, "Found synced lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
@@ -718,6 +723,64 @@ class LyricsRepositoryImpl @Inject constructor(
      *
      * @return I testi sincronizzati parsati, o null se il livello fallisce.
      */
+    /** NetEase song id of [song]: same title and a length within 15 s. */
+    private suspend fun searchNeteaseSongId(query: String, cleanTitle: String, targetDurationMs: Long): Long? {
+        val searchRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.searchSongs(query, 10) }
+        val songsArray = JSONObject(searchRaw).optJSONObject("result")?.optJSONArray("songs")
+            ?: return null
+
+        val normalizedTitle = normalizeForMatch(cleanTitle)
+        var bestSongId = -1L
+        var bestDurationDelta = Long.MAX_VALUE
+
+        for (i in 0 until songsArray.length()) {
+            val item = songsArray.optJSONObject(i) ?: continue
+            val candidateNorm = normalizeForMatch(item.optString("name", ""))
+            if (normalizedTitle.isBlank()) continue
+            val isTitleMatch = candidateNorm == normalizedTitle ||
+                candidateNorm.contains(normalizedTitle) ||
+                normalizedTitle.contains(candidateNorm) ||
+                (candidateNorm.split(" ").take(2) == normalizedTitle.split(" ").take(2))
+            if (!isTitleMatch) continue
+
+            val candidateDurationMs = item.optLong("dt", 0L)
+            if (targetDurationMs > 0 && candidateDurationMs > 0 &&
+                abs(candidateDurationMs - targetDurationMs) > 15_000L
+            ) continue
+
+            val delta = if (targetDurationMs > 0 && candidateDurationMs > 0) {
+                abs(candidateDurationMs - targetDurationMs)
+            } else 0L
+            if (delta < bestDurationDelta) {
+                bestDurationDelta = delta
+                bestSongId = item.optLong("id", -1L)
+            }
+        }
+        return bestSongId.takeIf { it > 0L }
+    }
+
+    /**
+     * Lyrics with the real time of every word, for any song: the song is found on NetEase, then
+     * its word-timed lyrics come from AMLL TTML DB (hand-made) or from NetEase's own "yrc".
+     * Returns null when only line timings exist, so the line-level sources take over.
+     */
+    private suspend fun fetchWordTimedLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
+        try {
+            val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
+            if (cleanTitle.isBlank()) return@withContext null
+            val query = listOf(cleanArtist, cleanTitle).filter { it.isNotBlank() }.joinToString(" ")
+            val id = runCatching { searchNeteaseSongId(query, cleanTitle, song.duration) }.getOrNull() ?: return@withContext null
+            fetchAmlldbById(id)?.takeIf { it.hasWordTimings() }?.let { return@withContext it }
+            fetchFromNeteaseLyrics(song)?.takeIf { it.hasWordTimings() }
+        } catch (e: Exception) {
+            Log.d(TAG, "Word-timed lyrics lookup failed for '${song.title}': ${e.message}")
+            null
+        }
+    }
+
+    private fun Lyrics.hasWordTimings(): Boolean =
+        synced.orEmpty().count { !it.words.isNullOrEmpty() } >= 3
+
     private suspend fun fetchFromNeteaseLyrics(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         try {
             val (cleanTitle, cleanArtist) = LyricsUtils.cleanTrackMetadata(song.title, song.displayArtist)
@@ -727,39 +790,7 @@ class LyricsRepositoryImpl @Inject constructor(
                 .filter { it.isNotBlank() }
                 .joinToString(" ")
 
-            val searchRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.searchSongs(query, 10) }
-            val songsArray = JSONObject(searchRaw).optJSONObject("result")?.optJSONArray("songs")
-                ?: return@withContext null
-
-            val targetDurationMs = song.duration
-            val normalizedTitle = normalizeForMatch(cleanTitle)
-            var bestSongId = -1L
-            var bestDurationDelta = Long.MAX_VALUE
-
-            for (i in 0 until songsArray.length()) {
-                val item = songsArray.optJSONObject(i) ?: continue
-                val candidateNorm = normalizeForMatch(item.optString("name", ""))
-                if (normalizedTitle.isBlank()) continue
-                val isTitleMatch = candidateNorm == normalizedTitle ||
-                    candidateNorm.contains(normalizedTitle) ||
-                    normalizedTitle.contains(candidateNorm) ||
-                    (candidateNorm.split(" ").take(2) == normalizedTitle.split(" ").take(2))
-                if (!isTitleMatch) continue
-
-                val candidateDurationMs = item.optLong("dt", 0L)
-                if (targetDurationMs > 0 && candidateDurationMs > 0 &&
-                    abs(candidateDurationMs - targetDurationMs) > 15_000L
-                ) continue
-
-                val delta = if (targetDurationMs > 0 && candidateDurationMs > 0) {
-                    abs(candidateDurationMs - targetDurationMs)
-                } else 0L
-                if (delta < bestDurationDelta) {
-                    bestDurationDelta = delta
-                    bestSongId = item.optLong("id", -1L)
-                }
-            }
-            if (bestSongId <= 0L) return@withContext null
+            val bestSongId = searchNeteaseSongId(query, cleanTitle, song.duration) ?: return@withContext null
 
             val lyricRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.getLyrics(bestSongId) }
             val lyricRoot = JSONObject(lyricRaw)
@@ -1105,8 +1136,10 @@ class LyricsRepositoryImpl @Inject constructor(
         return Uri.parse(song.contentUriString).host?.toLongOrNull()
     }
 
-    private suspend fun fetchFromAmlldb(song: Song): Lyrics? = withContext(Dispatchers.IO) {
-        val neteaseSongId = resolveNeteaseSongId(song) ?: return@withContext null
+    private suspend fun fetchFromAmlldb(song: Song): Lyrics? =
+        resolveNeteaseSongId(song)?.let { fetchAmlldbById(it) }
+
+    private suspend fun fetchAmlldbById(neteaseSongId: Long): Lyrics? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("$AMLLDB_NCM_LYRICS_BASE_URL$neteaseSongId")
             .get()
