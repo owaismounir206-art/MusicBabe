@@ -200,4 +200,7 @@
     <string name="online_top_result">Risultato principale</string>
     <string name="extras_recap">Il tuo mese in musica</string>
     <string name="extras_recap_show">Mostra il riepilogo</string>
+    <string name="extras_subtitles">Testo come sottotitoli</string>
+    <string name="extras_subtitles_desc">La riga cantata appare sul video musicale.</string>
+    <string name="extras_floating_lyrics">Testo fluttuante sopra le altre app</string>
 </resources>

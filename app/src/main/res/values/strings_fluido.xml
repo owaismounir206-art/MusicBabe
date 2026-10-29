@@ -200,4 +200,7 @@
     <string name="online_top_result">Top result</string>
     <string name="extras_recap">Your month in music</string>
     <string name="extras_recap_show">Show the recap</string>
+    <string name="extras_subtitles">Lyrics as subtitles</string>
+    <string name="extras_subtitles_desc">The current line appears on the music video.</string>
+    <string name="extras_floating_lyrics">Floating lyrics over other apps</string>
 </resources>

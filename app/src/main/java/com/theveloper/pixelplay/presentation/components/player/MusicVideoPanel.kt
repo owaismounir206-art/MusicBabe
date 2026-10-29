@@ -192,6 +192,31 @@ fun MusicVideoPanel(
                     .background(Color.Black.copy(alpha = 0.45f))
             )
         }
+        if (VideoSubtitles.enabled && current is MusicVideoState.Ready) {
+            val stable by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+            var line by remember { mutableStateOf("") }
+            LaunchedEffect(stable.lyrics) {
+                val synced = stable.lyrics?.synced.orEmpty()
+                while (synced.isNotEmpty()) {
+                    val pos = playerViewModel.livePlaybackPositionMs()
+                    line = synced.lastOrNull { it.time <= pos }?.line.orEmpty()
+                    kotlinx.coroutines.delay(200)
+                }
+            }
+            if (line.isNotBlank()) {
+                androidx.compose.material3.Text(
+                    line,
+                    color = Color.White,
+                    style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 40.dp, vertical = 10.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
         if (onFullscreen != null && current is MusicVideoState.Ready) {
             androidx.compose.material3.IconButton(
                 onClick = onFullscreen,
@@ -368,3 +393,8 @@ private const val NUDGE_SPEED = 0.05f
 private const val PAUSED_TOLERANCE_MS = 150L
 
 private const val SYNC_INTERVAL_MS = 500L
+
+/** Lyrics shown as subtitles on the music video (listening options). */
+object VideoSubtitles {
+    var enabled by mutableStateOf(false)
+}

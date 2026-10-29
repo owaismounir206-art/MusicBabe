@@ -116,6 +116,8 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
             }
             val library by playerViewModel.allSongsFlow.collectAsStateWithLifecycle()
             MonthlyRecapSection(library)
+            SwitchRow(stringResource(R.string.extras_subtitles), stringResource(R.string.extras_subtitles_desc), VideoSubtitles.enabled) { VideoSubtitles.enabled = it }
+            OutlinedButton(onClick = playerViewModel::toggleFloatingLyrics) { Text(stringResource(R.string.extras_floating_lyrics)) }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)

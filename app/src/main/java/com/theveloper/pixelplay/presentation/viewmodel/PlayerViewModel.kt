@@ -3483,6 +3483,32 @@ class PlayerViewModel @Inject constructor(
         extrasPrefs.edit().putStringSet("auto_downloaded", done + todo.map { it.first.id }).apply()
     }
 
+    private var floatingJob: kotlinx.coroutines.Job? = null
+
+    /** Lyrics in a bubble over other apps (asks for the overlay permission the first time). */
+    fun toggleFloatingLyrics() {
+        val service = android.content.Intent(context, com.theveloper.pixelplay.presentation.floating.FloatingLyricsService::class.java)
+        if (com.theveloper.pixelplay.presentation.floating.FloatingLyricsService.running.value) {
+            context.stopService(service); floatingJob?.cancel(); return
+        }
+        if (!android.provider.Settings.canDrawOverlays(context)) {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + context.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        context.startService(service)
+        floatingJob?.cancel()
+        floatingJob = viewModelScope.launch {
+            while (true) {
+                val state = stablePlayerState.value
+                val pos = livePlaybackPositionMs()
+                com.theveloper.pixelplay.presentation.floating.FloatingLyricsService.line.value =
+                    state.lyrics?.synced?.lastOrNull { it.time <= pos }?.line ?: state.currentSong?.let { "${it.artist} – ${it.title}" }.orEmpty()
+                kotlinx.coroutines.delay(250)
+            }
+        }
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale
