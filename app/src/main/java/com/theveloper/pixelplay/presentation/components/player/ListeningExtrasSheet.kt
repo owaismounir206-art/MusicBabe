@@ -16,6 +16,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -66,6 +68,14 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 android.app.TimePickerDialog(ctx, { _, h, m -> playerViewModel.setMusicAlarm(h, m) },
                     now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), true).show()
             }) { Text(stringResource(R.string.extras_alarm)) }
+            var showTools by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            OutlinedButton(onClick = { showTools = true }) { Text(stringResource(R.string.tools_open)) }
+            if (showTools) LibraryToolsSheet(playerViewModel) { showTools = false }
+            var showLastFm by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            OutlinedButton(onClick = { showLastFm = true }) {
+                Text(playerViewModel.lastFm.userName?.let { stringResource(R.string.lastfm_signed_in, it) } ?: stringResource(R.string.lastfm_connect))
+            }
+            if (showLastFm) LastFmDialog(playerViewModel.lastFm) { showLastFm = false }
             OutlinedButton(onClick = playerViewModel::shareQueue) { Text(stringResource(R.string.extras_share_queue)) }
             Column {
                 Text(stringResource(R.string.extras_ab), style = MaterialTheme.typography.titleMedium)
@@ -123,4 +133,45 @@ private fun SwitchRow(title: String, description: String, checked: Boolean, onCh
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+@Composable
+private fun LastFmDialog(lastFm: com.theveloper.pixelplay.data.lastfm.LastFmScrobbler, onDismiss: () -> Unit) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var key by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var secret by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var user by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var password by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var error by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Last.fm") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (lastFm.userName != null) {
+                    Text(stringResource(R.string.lastfm_signed_in, lastFm.userName.orEmpty()))
+                } else {
+                    Text(stringResource(R.string.lastfm_hint), style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.OutlinedTextField(key, { key = it.trim() }, label = { Text("API key") }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(secret, { secret = it.trim() }, label = { Text("Shared secret") }, singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                    androidx.compose.material3.OutlinedTextField(user, { user = it.trim() }, label = { Text(stringResource(R.string.lastfm_user)) }, singleLine = true)
+                    androidx.compose.material3.OutlinedTextField(password, { password = it }, label = { Text(stringResource(R.string.lastfm_password)) }, singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        },
+        confirmButton = {
+            if (lastFm.userName != null) {
+                androidx.compose.material3.TextButton(onClick = { lastFm.signOut(); onDismiss() }) { Text(stringResource(R.string.lastfm_sign_out)) }
+            } else {
+                androidx.compose.material3.TextButton(onClick = {
+                    scope.launch {
+                        lastFm.signIn(key, secret, user, password).onSuccess { onDismiss() }.onFailure { error = it.message }
+                    }
+                }) { Text(stringResource(R.string.lastfm_connect)) }
+            }
+        }
+    )
 }

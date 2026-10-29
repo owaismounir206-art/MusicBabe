@@ -161,4 +161,23 @@
     <string name="extras_video_quality">Qualità dei video musicali</string>
     <string name="extras_alarm">Sveglia con la musica</string>
     <string name="extras_alarm_set">Sveglia musicale alle %1$s</string>
+    <string name="tools_open">Playlist intelligenti e doppioni</string>
+    <string name="tools_smart">Playlist intelligenti</string>
+    <string name="tools_recent">Aggiunti negli ultimi 30 giorni</string>
+    <string name="tools_long">Brani lunghi (oltre 6 min)</string>
+    <string name="tools_short">Brani brevi (sotto i 3 min)</string>
+    <string name="tools_old">Prima del 2000</string>
+    <string name="tools_favorites">Preferiti</string>
+    <string name="tools_time_of_day">Per quest\'ora del giorno</string>
+    <string name="tools_duplicates">Doppioni (%1$d)</string>
+    <string name="tools_no_duplicates">Nessun brano è due volte nella libreria.</string>
+    <string name="welcome_title">Benvenuto in MusicBabe</string>
+    <string name="welcome_body">La Home è la zona online: cerca qualsiasi brano o video e lo ascolti per intero. La musica del telefono è in Libreria.\n\nNel player, l\'icona di regolazione apre le opzioni di ascolto: timer, sveglia, qualità, playlist intelligenti e altro.\n\nAccedi a YouTube Music dall\'icona dell\'account per i tuoi Mi piace e le playlist. Salva una chiave Gemini in Impostazioni, IA per sincronizzare i testi, riconoscere i brani e scoprire di cosa parlano.</string>
+    <string name="welcome_start">Iniziamo</string>
+    <string name="lastfm_connect">Collega Last.fm</string>
+    <string name="lastfm_signed_in">Last.fm: %1$s</string>
+    <string name="lastfm_hint">Crea un account API su last.fm/api/account/create, poi inserisci la chiave e il segreto con i tuoi dati di accesso a Last.fm. La password si usa una volta sola e non viene salvata.</string>
+    <string name="lastfm_user">Nome utente</string>
+    <string name="lastfm_password">Password</string>
+    <string name="lastfm_sign_out">Scollega</string>
 </resources>

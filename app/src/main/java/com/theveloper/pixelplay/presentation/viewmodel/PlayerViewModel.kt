@@ -206,6 +206,7 @@ class PlayerViewModel @Inject constructor(
     private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
     private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor,
     private val geminiQuick: com.theveloper.pixelplay.data.ai.GeminiQuick,
+    val lastFm: com.theveloper.pixelplay.data.lastfm.LastFmScrobbler,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -3373,8 +3374,31 @@ class PlayerViewModel @Inject constructor(
                 if (day != playedTodayDay) { playedToday.clear(); playedTodayDay = day }
                 val queue = queueFlow.value
                 val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
-                if (_skipPlayedToday.value && id in playedToday && !heardAll) nextSong() else playedToday += id
+                if (_skipPlayedToday.value && id in playedToday && !heardAll) { nextSong(); return@collect }
+                playedToday += id
+                scrobbleTransition()
             }
+        }
+    }
+
+    private var scrobbleCandidate: Pair<com.theveloper.pixelplay.data.model.Song, Long>? = null
+
+    /** Last.fm: the song that ended counts when heard for half its length or 4 minutes. */
+    private fun scrobbleTransition() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val now = System.currentTimeMillis()
+        val previous = scrobbleCandidate
+        scrobbleCandidate = song to now
+        if (lastFm.userName == null) return
+        viewModelScope.launch {
+            if (previous != null) {
+                val (p, startedAt) = previous
+                val heard = now - startedAt
+                if (p.duration > 30_000 && (heard > p.duration / 2 || heard > 240_000)) {
+                    lastFm.scrobble(p.artist, p.title, p.album, startedAt / 1000)
+                }
+            }
+            lastFm.nowPlaying(song.artist, song.title, song.album)
         }
     }
 
