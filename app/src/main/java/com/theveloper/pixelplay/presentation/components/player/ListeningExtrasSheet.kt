@@ -1,6 +1,7 @@
 package com.theveloper.pixelplay.presentation.components.player
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,9 +31,9 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
     val skipSilence by playerViewModel.skipSilence.collectAsStateWithLifecycle()
     val leveling by playerViewModel.volumeLeveling.collectAsStateWithLifecycle()
     val ab by playerViewModel.abRepeat.collectAsStateWithLifecycle()
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = { playerViewModel.dismissSongMeaning(); onDismiss() }) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+            Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(stringResource(R.string.extras_title), style = MaterialTheme.typography.titleLarge)
@@ -56,6 +57,17 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                             else -> stringResource(R.string.extras_ab_clear)
                         }
                     )
+                }
+            }
+            val meaning by playerViewModel.songMeaning.collectAsStateWithLifecycle()
+            Column {
+                Text(stringResource(R.string.extras_meaning), style = MaterialTheme.typography.titleMedium)
+                when (val m = meaning) {
+                    null -> OutlinedButton(onClick = playerViewModel::explainCurrentSong, modifier = Modifier.padding(top = 8.dp)) {
+                        Text(stringResource(R.string.extras_meaning_ask))
+                    }
+                    "" -> Text(stringResource(R.string.extras_meaning_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> Text(m, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             Column {

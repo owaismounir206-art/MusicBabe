@@ -139,4 +139,14 @@
     <string name="extras_fade">Sleep timer with fade out</string>
     <string name="extras_off">Off</string>
     <string name="extras_fade_set">Music fades out in %1$d minutes</string>
+    <string name="online_voice_search">Voice search</string>
+    <string name="recognize_title">What\'s playing?</string>
+    <string name="recognize_listening">Listening… hold the phone near the music</string>
+    <string name="recognize_thinking">Recognising…</string>
+    <string name="recognize_failed">Song not recognised. Try again closer to the speaker.</string>
+    <string name="recognize_no_key">Add a Gemini key in the AI settings to recognise songs.</string>
+    <string name="extras_meaning">What the song is about</string>
+    <string name="extras_meaning_ask">Explain with AI</string>
+    <string name="extras_meaning_loading">Writing…</string>
+    <string name="extras_meaning_failed">Could not explain this song (a Gemini key is needed).</string>
 </resources>

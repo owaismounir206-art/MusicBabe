@@ -139,4 +139,14 @@
     <string name="extras_fade">Timer di spegnimento con dissolvenza</string>
     <string name="extras_off">Spento</string>
     <string name="extras_fade_set">La musica si spegne sfumando tra %1$d minuti</string>
+    <string name="online_voice_search">Ricerca vocale</string>
+    <string name="recognize_title">Cosa sta suonando?</string>
+    <string name="recognize_listening">In ascolto… avvicina il telefono alla musica</string>
+    <string name="recognize_thinking">Riconoscimento…</string>
+    <string name="recognize_failed">Brano non riconosciuto. Riprova più vicino all\'altoparlante.</string>
+    <string name="recognize_no_key">Aggiungi una chiave Gemini nelle impostazioni AI per riconoscere i brani.</string>
+    <string name="extras_meaning">Di cosa parla il brano</string>
+    <string name="extras_meaning_ask">Spiegalo con l\'AI</string>
+    <string name="extras_meaning_loading">Sto scrivendo…</string>
+    <string name="extras_meaning_failed">Non riesco a spiegare questo brano (serve una chiave Gemini).</string>
 </resources>

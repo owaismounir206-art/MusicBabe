@@ -205,6 +205,7 @@ class PlayerViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
     private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor,
+    private val geminiQuick: com.theveloper.pixelplay.data.ai.GeminiQuick,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -3417,6 +3418,26 @@ class PlayerViewModel @Inject constructor(
         fadeJob?.cancel()
         mediaController?.volume = 1f
     }
+
+    private val _songMeaning = MutableStateFlow<String?>(null)
+    /** What the song is about, written by Gemini; "" while it is being written. */
+    val songMeaning: StateFlow<String?> = _songMeaning.asStateFlow()
+
+    fun explainCurrentSong() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val lyrics = stablePlayerState.value.lyrics
+        val text = lyrics?.synced?.joinToString("\n") { it.line } ?: lyrics?.plain?.joinToString("\n").orEmpty()
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            _songMeaning.value = geminiQuick.ask(
+                "Explain in $language, in 6-10 short sentences, what the song \"${song.title}\" by ${song.artist} is about: " +
+                    "its story, its meaning and any curiosities about it. Lyrics:\n${text.take(6000)}"
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
+
+    fun dismissSongMeaning() { _songMeaning.value = null }
 
     fun setFullscreenLyrics(enabled: Boolean) {
         _isFullscreenLyrics.value = enabled

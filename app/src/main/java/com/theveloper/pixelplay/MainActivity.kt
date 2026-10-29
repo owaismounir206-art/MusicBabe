@@ -310,6 +310,17 @@ class MainActivity : ComponentActivity() {
                         contentVisible = true
                     }
 
+                    val pip by inPictureInPicture
+                    val pipSong = playerViewModel.stablePlayerState.collectAsStateWithLifecycle().value.currentSong
+                    if (pip && pipSong != null) {
+                        // Picture in picture: only the video, filling the small window.
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            com.theveloper.pixelplay.presentation.components.player.MusicVideoPanel(song = pipSong, playerViewModel = playerViewModel)
+                        }
+                    } else
                     Surface(
                         modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
                         color = MaterialTheme.colorScheme.background
@@ -606,6 +617,30 @@ class MainActivity : ComponentActivity() {
             }
         }
         Trace.endSection() // End MainActivity.MainAppContent
+    }
+
+    private val inPictureInPicture = androidx.compose.runtime.mutableStateOf(false)
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPictureInPicture.value = isInPictureInPictureMode
+    }
+
+    /** Leaving the app while a music video plays keeps it in a small floating window. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+            playerViewModel.isMusicVideoVisible.value &&
+            playerViewModel.stablePlayerState.value.isPlaying
+        ) {
+            runCatching {
+                enterPictureInPictureMode(
+                    android.app.PictureInPictureParams.Builder()
+                        .setAspectRatio(android.util.Rational(16, 9))
+                        .build()
+                )
+            }
+        }
     }
 
     @androidx.annotation.OptIn(UnstableApi::class)
