@@ -115,6 +115,11 @@ fun FullscreenLyricsPlayer(playerViewModel: PlayerViewModel, onDismiss: () -> Un
 @Composable
 private fun FullscreenContent(playerViewModel: PlayerViewModel, onDismiss: () -> Unit) {
     val state by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
+    // Fast position updates while the full screen is open (the player sheet may be gone).
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        playerViewModel.setSliderUiMounted(true)
+        onDispose { playerViewModel.setSliderUiMounted(false) }
+    }
     val position by playerViewModel.currentPlaybackPosition.collectAsStateWithLifecycle()
     val offset by playerViewModel.currentSongLyricsSyncOffset.collectAsStateWithLifecycle()
     val videoVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
@@ -254,7 +259,9 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
         return
     }
     val listState = rememberLazyListState()
-    val current by remember(lines) { derivedStateOf { resolveCurrentLineIndex(lines, position) } }
+    // The current line follows the live position: [position] is a plain value, so it is a key
+    // here (a derivedStateOf would keep the first position forever and freeze the lyrics).
+    val current = remember(lines, position) { resolveCurrentLineIndex(lines, position) }
     val density = LocalDensity.current
     LaunchedEffect(current) {
         if (current >= 0) {
