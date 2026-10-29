@@ -210,4 +210,5 @@
     <string name="videos_cover">Copertina</string>
     <string name="extras_guest">Modalità ospite</string>
     <string name="extras_guest_desc">Ascolta qualcun altro: nulla finisce nelle tue statistiche, nella cronologia o su Last.fm finché non la spegni.</string>
+    <string name="account_uploads">I tuoi caricamenti</string>
 </resources>
