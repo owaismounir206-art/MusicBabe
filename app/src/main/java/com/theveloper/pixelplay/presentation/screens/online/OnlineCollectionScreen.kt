@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import com.theveloper.pixelplay.presentation.screens.account.youTubeVideoId
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -139,6 +140,30 @@ fun OnlineCollectionScreen(
                                 icon = Icons.Rounded.Shuffle,
                                 outlined = true,
                                 onClick = { playerViewModel.playSongsShuffled(songs.map { it.toSong() }, queueName = title, startAtZero = true) }
+                            )
+                            val shareCtx = androidx.compose.ui.platform.LocalContext.current
+                            var extra by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<com.theveloper.pixelplay.data.online.OnlineSongItem>>(emptyList()) }
+                            val playing = stablePlayerState.currentSong
+                            val playingId = playing?.youTubeVideoId()
+                            if (item.url?.startsWith("mbpl:") == true && playing != null && playingId != null && (songs + extra).none { it.videoId == playingId }) {
+                                FluidPillButton(
+                                    text = stringResource(R.string.online_collaborate_add),
+                                    icon = Icons.Rounded.PlayArrow,
+                                    outlined = true,
+                                    onClick = { extra = extra + com.theveloper.pixelplay.data.online.OnlineSongItem(playingId, playing.title, playing.artist) }
+                                )
+                            }
+                            FluidPillButton(
+                                text = stringResource(R.string.online_collaborate),
+                                icon = Icons.Rounded.Download,
+                                outlined = true,
+                                onClick = {
+                                    // The code carries this list; a friend pastes it in the search, adds songs and shares it back.
+                                    val code = com.theveloper.pixelplay.data.online.SharedPlaylistCode.merge(title, songs, extra)
+                                    val text = shareCtx.getString(R.string.online_collaborate_message, title) + "\n\n" + code
+                                    shareCtx.startActivity(android.content.Intent.createChooser(
+                                        android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), null))
+                                }
                             )
                             FluidPillButton(
                                 text = stringResource(R.string.online_download_all),

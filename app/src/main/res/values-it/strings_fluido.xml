@@ -232,4 +232,7 @@
     <string name="discord_connecting">Connessione a Discord…</string>
     <string name="discord_warning">A tuo rischio: Discord non permette di usare il token del tuo account in altre app e può sospendere l\'account. Il token resta cifrato in questo telefono e va solo a Discord. Non darlo mai a nessuno.</string>
     <string name="discord_enable">Attiva</string>
+    <string name="online_collaborate">Collabora</string>
+    <string name="online_collaborate_message">Aggiungi i tuoi brani a "%1$s": incolla questo codice nella ricerca di MusicBabe, aggiungi i brani e rimandamelo.</string>
+    <string name="online_collaborate_add">Aggiungi il brano in ascolto</string>
 </resources>

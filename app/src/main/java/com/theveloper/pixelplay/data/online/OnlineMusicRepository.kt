@@ -228,6 +228,7 @@ class OnlineMusicRepository @Inject constructor(
 
     /** Opens an album, playlist or artist: YouTube Music first, then NewPipe. */
     suspend fun open(item: OnlineCollectionItem): OnlineCollectionPage {
+        item.url?.let(SharedPlaylistCode::decode)?.let { return it }
         if (item.url?.contains("open.spotify.com") == true) return importSpotify(item.url)
         item.browseId?.let { browseId ->
             val page = runCatching { page(browseId, item) }
@@ -349,4 +350,34 @@ class OnlineMusicRepository @Inject constructor(
         const val ALBUMS_MARKER = "@albums"
         const val VIDEOS_MARKER = "@videos"
     }
+}
+
+/**
+ * Collaborative playlists between friends: a playlist travels as a short code ("mbpl:…") that
+ * anyone can paste in the search; they add their songs and send the code back, and the lists
+ * merge (songs already there are kept once).
+ */
+object SharedPlaylistCode {
+    private const val PREFIX = "mbpl:"
+
+    fun encode(title: String, songs: List<OnlineSongItem>): String {
+        val body = (listOf(title) + songs.take(300).map { "${it.videoId}\u001f${it.title}\u001f${it.artist}" }).joinToString("\u001e")
+        val zipped = java.io.ByteArrayOutputStream().also { out -> java.util.zip.DeflaterOutputStream(out).use { it.write(body.toByteArray()) } }.toByteArray()
+        return PREFIX + android.util.Base64.encodeToString(zipped, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+    }
+
+    fun decode(code: String): OnlineCollectionPage? = runCatching {
+        val raw = code.trim().substringAfter(PREFIX, "").takeIf { it.isNotEmpty() } ?: return null
+        val bytes = android.util.Base64.decode(raw, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+        val text = java.util.zip.InflaterInputStream(bytes.inputStream()).readBytes().decodeToString()
+        val parts = text.split("\u001e")
+        val songs = parts.drop(1).mapNotNull { row ->
+            val f = row.split("\u001f"); if (f.size < 3) null else OnlineSongItem(videoId = f[0], title = f[1], artist = f[2])
+        }
+        OnlineCollectionPage(title = parts.first(), subtitle = "MusicBabe · ${songs.size}", thumbnailUrl = null, songs = songs)
+    }.getOrNull()
+
+    /** Several codes (yours and your friends') merged into one list. */
+    fun merge(title: String, vararg lists: List<OnlineSongItem>): String =
+        encode(title, lists.toList().flatten().distinctBy { it.videoId })
 }
