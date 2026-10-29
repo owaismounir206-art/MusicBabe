@@ -198,4 +198,6 @@
     <string name="extras_auto_download_desc">On Wi-Fi, online songs you like are saved to the phone.</string>
     <string name="extras_download_quality">Saved video quality</string>
     <string name="online_top_result">Top result</string>
+    <string name="extras_recap">Your month in music</string>
+    <string name="extras_recap_show">Show the recap</string>
 </resources>
