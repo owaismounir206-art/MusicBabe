@@ -115,7 +115,7 @@ class YouTubeStreamProxy @Inject constructor(
     override suspend fun resolveStreamUrl(id: String): String? {
         if (id.startsWith(VIDEO_KEY_PREFIX)) {
             val videoId = id.removePrefix(VIDEO_KEY_PREFIX)
-            val result = runCatching { extractor.resolveVideo(videoId, maxHeight = 1080) }
+            val result = runCatching { extractor.resolveVideo(videoId) }
             val stream = result.getOrNull()
             if (stream == null) {
                 failures[id] = result.exceptionOrNull()?.let(::classify) ?: REASON_NO_STREAM

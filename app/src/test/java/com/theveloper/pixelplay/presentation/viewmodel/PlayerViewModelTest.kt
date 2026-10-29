@@ -293,6 +293,7 @@ class PlayerViewModelTest {
             mockContext,
             mockk(relaxed = true),
             mockk(relaxed = true),
+            mockk(relaxed = true),
             mockMusicRepository,
             mockUserPreferencesRepository,
             mockAiPreferencesRepository,

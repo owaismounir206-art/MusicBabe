@@ -44,6 +44,7 @@ data class OnlineSearchState(
 class OnlineViewModel @Inject constructor(
     private val repository: OnlineMusicRepository,
     @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
+    val gemini: com.theveloper.pixelplay.data.ai.GeminiQuick,
 ) : ViewModel() {
     private val historyPrefs = context.getSharedPreferences("online_search_history", android.content.Context.MODE_PRIVATE)
     private val _recentSearches = MutableStateFlow(loadHistory())

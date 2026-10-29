@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -193,6 +194,7 @@ fun OnlineSearchBar(
     onSearch: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
+    onVoice: (() -> Unit)? = null,
 ) {
     val c = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
@@ -235,6 +237,11 @@ fun OnlineSearchBar(
                     .fillMaxWidth()
                     .onFocusChanged { focused = it.isFocused }
             )
+        }
+        if (query.isEmpty() && onVoice != null) {
+            IconButton(onClick = onVoice) {
+                Icon(Icons.Rounded.Mic, contentDescription = stringResource(R.string.online_voice_search), tint = c.onSurfaceVariant)
+            }
         }
         if (query.isNotEmpty()) {
             IconButton(onClick = onClear) {

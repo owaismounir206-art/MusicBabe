@@ -205,6 +205,7 @@ class PlayerViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val geminiAudioLyricsTranscriber: com.theveloper.pixelplay.data.lyrics.align.GeminiAudioLyricsTranscriber,
     private val youTubeExtractor: com.theveloper.pixelplay.data.youtube.YouTubeExtractor,
+    private val geminiQuick: com.theveloper.pixelplay.data.ai.GeminiQuick,
     private val musicRepository: MusicRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val aiPreferencesRepository: AiPreferencesRepository,
@@ -1038,6 +1039,7 @@ class PlayerViewModel @Inject constructor(
 
     init {
         observeOnlineRadio()
+        viewModelScope.launch { kotlinx.coroutines.delay(1_500); runCatching { restorePlaybackExtras() }.onFailure { Timber.w(it, "Listening extras not restored") } }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
         dailyMixStateHolder.initialize(viewModelScope)
@@ -3342,6 +3344,198 @@ class PlayerViewModel @Inject constructor(
     /** Landscape full screen: video or cover on the left, lyrics on the right. */
     val isFullscreenLyrics: StateFlow<Boolean> = _isFullscreenLyrics.asStateFlow()
 
+    // ─── Listening extras ────────────────────────────────────────────────────────────────
+    private val extrasPrefs by lazy { context.getSharedPreferences("playback_extras", android.content.Context.MODE_PRIVATE) }
+
+    private val _skipSilence = MutableStateFlow(false)
+    val skipSilence: StateFlow<Boolean> = _skipSilence.asStateFlow()
+    private val _volumeLeveling = MutableStateFlow(false)
+    val volumeLeveling: StateFlow<Boolean> = _volumeLeveling.asStateFlow()
+
+    private val _skipPlayedToday = MutableStateFlow(false)
+    /** Songs already heard today are skipped when they come up in the queue. */
+    val skipPlayedToday: StateFlow<Boolean> = _skipPlayedToday.asStateFlow()
+    private val playedToday = mutableSetOf<String>()
+    private var playedTodayDay = -1
+    private var playedTodayWatch: kotlinx.coroutines.Job? = null
+
+    fun setSkipPlayedToday(enabled: Boolean) {
+        _skipPlayedToday.value = enabled
+        extrasPrefs.edit().putBoolean("skip_played_today", enabled).apply()
+    }
+
+    private fun watchPlayedToday() {
+        playedTodayWatch?.cancel()
+        playedTodayWatch = viewModelScope.launch {
+            stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged().collect { id ->
+                id ?: return@collect
+                val day = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
+                if (day != playedTodayDay) { playedToday.clear(); playedTodayDay = day }
+                val queue = queueFlow.value
+                val heardAll = queue.isNotEmpty() && queue.all { it.id in playedToday }
+                if (_skipPlayedToday.value && id in playedToday && !heardAll) nextSong() else playedToday += id
+            }
+        }
+    }
+
+    /** Lyrics text size, 0.8×–1.6×. */
+    fun setLyricsTextScale(scale: Float) {
+        LyricsTextScale.value = scale
+        extrasPrefs.edit().putFloat("lyrics_scale", scale).apply()
+    }
+
+    /** Shares the queue as a list with a YouTube Music link for every song. */
+    fun shareQueue() {
+        val queue = queueFlow.value.take(100)
+        if (queue.isEmpty()) return
+        val text = queue.joinToString("\n") { song ->
+            "${song.artist} – ${song.title}  https://music.youtube.com/search?q=" +
+                android.net.Uri.encode("${song.artist} ${song.title}")
+        }
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(android.content.Intent.createChooser(send, null).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    private val _streamQuality = MutableStateFlow(Triple(false, 720, false))
+    /** (low audio, video height, data saver). */
+    val streamQuality: StateFlow<Triple<Boolean, Int, Boolean>> = _streamQuality.asStateFlow()
+
+    fun setStreamQuality(lowAudio: Boolean = _streamQuality.value.first, videoHeight: Int = _streamQuality.value.second, dataSaver: Boolean = _streamQuality.value.third) {
+        _streamQuality.value = Triple(lowAudio, videoHeight, dataSaver)
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.lowAudioAlways = lowAudio
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.videoMaxHeight = videoHeight
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.dataSaver = dataSaver
+        extrasPrefs.edit().putBoolean("low_audio", lowAudio).putInt("video_height", videoHeight).putBoolean("data_saver", dataSaver).apply()
+    }
+
+    /** Music alarm: at [hour]:[minute] the app opens and plays the whole library shuffled. */
+    fun setMusicAlarm(hour: Int, minute: Int) {
+        val alarms = context.getSystemService(android.app.AlarmManager::class.java)
+        val open = android.content.Intent(context, com.theveloper.pixelplay.MainActivity::class.java)
+            .setAction(com.theveloper.pixelplay.MainActivityIntentContract.ACTION_SHUFFLE_ALL)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pending = android.app.PendingIntent.getActivity(context, 4711, open,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        val at = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, hour); set(java.util.Calendar.MINUTE, minute); set(java.util.Calendar.SECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }.timeInMillis
+        val canExact = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        if (canExact) alarms.setAlarmClock(android.app.AlarmManager.AlarmClockInfo(at, pending), pending)
+        else alarms.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pending)
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_alarm_set, String.format("%02d:%02d", hour, minute))) }
+    }
+
+    fun restorePlaybackExtras() {
+        val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+        com.theveloper.pixelplay.data.youtube.YouTubeQuality.isMetered = { runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false) }
+        setStreamQuality(extrasPrefs.getBoolean("low_audio", false), extrasPrefs.getInt("video_height", 720), extrasPrefs.getBoolean("data_saver", false))
+        _skipPlayedToday.value = extrasPrefs.getBoolean("skip_played_today", false)
+        LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
+        watchPlayedToday()
+        _skipSilence.value = extrasPrefs.getBoolean("skip_silence", false)
+        _volumeLeveling.value = extrasPrefs.getBoolean("leveling", false)
+        dualPlayerEngine.setSkipSilence(_skipSilence.value)
+        if (_volumeLeveling.value) dualPlayerEngine.setVolumeLeveling(true)
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        _skipSilence.value = enabled
+        extrasPrefs.edit().putBoolean("skip_silence", enabled).apply()
+        dualPlayerEngine.setSkipSilence(enabled)
+    }
+
+    fun setVolumeLeveling(enabled: Boolean) {
+        _volumeLeveling.value = enabled
+        extrasPrefs.edit().putBoolean("leveling", enabled).apply()
+        dualPlayerEngine.setVolumeLeveling(enabled)
+    }
+
+    /** A–B repeat: the part between the two marks plays in a loop (to learn a song). */
+    private val _abRepeat = MutableStateFlow<Pair<Long?, Long?>>(null to null)
+    val abRepeat: StateFlow<Pair<Long?, Long?>> = _abRepeat.asStateFlow()
+    private var abJob: kotlinx.coroutines.Job? = null
+
+    fun markAbRepeat() {
+        val position = livePlaybackPositionMs()
+        val (a, b) = _abRepeat.value
+        _abRepeat.value = when {
+            a == null -> position to null
+            b == null && position > a + 1000 -> a to position
+            else -> null to null
+        }
+        abJob?.cancel()
+        val (start, end) = _abRepeat.value
+        if (start != null && end != null) {
+            abJob = viewModelScope.launch {
+                while (true) {
+                    if (livePlaybackPositionMs() >= end) seekTo(start)
+                    kotlinx.coroutines.delay(100)
+                }
+            }
+        }
+    }
+
+    /** Pauses after [minutes], fading the volume out over the last 20 seconds. */
+    private var fadeJob: kotlinx.coroutines.Job? = null
+    fun startFadeSleepTimer(minutes: Int) {
+        fadeJob?.cancel()
+        fadeJob = viewModelScope.launch {
+            val total = minutes * 60_000L
+            kotlinx.coroutines.delay((total - 20_000L).coerceAtLeast(0))
+            val controller = mediaController ?: return@launch
+            for (step in 20 downTo 0) {
+                controller.volume = step / 20f
+                kotlinx.coroutines.delay(1_000)
+            }
+            controller.pause()
+            controller.volume = 1f
+        }
+        viewModelScope.launch { _toastEvents.emit(context.getString(R.string.extras_fade_set, minutes)) }
+    }
+
+    fun cancelFadeSleepTimer() {
+        fadeJob?.cancel()
+        mediaController?.volume = 1f
+    }
+
+    private val _songMeaning = MutableStateFlow<String?>(null)
+    /** What the song is about, written by Gemini; "" while it is being written. */
+    val songMeaning: StateFlow<String?> = _songMeaning.asStateFlow()
+
+    /** Credits (writers, producers, label, samples) of the current song, written by Gemini. */
+    fun creditsForCurrentSong() {
+        val song = stablePlayerState.value.currentSong ?: return
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            _songMeaning.value = geminiQuick.ask(
+                "In $language, list the credits of the song \"${song.title}\" by ${song.artist}: songwriters, producers, " +
+                    "featured artists, label, release year, songs it samples and songs that sampled it. " +
+                    "One short line each; write 'unknown' instead of guessing."
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
+
+    fun explainCurrentSong() {
+        val song = stablePlayerState.value.currentSong ?: return
+        val lyrics = stablePlayerState.value.lyrics
+        val text = lyrics?.synced?.joinToString("\n") { it.line } ?: lyrics?.plain?.joinToString("\n").orEmpty()
+        _songMeaning.value = ""
+        viewModelScope.launch {
+            val language = java.util.Locale.getDefault().displayLanguage
+            _songMeaning.value = geminiQuick.ask(
+                "Explain in $language, in 6-10 short sentences, what the song \"${song.title}\" by ${song.artist} is about: " +
+                    "its story, its meaning and any curiosities about it. Lyrics:\n${text.take(6000)}"
+            ).getOrElse { context.getString(R.string.extras_meaning_failed) }
+        }
+    }
+
+    fun dismissSongMeaning() { _songMeaning.value = null }
+
     fun setFullscreenLyrics(enabled: Boolean) {
         _isFullscreenLyrics.value = enabled
     }
@@ -3575,3 +3769,8 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
 }
 
 private const val ONLINE_RADIO_DELAY_MS = 3_000L
+
+/** Lyrics text size chosen in the listening options (read by every lyrics view). */
+object LyricsTextScale {
+    var value by androidx.compose.runtime.mutableFloatStateOf(1f)
+}

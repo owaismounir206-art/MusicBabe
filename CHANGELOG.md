@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-29
+
+### Added
+- Listening options (tune icon in the player): skip silences, even out the volume, A–B repeat,
+  sleep timer that fades out, skip songs heard today, lyrics text size, share the queue,
+  music alarm, online audio quality, music video quality (360p–1080p) and data saver on
+  mobile data.
+- With a Gemini key: what the song is about, credits and samples, and song recognition from
+  10 seconds of microphone audio.
+- Voice search in the online search.
+- Spotify import: paste a playlist or album link in the search; every song is found on
+  YouTube Music.
+- Picture-in-picture for music videos when you leave the app.
+
 ## [2.2.0] - 2026-10-28
 
 ### Added

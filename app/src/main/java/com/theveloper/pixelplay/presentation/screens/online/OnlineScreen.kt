@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
@@ -44,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -161,6 +163,12 @@ fun OnlineScreen(
                         maxLines = 1
                     )
                 }
+                var recognizing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                HeaderIcon(Icons.Rounded.GraphicEq, stringResource(R.string.recognize_title)) { recognizing = true }
+                if (recognizing) {
+                    RecognizeSongSheet(viewModel.gemini, onFound = { found -> recognizing = false; viewModel.submitSearch(found) },
+                        onDismiss = { recognizing = false })
+                }
                 HeaderIcon(Icons.Rounded.Slideshow, stringResource(R.string.samples_title)) {
                     navController.navigate(Screen.Samples.route)
                 }
@@ -180,11 +188,33 @@ fun OnlineScreen(
             Spacer(Modifier.height(16.dp))
         }
         item(key = "search") {
+            val voiceLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+                    ?.let { viewModel.submitSearch(it) }
+            }
             OnlineSearchBar(
                 query = search.query,
                 onQueryChange = viewModel::onQueryChange,
-                onSearch = { viewModel.submitSearch() },
+                onSearch = {
+                    val q = search.query.trim()
+                    if ("open.spotify.com/" in q) {
+                        actions.open(com.theveloper.pixelplay.data.online.OnlineCollectionItem(
+                            kind = com.theveloper.pixelplay.data.online.OnlineCollectionKind.PLAYLIST,
+                            title = "Spotify", url = q))
+                        viewModel.clearSearch()
+                    } else viewModel.submitSearch()
+                },
                 onClear = viewModel::clearSearch,
+                onVoice = {
+                    runCatching {
+                        voiceLauncher.launch(
+                            android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        )
+                    }
+                },
                 modifier = Modifier.fluidEnter(1)
             )
             Spacer(Modifier.height(12.dp))

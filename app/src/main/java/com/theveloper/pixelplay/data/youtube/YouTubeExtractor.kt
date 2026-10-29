@@ -239,13 +239,15 @@ class YouTubeExtractor @Inject constructor() {
         val info = streamInfo(videoId)
         info.audioStreams
             .filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.isOriginalAudio() }
-            .sortedWith(compareByDescending<AudioStream> { it.format?.mimeType == "audio/mp4" }.thenByDescending { it.averageBitrate })
+            .sortedWith(compareByDescending<AudioStream> { it.format?.mimeType == "audio/mp4" }.thenByDescending {
+                if (YouTubeQuality.lowAudio()) -it.averageBitrate else it.averageBitrate
+            })
             .firstOrNull()
             ?.let { YouTubeStream(it.content, userAgentFor(it.content), it.format?.mimeType) }
     }
 
     /** Video-only H.264 stream up to [maxHeight], muted: the audio comes from the song player. */
-    suspend fun resolveVideo(videoId: String, maxHeight: Int = 720): YouTubeStream? = withContext(Dispatchers.IO) {
+    suspend fun resolveVideo(videoId: String, maxHeight: Int = YouTubeQuality.videoHeight()): YouTubeStream? = withContext(Dispatchers.IO) {
         val info = streamInfo(videoId)
         val candidates = (info.videoOnlyStreams + info.videoStreams)
             .filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.height in 1..maxHeight }
@@ -397,4 +399,18 @@ private class OkHttpNewPipeDownloader(private val client: OkHttpClient) : Downlo
             )
         }
     }
+}
+
+/**
+ * Streaming quality from the listening options: audio high or low, the music video height, and
+ * data saver (low audio and 360p video on mobile data).
+ */
+object YouTubeQuality {
+    @Volatile var lowAudioAlways = false
+    @Volatile var videoMaxHeight = 720
+    @Volatile var dataSaver = false
+    @Volatile var isMetered: () -> Boolean = { false }
+
+    fun lowAudio(): Boolean = lowAudioAlways || (dataSaver && isMetered())
+    fun videoHeight(): Int = if (dataSaver && isMetered()) minOf(360, videoMaxHeight) else videoMaxHeight
 }

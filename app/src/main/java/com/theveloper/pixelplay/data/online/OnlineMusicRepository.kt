@@ -177,8 +177,41 @@ class OnlineMusicRepository @Inject constructor(
             .onFailure { Timber.w(it, "Online search ($filter) failed") }
             .getOrDefault(emptyList())
 
+    /**
+     * A Spotify playlist or album by its link: the track list is read from Spotify's public
+     * embed page and every song is found on YouTube Music, so it plays here in full.
+     */
+    suspend fun importSpotify(url: String): OnlineCollectionPage = coroutineScope {
+        val match = Regex("open\\.spotify\\.com/(?:intl-[a-z]+/)?(playlist|album)/([A-Za-z0-9]+)").find(url)
+            ?: error("Not a Spotify link")
+        val (kind, id) = match.destructured
+        val html = withContext(Dispatchers.IO) {
+            extractor.httpClient.newCall(
+                Request.Builder().url("https://open.spotify.com/embed/$kind/$id")
+                    .header("User-Agent", YouTubeExtractor.WEB_USER_AGENT).build()
+            ).execute().use { it.body.string() }
+        }
+        val name = Regex("\"name\":\"([^\"]+)\"").find(html)?.groupValues?.get(1).orEmpty()
+        val tracks = Regex("\"title\":\"((?:[^\"\\\\]|\\\\.)*)\",\"subtitle\":\"((?:[^\"\\\\]|\\\\.)*)\"")
+            .findAll(html).map { it.groupValues[1] to it.groupValues[2] }.distinct().take(150).toList()
+        val songs = tracks.chunked(6).flatMap { chunk ->
+            chunk.map { (title, artist) ->
+                async {
+                    runCatching { extractor.searchSongs("$artist $title", 1).firstOrNull()?.toOnlineSong() }.getOrNull()
+                }
+            }.awaitAll().filterNotNull()
+        }.distinctBy { it.videoId }
+        OnlineCollectionPage(
+            title = name.ifBlank { "Spotify" },
+            subtitle = "Spotify · ${songs.size}/${tracks.size}",
+            thumbnailUrl = songs.firstOrNull()?.thumbnailUrl,
+            songs = songs
+        )
+    }
+
     /** Opens an album, playlist or artist: YouTube Music first, then NewPipe. */
     suspend fun open(item: OnlineCollectionItem): OnlineCollectionPage {
+        if (item.url?.contains("open.spotify.com") == true) return importSpotify(item.url)
         item.browseId?.let { browseId ->
             val page = runCatching { page(browseId, item) }
                 .onFailure { Timber.w(it, "YouTube Music page $browseId failed") }
