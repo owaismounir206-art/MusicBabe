@@ -197,4 +197,5 @@
     <string name="extras_auto_download">Salva i brani online che ti piacciono</string>
     <string name="extras_auto_download_desc">Con il Wi-Fi, i brani online che ti piacciono vengono salvati nel telefono.</string>
     <string name="extras_download_quality">Qualità dei video salvati</string>
+    <string name="online_top_result">Risultato principale</string>
 </resources>

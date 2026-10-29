@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.activity.compose.BackHandler
@@ -401,6 +402,32 @@ fun OnlineScreen(
 @Composable
 private fun OnlineSearchResultsView(results: OnlineSearchResults, actions: OnlineActions) {
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        (results.songs.firstOrNull() ?: results.videos.firstOrNull())?.let { top ->
+            Column(Modifier.padding(horizontal = Scena.Gutter)) {
+                Text(stringResource(R.string.online_top_result), style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.foundation.layout.Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { actions.playSongs(listOf(top) + results.songs.drop(1), 0, top.title) }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    com.theveloper.pixelplay.presentation.components.SmartImage(
+                        model = top.thumbnailUrl, contentDescription = null,
+                        modifier = Modifier.size(88.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(top.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                        Text(top.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(36.dp))
+                }
+            }
+        }
         if (results.songs.isNotEmpty()) {
             Column {
                 val title = stringResource(R.string.online_results_songs)
