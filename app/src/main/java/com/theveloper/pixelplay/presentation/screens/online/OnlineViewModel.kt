@@ -46,6 +46,7 @@ class OnlineViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
     val gemini: com.theveloper.pixelplay.data.ai.GeminiQuick,
 ) : ViewModel() {
+    private val newFromArtistsTitle = context.getString(com.theveloper.pixelplay.R.string.online_new_from_artists)
     private val historyPrefs = context.getSharedPreferences("online_search_history", android.content.Context.MODE_PRIVATE)
     private val _recentSearches = MutableStateFlow(loadHistory())
     /** The last searches, newest first. */
@@ -89,9 +90,10 @@ class OnlineViewModel @Inject constructor(
             val ytHome = async { repository.youTubeMusicHome() }
             val artists = async { repository.artistShelves(seeds) }
             val covers = async { repository.coversAndRemixes(seeds) }
+            val fresh = async { repository.newFromArtists(seeds, newFromArtistsTitle) }
 
             _home.update { it.copy(quickPicks = picks.await()) }
-            val personal = listOfNotNull(videos.await()) + artists.await() + listOfNotNull(covers.await())
+            val personal = listOfNotNull(fresh.await(), videos.await()) + artists.await() + listOfNotNull(covers.await())
             _home.update { it.copy(shelves = personal) }
             val youtube = ytHome.await()
             _home.update {
