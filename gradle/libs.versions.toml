@@ -1,4 +1,5 @@
 [versions]
+onnxruntime = "1.20.0"
 accompanistDrawablepainter = "0.37.3"
 aboutLibraries = "15.0.3"
 agp = "9.2.1"
@@ -112,6 +113,7 @@ wearCompose = "1.6.2"
 playServicesWearable = "20.0.1"
 
 [libraries]
+onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor", version.ref = "newpipeExtractor" }
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }
 aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref = "aboutLibraries" }

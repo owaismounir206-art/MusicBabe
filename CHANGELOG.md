@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-30
+
+### Changed
+- Lyrics sync on the phone separates the voice from the music first (Deezer's Spleeter
+  model, about 26 MB, downloaded once the first time and verified), so songs with quiet
+  vocals sync again; without a connection the first time, a voice-range filter is used.
+- Full screen lyrics: the sung line stays at a third of the height with the next lines in
+  view, lines fade at the edges instead of being cut, bigger text.
+- Backing vocals in parentheses, like "(oh-eh)", are smaller and fainter.
+
 ## [2.8.0] - 2026-10-30
 
 ### Changed
