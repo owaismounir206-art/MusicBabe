@@ -37,7 +37,8 @@ sealed class AudioAlignmentException(message: String) : Exception(message) {
  */
 @Singleton
 class LyricsAudioAlignmentService @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val vocalSeparator: VocalSeparator,
 ) {
     private val mutex = Mutex()
 
@@ -81,9 +82,12 @@ class LyricsAudioAlignmentService @Inject constructor(
 
         _progress.value = 0
         val model = ensureModel()
-        // The voice range only, louder: quiet vocals under a loud mix are heard (and placed) again.
-        val pcm = WhisperAudioDecoder.decode(context, uri)
-            .let { VocalFocus.voiceBand(it, WhisperAudioDecoder.SAMPLE_RATE) }
+        // The voice alone (Spleeter), then louder: quiet vocals under a loud mix are heard and placed.
+        // Without the model (no connection the first time) the voice range is kept with a filter.
+        val mix = WhisperAudioDecoder.decode(context, uri)
+        val pcm = vocalSeparator.separate(mix) { _progress.value = (it * 5) / 100 }
+            ?.also { VocalFocus.normalize(it) }
+            ?: VocalFocus.voiceBand(mix, WhisperAudioDecoder.SAMPLE_RATE)
         if (pcm.isEmpty()) throw AudioAlignmentException.NoSpeech()
         _progress.value = 5
 

@@ -405,6 +405,8 @@ dependencies {
     implementation(libs.credentials.play.services.auth)
     implementation(libs.googleid)
     implementation(libs.androidx.security.crypto)
+    // Voice separation for lyrics alignment (Spleeter, downloaded on first use).
+    implementation(libs.onnxruntime.android)
     implementation(libs.google.play.services.cast.framework)
     implementation(libs.tdlib)
 

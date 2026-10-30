@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.components.player
 
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -241,7 +244,7 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
         lyrics?.synced?.takeIf { it.isNotEmpty() }
             ?.let(::withInstrumentalBreaks)
     }
-    val style = remember { TextStyle(fontSize = 26.sp) }
+    val style = remember { TextStyle(fontSize = 30.sp, lineHeight = 38.sp) }
     if (lines == null) {
         val plain = lyrics?.plain.orEmpty()
         LazyColumn(contentPadding = PaddingValues(vertical = 120.dp)) {
@@ -261,16 +264,32 @@ private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, p
     // The current line follows the live position: [position] is a plain value, so it is a key
     // here (a derivedStateOf would keep the first position forever and freeze the lyrics).
     val current = remember(lines, position) { resolveCurrentLineIndex(lines, position) }
-    val density = LocalDensity.current
+    // The sung line sits at a third of the height, so the next lines are always in view.
     LaunchedEffect(current) {
         if (current >= 0) {
-            val offsetPx = with(density) { 96.dp.roundToPx() }
-            listState.animateScrollToItem(current + 1, scrollOffset = -offsetPx)
+            val anchor = listState.layoutInfo.viewportSize.height / 3
+            listState.animateScrollToItem(
+                current + 1,
+                scrollOffset = -anchor,
+            )
         }
     }
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(top = 96.dp, bottom = 400.dp)
+        contentPadding = PaddingValues(top = 48.dp, bottom = 600.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            // Lines fade out at the top and bottom edges instead of being cut.
+            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent, 0.12f to Color.Black, 0.82f to Color.Black, 1f to Color.Transparent
+                    ),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+                )
+            }
     ) {
         item(key = "timing") {
             // How the lyrics are timed: per word (real word times) or per line.
