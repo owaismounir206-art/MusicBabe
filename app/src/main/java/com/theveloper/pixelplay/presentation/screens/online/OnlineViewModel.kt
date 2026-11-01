@@ -83,7 +83,8 @@ class OnlineViewModel @Inject constructor(
     /** Loads every shelf in parallel; each one appears as soon as it is ready. */
     fun refresh() {
         viewModelScope.launch {
-            _home.value = OnlineHomeState(loading = true, recent = _home.value.recent)
+            // Keep what is on screen while it reloads: no blank page on refresh.
+            _home.update { it.copy(loading = true, failed = false) }
             val seeds = repository.seeds()
             _home.update { it.copy(recent = (seeds.recent + seeds.top).distinctBy { song -> song.id }.take(12)) }
             val picks = async { repository.quickPicks(seeds) }
@@ -93,12 +94,13 @@ class OnlineViewModel @Inject constructor(
             val covers = async { repository.coversAndRemixes(seeds) }
             val fresh = async { repository.newFromArtists(seeds, newFromArtistsTitle) }
 
-            _home.update { it.copy(quickPicks = picks.await()) }
+            val newPicks = picks.await()
+            _home.update { it.copy(quickPicks = newPicks.ifEmpty { it.quickPicks }) }
             val personal = listOfNotNull(fresh.await(), videos.await()) + artists.await() + listOfNotNull(covers.await())
-            _home.update { it.copy(shelves = personal) }
+            if (personal.isNotEmpty() || _home.value.shelves.isEmpty()) _home.update { it.copy(shelves = personal) }
             val youtube = ytHome.await()
             _home.update {
-                val shelves = interleaveShelves(personal, youtube)
+                val shelves = interleaveShelves(personal, youtube).ifEmpty { it.shelves }
                 it.copy(
                     loading = false,
                     shelves = shelves,

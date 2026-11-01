@@ -242,4 +242,6 @@
     <string name="extras_tab_discover">Scopri</string>
     <string name="extras_tab_share">Condividi</string>
     <string name="extras_back">Indietro</string>
+    <string name="settings_search_hint">Cerca nelle impostazioni</string>
+    <string name="settings_search_none">Nessuna impostazione trovata</string>
 </resources>

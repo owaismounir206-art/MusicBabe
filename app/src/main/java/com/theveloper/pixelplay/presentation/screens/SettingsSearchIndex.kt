@@ -1,0 +1,92 @@
+package com.theveloper.pixelplay.presentation.screens
+
+import androidx.annotation.StringRes
+import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.presentation.model.SettingsCategory
+
+/** One setting that can be found from the search on the Settings page, and where it lives. */
+data class SettingsSearchEntry(@StringRes val titleRes: Int, val category: SettingsCategory)
+
+/**
+ * Every setting title per category, read from SettingsCategoryScreen. When a setting is added
+ * there, add its title here so search finds it.
+ */
+object SettingsSearchIndex {
+    val entries: List<SettingsSearchEntry> = listOf(
+        SettingsSearchEntry(R.string.settings_library_structure_section, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_excluded_directories_title, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_artists_title, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_filtering_section, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_sync_scanning_section, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_auto_scan_lrc_title, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_lyrics_management_section, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_reset_imported_lyrics_title, SettingsCategory.LIBRARY),
+        SettingsSearchEntry(R.string.settings_global_theme_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_smooth_corners_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_disable_blur_all_over_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_show_scrollbar_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_now_playing_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_show_player_file_info_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_album_art_palette_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_home_collage_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_auto_rotate_patterns_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_navigation_bar_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_compact_mode_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_navbar_corner_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_lyrics_screen_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_immersive_lyrics_title, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_app_navigation_section, SettingsCategory.APPEARANCE),
+        SettingsSearchEntry(R.string.settings_background_playback_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_battery_optimization_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_replaygain_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_replaygain_enable_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_cast_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_volume_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_pause_on_volume_zero, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_pause_on_volume_zero_desc, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_headphones_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_headphones_resume_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_queue_transitions_section, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_hifi_mode_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_persistent_shuffle_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_show_queue_history_title, SettingsCategory.PLAYBACK),
+        SettingsSearchEntry(R.string.settings_folders_section, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_folder_back_gesture_title, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_player_gestures_section, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_tap_bg_closes_title, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_haptics_section, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_haptic_feedback_title, SettingsCategory.BEHAVIOR),
+        SettingsSearchEntry(R.string.settings_ai_provider_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_safe_token_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_auto_lyrics_sync_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.scena_ai_base_url_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.scena_ai_base_url_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_credentials_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_api_key_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_model_selection_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.ai_gemini_extra_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.ai_features_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.ai_style_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_prompt_behavior_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_system_prompt_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_generation_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_song_data_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_extended_fields, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_extended_fields_desc, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_ai_usage_report_section, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_total_consumption_title, SettingsCategory.AI_INTEGRATION),
+        SettingsSearchEntry(R.string.settings_create_backup_section, SettingsCategory.BACKUP_RESTORE),
+        SettingsSearchEntry(R.string.settings_export_backup_title, SettingsCategory.BACKUP_RESTORE),
+        SettingsSearchEntry(R.string.settings_restore_backup_section, SettingsCategory.BACKUP_RESTORE),
+        SettingsSearchEntry(R.string.settings_import_backup_title, SettingsCategory.BACKUP_RESTORE),
+        SettingsSearchEntry(R.string.settings_experiments_section, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_experimental_title, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_test_setup_title, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_maintenance_section, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_force_daily_mix_title, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_force_stats_title, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_force_palette_title, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_diagnostics_section, SettingsCategory.DEVELOPER),
+        SettingsSearchEntry(R.string.settings_trigger_crash_title, SettingsCategory.DEVELOPER),
+    )
+}

@@ -242,4 +242,6 @@
     <string name="extras_tab_discover">Discover</string>
     <string name="extras_tab_share">Share</string>
     <string name="extras_back">Back</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_none">No setting matches</string>
 </resources>
