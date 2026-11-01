@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-01
+
+### Added
+- Supporto completo per i file WAV: bypass del filtro di durata minima su MediaStore e risoluzione accurata dei metadati/durata con fallback tramite MediaMetadataRetriever.
+- Equalizzatore arricchito con 10 nuovi preset (Dolby Surround, Hi-Res Studio, Deep Bass, Dance, Acoustic, Metal, RnB, Lo-Fi, Podcast, Latin).
+- Dolby & 3D Spatial Audio: abilitato lo spatialization behavior nativo in ExoPlayer e scheda Dolby & 3D Surround nell'equalizzatore.
+- Hi-Res Audio: modalità di riproduzione Bit-perfect 32-bit Float PCM con interruttore e indicatore dedicato nell'Equalizzatore.
+- Pulsante rapido Equalizzatore integrato direttamente nella barra delle azioni del Player.
+- Motore Lyrics potenziato: ricerca simultanea multi-provider in parallelo su LRCLIB, KuGou e NetEase con priorità assoluta ai testi sincronizzati.
+- Nuovo Lyrics Editor & Live Sync: dialogo interattivo per creare, modificare o incollare testi, e sincronizzarli in tempo reale a ritmo di musica battendo il tempo riga per riga con controller audio integrato.
+- Nuove azioni rapide nei Lyrics: opzione "Crea o Modifica Testo", "Cerca Testo Online", chip rapido "Sincronizza questo testo" per testi plain e schermata di stato vuoto con scorciatoie di ricerca e importazione.
+
 ## [3.0.0] - 2026-11-01
 
 ### Added
