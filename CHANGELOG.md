@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-01
+
+### Added
+- Living background: the cover, very blurred, turns and breathes slowly behind the player
+  and the lyrics, and fades into the next song's colours (Android 12+; switch in the
+  listening options).
+- Home: a glow in the colours of what is playing behind the top of the page, moving slower
+  than the list and fading as you scroll.
+- Springy press everywhere you tap songs: library rows, online rows, cards and tiles sink
+  under the finger and bounce back.
+- A light haptic tick on play, pause, next, previous and like (mini and full player).
+- Listening option tabs slide in from their side.
+
 ## [2.10.0] - 2026-11-01
 
 ### Changed
