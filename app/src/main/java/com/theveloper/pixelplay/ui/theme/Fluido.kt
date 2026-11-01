@@ -12,6 +12,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -248,3 +250,36 @@ fun FluidText(
 
 /** Spring used by [Scena.Springy] and pressed shapes. */
 internal val FluidoSpatialSpring: SpringSpec<Float> = spring(dampingRatio = 0.8f, stiffness = 380f)
+
+/**
+ * A press that feels physical: the element sinks to 95% on the finger with a soft spring and
+ * comes back with a small bounce, plus a light haptic tick. Use instead of [clickable] on cards,
+ * rows and tiles.
+ */
+fun Modifier.fluidClickable(
+    role: androidx.compose.ui.semantics.Role? = androidx.compose.ui.semantics.Role.Button,
+    pressedScale: Float = 0.95f,
+    onClick: () -> Unit,
+): Modifier = composed {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed = interaction.collectIsPressedAsState()
+    val enabled = rememberScenaAnimationsEnabled()
+    val scale = androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed.value && enabled) pressedScale else 1f,
+        animationSpec = if (pressed.value) spring(dampingRatio = 1f, stiffness = 1400f) else Fluido.springBouncy(),
+        label = "fluidPress"
+    )
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    this
+        .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+        .then(
+            Modifier.clickable(
+                interactionSource = interaction,
+                indication = androidx.compose.material3.ripple(),
+                role = role,
+            ) {
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
+        )
+}

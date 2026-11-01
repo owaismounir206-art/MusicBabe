@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import com.theveloper.pixelplay.ui.theme.fluidClickable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -465,7 +466,7 @@ fun OnlineSongRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .fluidClickable(pressedScale = 0.97f, onClick = onClick)
             .padding(vertical = 6.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

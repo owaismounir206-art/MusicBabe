@@ -17,6 +17,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.togetherWith
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,12 +59,26 @@ fun ListeningExtrasSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit
                 .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when (tab) {
-                0 -> ListenTab(playerViewModel, onDismiss)
-                1 -> LyricsTab(playerViewModel)
-                2 -> QualityTab(playerViewModel)
-                3 -> DiscoverTab(playerViewModel)
-                else -> ShareTab(playerViewModel)
+            // Tabs slide in from the side they are on, with a short fade.
+            androidx.compose.animation.AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    val dir = if (targetState > initialState) 1 else -1
+                    (androidx.compose.animation.fadeIn(com.theveloper.pixelplay.ui.theme.Fluido.enterAlpha()) +
+                        androidx.compose.animation.slideInHorizontally(com.theveloper.pixelplay.ui.theme.Fluido.enterMove()) { it / 5 * dir }) togetherWith
+                        androidx.compose.animation.fadeOut(com.theveloper.pixelplay.ui.theme.Fluido.exitFade())
+                },
+                label = "extrasTab"
+            ) { page ->
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    when (page) {
+                        0 -> ListenTab(playerViewModel, onDismiss)
+                        1 -> LyricsTab(playerViewModel)
+                        2 -> QualityTab(playerViewModel)
+                        3 -> DiscoverTab(playerViewModel)
+                        else -> ShareTab(playerViewModel)
+                    }
+                }
             }
         }
     }
@@ -98,6 +113,7 @@ private fun ListenTab(playerViewModel: PlayerViewModel, onDismiss: () -> Unit) {
     SwitchRow(stringResource(R.string.extras_leveling), stringResource(R.string.extras_leveling_desc), leveling, playerViewModel::setVolumeLeveling)
     SwitchRow(stringResource(R.string.extras_skip_today), stringResource(R.string.extras_skip_today_desc), skipToday, playerViewModel::setSkipPlayedToday)
     SwitchRow(stringResource(R.string.extras_moving_cover), stringResource(R.string.extras_moving_cover_desc), extras.movingCover) { playerViewModel.setUiExtra(movingCover = it) }
+    SwitchRow(stringResource(R.string.extras_living_backdrop), stringResource(R.string.extras_living_backdrop_desc), extras.livingBackdrop) { playerViewModel.setUiExtra(livingBackdrop = it) }
     SwitchRow(stringResource(R.string.extras_guest), stringResource(R.string.extras_guest_desc), extras.guest) { playerViewModel.setUiExtra(guest = it) }
 
     Column {

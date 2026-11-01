@@ -244,4 +244,6 @@
     <string name="extras_back">Back</string>
     <string name="settings_search_hint">Search settings</string>
     <string name="settings_search_none">No setting matches</string>
+    <string name="extras_living_backdrop">Living background</string>
+    <string name="extras_living_backdrop_desc">The colours of the cover move slowly behind the player and the lyrics.</string>
 </resources>

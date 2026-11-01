@@ -2674,17 +2674,7 @@ private fun LyricsTrackInfo(
 @Composable
 internal fun LyricsStageBackdrop(artUri: String?, ground: Color, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().background(ground)) {
-        if (artUri != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            SmartImage(
-                model = artUri,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 0.55f; scaleX = 1.3f; scaleY = 1.3f }
-                    .blur(70.dp)
-            )
-        }
+        LivingBackdrop(artUri = artUri, intensity = 0.55f)
         Box(
             Modifier
                 .fillMaxSize()
