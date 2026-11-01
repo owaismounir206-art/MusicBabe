@@ -94,7 +94,8 @@ object DiscordPresence {
                     msg["s"]?.jsonPrimitive?.longOrNull?.let { sequence = it }
                     when (msg["op"]?.jsonPrimitive?.intOrNull) {
                         10 -> {
-                            val interval = msg["d"]!!.jsonObject["heartbeat_interval"]!!.jsonPrimitive.int.toLong()
+                            val interval = runCatching { msg["d"]!!.jsonObject["heartbeat_interval"]!!.jsonPrimitive.int.toLong() }
+                                .getOrDefault(41_250L)
                             heartbeat?.cancel()
                             heartbeat = scope.launch {
                                 while (true) {
