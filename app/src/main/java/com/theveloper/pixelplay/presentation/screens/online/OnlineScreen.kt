@@ -1,5 +1,8 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.LiveTv
@@ -140,13 +143,38 @@ fun OnlineScreen(
 
     BackHandler(enabled = searching) { viewModel.clearSearch() }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     // Pull down to reload the home (the old shelves stay until the new ones arrive).
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
         isRefreshing = home.loading && !searching && (home.quickPicks.isNotEmpty() || home.shelves.isNotEmpty()),
         onRefresh = { if (!searching) viewModel.refresh() },
         modifier = Modifier.fillMaxSize()
     ) {
+    // A glow in the colours of what plays (or of the first pick) behind the top of the page,
+    // moving slower than the list and fading as it scrolls away.
+    val glowArt = stablePlayerState.currentSong?.albumArtUriString ?: home.quickPicks.firstOrNull()?.thumbnailUrl
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(460.dp)
+            .graphicsLayer {
+                val scrolled = if (listState.firstVisibleItemIndex > 0) size.height else listState.firstVisibleItemScrollOffset.toFloat()
+                translationY = -scrolled * 0.4f
+                alpha = (1f - scrolled / size.height).coerceIn(0f, 1f)
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            }
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Black, 0.55f to Color.Black.copy(alpha = 0.6f), 1f to Color.Transparent),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+                )
+            }
+    ) {
+        com.theveloper.pixelplay.presentation.components.LivingBackdrop(artUri = glowArt, intensity = 0.32f)
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 20.dp, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(0.dp)
