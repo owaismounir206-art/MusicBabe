@@ -29,8 +29,13 @@ import java.util.Calendar
 @Composable
 fun LibraryToolsSheet(playerViewModel: PlayerViewModel, onDismiss: () -> Unit) {
     val songs by playerViewModel.allSongsFlow.collectAsStateWithLifecycle()
-    val smart = remember(songs) { smartPlaylists(songs) }
-    val duplicates = remember(songs) { duplicateGroups(songs) }
+    // Computed off the main thread: large libraries made the sheet stutter while opening.
+    val smart by androidx.compose.runtime.produceState(emptyList<Pair<String, List<Song>>>(), songs) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { smartPlaylists(songs) }
+    }
+    val duplicates by androidx.compose.runtime.produceState(emptyList<List<Song>>(), songs) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { duplicateGroups(songs) }
+    }
     val names = mapOf(
         "recent" to stringResource(R.string.tools_recent),
         "long" to stringResource(R.string.tools_long),
