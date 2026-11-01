@@ -3612,6 +3612,23 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.shiftLine(song, lyrics, index, (pos - synced[index].time).toInt())
     }
 
+    private val _uiExtras = MutableStateFlow(UiExtras())
+    /** Look and privacy switches of the listening options, kept across restarts. */
+    val uiExtras: StateFlow<UiExtras> = _uiExtras.asStateFlow()
+
+    fun setUiExtra(
+        movingCover: Boolean = _uiExtras.value.movingCover,
+        guest: Boolean = _uiExtras.value.guest,
+        subtitles: Boolean = _uiExtras.value.subtitles,
+    ) {
+        val value = UiExtras(movingCover, guest, subtitles)
+        _uiExtras.value = value
+        com.theveloper.pixelplay.presentation.components.MovingCover.enabled = movingCover
+        com.theveloper.pixelplay.data.stats.GuestMode.enabled = guest
+        com.theveloper.pixelplay.presentation.components.player.VideoSubtitles.enabled = subtitles
+        extrasPrefs.edit().putBoolean("moving_cover", movingCover).putBoolean("guest", guest).putBoolean("video_subtitles", subtitles).apply()
+    }
+
     /** Lyrics text size, 0.8×–1.6×. */
     fun setLyricsTextScale(scale: Float) {
         LyricsTextScale.value = scale
@@ -3684,6 +3701,7 @@ class PlayerViewModel @Inject constructor(
         _savedLyrics.value = extrasPrefs.getString("saved_lyrics", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
         watchPlayedToday()
+        setUiExtra(extrasPrefs.getBoolean("moving_cover", false), extrasPrefs.getBoolean("guest", false), extrasPrefs.getBoolean("video_subtitles", false))
         setDownloadHeight(extrasPrefs.getInt("download_height", 1080))
         _autoDownloadFavorites.value = extrasPrefs.getBoolean("auto_download_favorites", false)
         if (_autoDownloadFavorites.value) downloadFavoritesOnWifi()
@@ -4036,6 +4054,8 @@ internal fun parsePersistedLyrics(rawLyrics: String?): Lyrics? {
 private const val ONLINE_RADIO_DELAY_MS = 3_000L
 
 private const val LYRICS_NOTIFICATION_ID = 47110
+
+data class UiExtras(val movingCover: Boolean = false, val guest: Boolean = false, val subtitles: Boolean = false)
 
 /** Lyrics text size chosen in the listening options (read by every lyrics view). */
 object LyricsTextScale {

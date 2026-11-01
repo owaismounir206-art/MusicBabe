@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens
 
+import androidx.compose.material.icons.rounded.Search
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
@@ -204,6 +205,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
         ) {
+            item { SettingsSearch(navController) }
             item {
                 SettingsBento(tiles = settingsTiles(navController))
 
@@ -661,5 +663,42 @@ fun ExpressiveSettingsGroup(content: @Composable () -> Unit) {
             .background(Color.Transparent)
     ) {
         content()
+    }
+}
+
+/** Search across every setting: shows the matching ones with their category, a tap opens it. */
+@Composable
+private fun SettingsSearch(navController: NavController) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    androidx.compose.material3.OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        singleLine = true,
+        placeholder = { Text(stringResource(R.string.settings_search_hint)) },
+        leadingIcon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Search, contentDescription = null) },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+    )
+    val q = query.trim()
+    if (q.length < 2) return
+    val matches = remember(q) {
+        SettingsSearchIndex.entries.mapNotNull { e ->
+            runCatching { context.getString(e.titleRes) }.getOrNull()
+                ?.takeIf { it.contains(q, ignoreCase = true) }?.let { it to e.category }
+        }.distinctBy { it.first }.take(20)
+    }
+    if (matches.isEmpty()) {
+        Text(stringResource(R.string.settings_search_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
+    }
+    matches.forEach { (title, category) ->
+        androidx.compose.material3.ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = { Text(stringResource(category.titleRes)) },
+            modifier = Modifier.clickable {
+                if (category == SettingsCategory.EQUALIZER) navController.navigateSafely(Screen.Equalizer.route)
+                else navController.navigateSafely(Screen.SettingsCategory.createRoute(category.id))
+            }
+        )
     }
 }

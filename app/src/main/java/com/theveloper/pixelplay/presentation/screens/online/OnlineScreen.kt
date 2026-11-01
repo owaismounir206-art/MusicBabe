@@ -113,7 +113,7 @@ fun rememberOnlineActions(playerViewModel: PlayerViewModel, navController: NavHo
  * to, shelves from YouTube Music, moods, and a search over songs, albums, playlists and artists.
  * Everything plays in full.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineScreen(
     navController: NavHostController,
@@ -140,6 +140,12 @@ fun OnlineScreen(
 
     BackHandler(enabled = searching) { viewModel.clearSearch() }
 
+    // Pull down to reload the home (the old shelves stay until the new ones arrive).
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = home.loading && !searching && (home.quickPicks.isNotEmpty() || home.shelves.isNotEmpty()),
+        onRefresh = { if (!searching) viewModel.refresh() },
+        modifier = Modifier.fillMaxSize()
+    ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 20.dp, bottom = bottomPadding),
@@ -405,7 +411,7 @@ fun OnlineScreen(
                 }
                 Spacer(Modifier.height(32.dp))
             }
-            if (home.loading && home.quickPicks.isNotEmpty()) {
+            if (home.loading && home.quickPicks.isNotEmpty() && home.shelves.isEmpty()) {
                 item(key = "loading_more") { CenteredLoading() }
             }
             if (home.failed) {
@@ -419,6 +425,7 @@ fun OnlineScreen(
                 }
             }
         }
+    }
     }
 }
 

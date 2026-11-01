@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-11-01
+
+### Changed
+- Listening options in five tabs (Listening, Lyrics, Quality, Discover, Share) instead of one
+  long list.
+- Moving cover, guest mode and lyrics as video subtitles are kept after restarting the app.
+- Home: pull down to reload; the page no longer goes blank while it reloads.
+- Smart playlists and duplicates are computed in the background (no stutter on big libraries).
+
+### Added
+- Search in Settings: find any setting by name across all categories.
+
+### Fixed
+- The Discord status connection no longer drops on an unexpected message.
+
 ## [2.9.0] - 2026-10-30
 
 ### Changed
