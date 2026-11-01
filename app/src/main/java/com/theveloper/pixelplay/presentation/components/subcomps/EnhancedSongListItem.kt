@@ -1,5 +1,7 @@
 package com.theveloper.pixelplay.presentation.components.subcomps
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -287,10 +289,18 @@ fun EnhancedSongListItem(
             }
         }
 
+        // The row sinks slightly under the finger and springs back when released.
+        var rowPressed by remember { mutableStateOf(false) }
+        val pressScale by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (rowPressed && animationsEnabled) 0.97f else 1f,
+            animationSpec = if (rowPressed) androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 1400f)
+            else com.theveloper.pixelplay.ui.theme.Fluido.springBouncy(),
+            label = "rowPress"
+        )
         Surface(
             modifier = modifier
                 .fillMaxWidth()
-                .scale(selectionScale)
+                .scale(selectionScale * pressScale)
                 .clip(surfaceShape)
                 .then(
                     if (showSelectionDecoration) {
@@ -305,6 +315,11 @@ fun EnhancedSongListItem(
                 )
                 .pointerInput(isSelectionMode) {
                     detectTapGestures(
+                        onPress = {
+                            rowPressed = true
+                            tryAwaitRelease()
+                            rowPressed = false
+                        },
                         onTap = {
                             if (isSelectionMode) {
                                 // In selection mode, tap toggles selection

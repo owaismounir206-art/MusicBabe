@@ -1,5 +1,6 @@
 package com.theveloper.pixelplay.presentation.screens.online
 
+import com.theveloper.pixelplay.ui.theme.fluidClickable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
@@ -469,7 +470,7 @@ private fun OnlineSearchResultsView(results: OnlineSearchResults, actions: Onlin
                         .fillMaxWidth()
                         .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable { actions.playSongs(listOf(top) + results.songs.drop(1), 0, top.title) }
+                        .fluidClickable(pressedScale = 0.97f) { actions.playSongs(listOf(top) + results.songs.drop(1), 0, top.title) }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -602,7 +603,7 @@ private fun RecentSongCard(song: com.theveloper.pixelplay.data.model.Song, onCli
         Modifier
             .width(120.dp)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .fluidClickable(onClick = onClick)
     ) {
         com.theveloper.pixelplay.presentation.components.SmartImage(
             model = song.albumArtUriString,
@@ -624,7 +625,7 @@ private fun ExploreTile(label: String, icon: androidx.compose.ui.graphics.vector
         modifier
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick)
+            .fluidClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
