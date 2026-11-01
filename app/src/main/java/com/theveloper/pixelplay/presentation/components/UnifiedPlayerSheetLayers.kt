@@ -118,14 +118,16 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     val isMiniPlayerVisible by remember {
                         derivedStateOf { playerContentExpansionFraction.value < 0.01f }
                     }
+                    val miniHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+                    val miniTick = androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove
                     MiniPlayerContentInternal(
                         song = currentSongNonNull,
                         isPlaying = infrequentPlayerState.isPlaying,
                         isCastConnecting = isCastConnecting,
                         isPreparingPlayback = isPreparingPlayback,
-                        onPlayPause = { playerViewModel.playPause() },
-                        onPrevious = { playerViewModel.previousSong() },
-                        onNext = { playerViewModel.nextSong() },
+                        onPlayPause = { miniHaptics.performHapticFeedback(miniTick); playerViewModel.playPause() },
+                        onPrevious = { miniHaptics.performHapticFeedback(miniTick); playerViewModel.previousSong() },
+                        onNext = { miniHaptics.performHapticFeedback(miniTick); playerViewModel.nextSong() },
                         canScroll = isMiniPlayerVisible && infrequentPlayerState.isPlaying,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -199,10 +201,13 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     val isFavoriteProvider = remember {
                         { latestIsFavorite.value }
                     }
-                    val onPlayPause = remember(playerViewModel) { playerViewModel::playPause }
+                    // A light tick under the finger on the main controls.
+                    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+                    val tick = androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove
+                    val onPlayPause: () -> Unit = remember(playerViewModel, haptics) { { haptics.performHapticFeedback(tick); playerViewModel.playPause() } }
                     val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
-                    val onNext = remember(playerViewModel) { playerViewModel::nextSong }
-                    val onPrevious = remember(playerViewModel) { playerViewModel::previousSong }
+                    val onNext: () -> Unit = remember(playerViewModel, haptics) { { haptics.performHapticFeedback(tick); playerViewModel.nextSong() } }
+                    val onPrevious: () -> Unit = remember(playerViewModel, haptics) { { haptics.performHapticFeedback(tick); playerViewModel.previousSong() } }
                     val onCollapse = remember(playerViewModel) {
                         { playerViewModel.collapsePlayerSheet() }
                     }
@@ -210,8 +215,12 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         { playerViewModel.toggleShuffle() }
                     }
                     val onRepeatToggle = remember(playerViewModel) { playerViewModel::cycleRepeatMode }
-                    val onFavoriteToggle = remember(playerViewModel) { playerViewModel::toggleFavorite }
+                    val onFavoriteToggle: () -> Unit = remember(playerViewModel, haptics) {
+                        { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); playerViewModel.toggleFavorite() }
+                    }
 
+                    // The cover as a slowly moving light behind the player.
+                    LivingBackdrop(artUri = currentSongNonNull.albumArtUriString, intensity = 0.38f)
                     FullPlayerContent(
                         currentSong = currentSongNonNull,
                         currentPlaybackQueue = currentPlaybackQueue,

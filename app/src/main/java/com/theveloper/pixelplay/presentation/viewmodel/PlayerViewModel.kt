@@ -3620,13 +3620,15 @@ class PlayerViewModel @Inject constructor(
         movingCover: Boolean = _uiExtras.value.movingCover,
         guest: Boolean = _uiExtras.value.guest,
         subtitles: Boolean = _uiExtras.value.subtitles,
+        livingBackdrop: Boolean = _uiExtras.value.livingBackdrop,
     ) {
-        val value = UiExtras(movingCover, guest, subtitles)
+        val value = UiExtras(movingCover, guest, subtitles, livingBackdrop)
+        com.theveloper.pixelplay.presentation.components.LivingBackdropSettings.enabled = livingBackdrop
         _uiExtras.value = value
         com.theveloper.pixelplay.presentation.components.MovingCover.enabled = movingCover
         com.theveloper.pixelplay.data.stats.GuestMode.enabled = guest
         com.theveloper.pixelplay.presentation.components.player.VideoSubtitles.enabled = subtitles
-        extrasPrefs.edit().putBoolean("moving_cover", movingCover).putBoolean("guest", guest).putBoolean("video_subtitles", subtitles).apply()
+        extrasPrefs.edit().putBoolean("moving_cover", movingCover).putBoolean("guest", guest).putBoolean("video_subtitles", subtitles).putBoolean("living_backdrop", livingBackdrop).apply()
     }
 
     /** Lyrics text size, 0.8×–1.6×. */
@@ -3701,7 +3703,7 @@ class PlayerViewModel @Inject constructor(
         _savedLyrics.value = extrasPrefs.getString("saved_lyrics", null)?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
         LyricsTextScale.value = extrasPrefs.getFloat("lyrics_scale", 1f)
         watchPlayedToday()
-        setUiExtra(extrasPrefs.getBoolean("moving_cover", false), extrasPrefs.getBoolean("guest", false), extrasPrefs.getBoolean("video_subtitles", false))
+        setUiExtra(extrasPrefs.getBoolean("moving_cover", false), extrasPrefs.getBoolean("guest", false), extrasPrefs.getBoolean("video_subtitles", false), extrasPrefs.getBoolean("living_backdrop", true))
         setDownloadHeight(extrasPrefs.getInt("download_height", 1080))
         _autoDownloadFavorites.value = extrasPrefs.getBoolean("auto_download_favorites", false)
         if (_autoDownloadFavorites.value) downloadFavoritesOnWifi()
@@ -4055,7 +4057,7 @@ private const val ONLINE_RADIO_DELAY_MS = 3_000L
 
 private const val LYRICS_NOTIFICATION_ID = 47110
 
-data class UiExtras(val movingCover: Boolean = false, val guest: Boolean = false, val subtitles: Boolean = false)
+data class UiExtras(val movingCover: Boolean = false, val guest: Boolean = false, val subtitles: Boolean = false, val livingBackdrop: Boolean = true)
 
 /** Lyrics text size chosen in the listening options (read by every lyrics view). */
 object LyricsTextScale {
