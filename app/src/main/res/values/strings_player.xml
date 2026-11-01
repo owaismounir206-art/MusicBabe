@@ -195,4 +195,23 @@
     <string name="lyrics_artist_album_line">%1$s • %2$s</string>
     <string name="lyrics_provided_by">Lyrics provided by</string>
     <string name="lyrics_lrclib_uri">https://lrclib.net/</string>
+
+    <!-- Lyrics Editor & Sync -->
+    <string name="lyrics_editor_title">Lyrics Editor &amp; Sync</string>
+    <string name="lyrics_editor_action">Create or Edit Lyrics</string>
+    <string name="lyrics_editor_action_desc">Edit lines, paste LRC or tap-to-sync with music</string>
+    <string name="lyrics_editor_tab_edit">Edit Text</string>
+    <string name="lyrics_editor_tab_sync">Live Sync</string>
+    <string name="lyrics_editor_tap_to_mark">Mark Timestamp</string>
+    <string name="lyrics_editor_paste">Paste</string>
+    <string name="lyrics_editor_strip_timestamps">Remove Timestamps</string>
+    <string name="lyrics_editor_sync_this_song">Sync these lyrics</string>
+    <string name="lyrics_editor_create_or_paste">Create / Paste Lyrics</string>
+    <string name="lyrics_search_action">Search Lyrics Online</string>
+    <string name="lyrics_search_action_desc">Search across LRCLIB, KuGou and NetEase</string>
+    <string name="lyrics_not_available_empty">No lyrics found for this song</string>
+    <string name="lyrics_not_available_empty_desc">Search online databases, write/paste lyrics, or transcribe with AI</string>
+    <string name="hires_audio_title">Hi-Res Audio</string>
+    <string name="hires_audio_desc">32-bit Float PCM Bit-perfect</string>
+    <string name="equalizer_dolby_spatial_title">Dolby &amp; 3D Surround</string>
 </resources>

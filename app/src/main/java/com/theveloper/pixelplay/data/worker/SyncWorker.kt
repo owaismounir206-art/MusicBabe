@@ -1148,8 +1148,11 @@ constructor(
         var year = raw.year
         var genre: String? = genreMap[raw.id] ?: raw.genre // Use mapped genre as default, or direct genre from main cursor
 
+        var resolvedDuration = raw.duration
+
         val shouldAugmentMetadata =
                 deepScan ||
+                        raw.duration <= 0 ||
                         raw.filePath.endsWith(".wav", true) ||
                         raw.filePath.endsWith(".opus", true) ||
                         raw.filePath.endsWith(".ogg", true) ||
@@ -1178,7 +1181,9 @@ constructor(
                         if (meta.trackNumber != null) trackNumber = meta.trackNumber
                         if (meta.discNumber != null) discNumber = meta.discNumber
                         if (meta.year != null) year = meta.year
-
+                        if (meta.durationMs != null && meta.durationMs > 0 && resolvedDuration <= 0) {
+                            resolvedDuration = meta.durationMs
+                        }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to read metadata via TagLib for ${raw.filePath}", e)
@@ -1196,7 +1201,7 @@ constructor(
                 albumId = raw.albumId,
                 contentUriString = contentUriString,
                 albumArtUriString = albumArtUriString,
-                duration = raw.duration,
+                duration = resolvedDuration,
                 genre = genre,
                 filePath = raw.filePath,
                 parentDirectoryPath = parentDir,

@@ -46,6 +46,7 @@ data class EqualizerUiState(
     val isBassBoostDismissed: Boolean = false,
     val isVirtualizerDismissed: Boolean = false,
     val isLoudnessDismissed: Boolean = false,
+    val hiFiModeEnabled: Boolean = false,
     val customPresets: List<EqualizerPreset> = emptyList(), // Added
     val pinnedPresetsNames: List<String> = emptyList(), // Added
 ) {
@@ -70,6 +71,7 @@ class EqualizerViewModel @Inject constructor(
     private val equalizerManager: EqualizerManager,
     private val equalizerPreferencesRepository: EqualizerPreferencesRepository,
     private val dualPlayerEngine: DualPlayerEngine,
+    private val userPreferencesRepository: UserPreferencesRepository,
     @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
     
@@ -99,6 +101,7 @@ class EqualizerViewModel @Inject constructor(
     init {
         initializeEqualizer()
         observeEqualizerState()
+        observeHiFiMode()
         loadSystemVolume()
     }
     
@@ -506,6 +509,20 @@ class EqualizerViewModel @Inject constructor(
             }.onFailure { error ->
                 Timber.tag(TAG).w(error, "Failed to flush equalizer state during onCleared")
             }
+        }
+    }
+    
+    private fun observeHiFiMode() {
+        viewModelScope.launch {
+            userPreferencesRepository.hiFiModeEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(hiFiModeEnabled = enabled) }
+            }
+        }
+    }
+
+    fun setHiFiModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setHiFiModeEnabled(enabled)
         }
     }
     

@@ -128,36 +128,43 @@ object AudioMetadataReader {
                 }
 
                 // Fallback: TagLib sometimes parses core tags but misses APIC/other ID3 frames
-                // on some MP3s. If essential fields or requested artwork are missing, try
-                // JAudioTagger before giving up so we preserve full metadata when possible.
-                val fallback = if (title == null || artist == null || (readArtwork && artwork == null)) {
+                // on some MP3s or PCM/WAV properties. If essential fields, duration, or requested
+                // artwork are missing, try JAudioTagger and MediaMetadataRetriever before giving up.
+                val fallback = if (title == null || artist == null || durationMs == null || (readArtwork && artwork == null)) {
                     if (VERBOSE) Log.w(TAG, "TagLib incomplete for ${file.name}, trying JAudioTagger fallback...")
                     PerformanceMetrics.increment(PerformanceMetrics.Counters.METADATA_FALLBACK_JAUDIOTAGGER)
                     readWithJAudioTagger(file, readArtwork = readArtwork)
                 } else null
 
+                val mmrFallback = if (title == null && fallback?.title == null ||
+                    durationMs == null && fallback?.durationMs == null ||
+                    (readArtwork && artwork == null && fallback?.artwork == null)
+                ) {
+                    readWithMediaMetadataRetriever(file, readArtwork = readArtwork)
+                } else null
+
                 AudioMetadata(
-                    title = title ?: fallback?.title,
-                    artist = artist ?: fallback?.artist,
-                    albumArtist = albumArtist ?: fallback?.albumArtist,
-                    album = album ?: fallback?.album,
-                    genre = genre ?: fallback?.genre,
-                    composer = composer ?: fallback?.composer,
+                    title = title ?: fallback?.title ?: mmrFallback?.title,
+                    artist = artist ?: fallback?.artist ?: mmrFallback?.artist,
+                    albumArtist = albumArtist ?: fallback?.albumArtist ?: mmrFallback?.albumArtist,
+                    album = album ?: fallback?.album ?: mmrFallback?.album,
+                    genre = genre ?: fallback?.genre ?: mmrFallback?.genre,
+                    composer = composer ?: fallback?.composer ?: mmrFallback?.composer,
                     lyrics = lyrics ?: fallback?.lyrics,
-                    durationMs = durationMs ?: fallback?.durationMs,
-                    trackNumber = trackNumber ?: fallback?.trackNumber,
-                    discNumber = discNumber ?: fallback?.discNumber,
-                    year = year ?: fallback?.year,
-                    bitrate = bitrate ?: fallback?.bitrate,
+                    durationMs = durationMs ?: fallback?.durationMs ?: mmrFallback?.durationMs,
+                    trackNumber = trackNumber ?: fallback?.trackNumber ?: mmrFallback?.trackNumber,
+                    discNumber = discNumber ?: fallback?.discNumber ?: mmrFallback?.discNumber,
+                    year = year ?: fallback?.year ?: mmrFallback?.year,
+                    bitrate = bitrate ?: fallback?.bitrate ?: mmrFallback?.bitrate,
                     sampleRate = sampleRate ?: fallback?.sampleRate,
-                    artwork = artwork ?: fallback?.artwork,
+                    artwork = artwork ?: fallback?.artwork ?: mmrFallback?.artwork,
                     replayGainTrackGainDb = replayGainTrackGainDb ?: fallback?.replayGainTrackGainDb,
                     replayGainAlbumGainDb = replayGainAlbumGainDb ?: fallback?.replayGainAlbumGainDb
                 )
             }
         } catch (error: Exception) {
-            Timber.tag(TAG).e(error, "Unable to read metadata from file: ${file.absolutePath}")
-            null
+            Timber.tag(TAG).e(error, "Unable to read metadata from file: ${file.absolutePath}, attempting MediaMetadataRetriever fallback")
+            readWithMediaMetadataRetriever(file, readArtwork = readArtwork)
         } finally {
             PerformanceMetrics.recordTiming(
                 PerformanceMetrics.Timings.METADATA_READ,
@@ -236,6 +243,65 @@ object AudioMetadataReader {
         } catch (e: Exception) {
             Log.e(TAG, "JAudioTagger fallback FAILED for: ${file.name}", e)
             null
+        }
+    }
+
+    private fun readWithMediaMetadataRetriever(file: File, readArtwork: Boolean): AudioMetadata? {
+        val retriever = android.media.MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            val title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.takeIf { it.isNotBlank() }
+            val artist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() }
+            val albumArtist = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                ?.takeIf { it.isNotBlank() }
+            val album = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                ?.takeIf { it.isNotBlank() }
+            val genre = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE)
+                ?.takeIf { it.isNotBlank() }
+            val composer = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_COMPOSER)
+                ?.takeIf { it.isNotBlank() }
+            val durationMs = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()?.takeIf { it > 0 }
+            val bitrate = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toIntOrNull()?.takeIf { it > 0 }
+            val year = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_YEAR)
+                ?.take(4)?.toIntOrNull()
+            val trackNumber = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
+                ?.substringBefore('/')?.toIntOrNull()
+            val discNumber = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
+                ?.substringBefore('/')?.toIntOrNull()
+            val artwork = if (readArtwork) {
+                retriever.embeddedPicture?.takeIf { it.isNotEmpty() && isValidImageData(it) }?.let { data ->
+                    AudioMetadataArtwork(
+                        bytes = data,
+                        mimeType = guessImageMimeType(data)
+                    )
+                }
+            } else null
+
+            AudioMetadata(
+                title = title,
+                artist = artist,
+                albumArtist = albumArtist,
+                album = album,
+                genre = genre,
+                composer = composer,
+                lyrics = null,
+                durationMs = durationMs,
+                trackNumber = trackNumber,
+                discNumber = discNumber,
+                year = year,
+                bitrate = bitrate,
+                sampleRate = null,
+                artwork = artwork
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "MediaMetadataRetriever fallback failed for: ${file.name}", e)
+            null
+        } finally {
+            runCatching { retriever.release() }
         }
     }
 

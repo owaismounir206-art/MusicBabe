@@ -493,6 +493,28 @@ class LyricsStateHolder @Inject constructor(
     }
 
     /**
+     * Salva lyrics create o modificate manualmente dall'utente (con o senza timestamp).
+     * Salva nel database, scrive il file sidecar .lrc e aggiorna i metadati del file.
+     */
+    fun saveCustomLyrics(song: Song, lrcContent: String) {
+        val parsed = LyricsUtils.parseLyrics(lrcContent)
+        scope?.launch {
+            persistLyrics(song, lrcContent)
+            if (song.path.isNotBlank()) {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        LyricsUtils.writeSidecarLrcFile(song.path, parsed)
+                    }
+                }
+            }
+            val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(song, lrcContent)
+            val updatedSong = song.withPersistedLyrics(lrcContent, refreshedAlbumArtUri)
+            _songUpdates.emit(updatedSong to parsed.takeIf(::hasValidLyrics))
+            _messageEvents.emit("Lyrics saved successfully!")
+        }
+    }
+
+    /**
      * Translate the current song's lyrics via AI and import the result.
      * The actual inference is delegated through [LyricsTranslationCallbacks.translate] so this holder
      * stays decoupled from the AI layer. Toasts are surfaced through [messageEvents] as usual.

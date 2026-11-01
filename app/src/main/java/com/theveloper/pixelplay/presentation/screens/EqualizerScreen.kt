@@ -346,6 +346,7 @@ fun EqualizerScreen(
                     virtualizerStrength = uiState.virtualizerStrength, // Now Float
                     loudnessEnabled = uiState.loudnessEnhancerEnabled,
                     loudnessStrength = uiState.loudnessEnhancerStrength, // Now Float
+                    hiFiModeEnabled = uiState.hiFiModeEnabled,
                     isBassBoostSupported = uiState.isBassBoostSupported,
                     isVirtualizerSupported = uiState.isVirtualizerSupported,
                     isLoudnessEnhancerSupported = uiState.isLoudnessEnhancerSupported,
@@ -358,6 +359,7 @@ fun EqualizerScreen(
                     onVirtualizerStrengthChange = { equalizerViewModel.setVirtualizerStrength(it.roundToInt()) },
                     onLoudnessEnabledChange = { equalizerViewModel.setLoudnessEnhancerEnabled(it) },
                     onLoudnessStrengthChange = { equalizerViewModel.setLoudnessEnhancerStrength(it.roundToInt()) },
+                    onHiFiModeEnabledChange = { equalizerViewModel.setHiFiModeEnabled(it) },
                     onDismissBassBoost = { equalizerViewModel.setBassBoostDismissed(true) },
                     onDismissVirtualizer = { equalizerViewModel.setVirtualizerDismissed(true) },
                     onDismissLoudness = { equalizerViewModel.setLoudnessDismissed(true) }
@@ -1166,6 +1168,7 @@ private fun EffectControlsSection(
     virtualizerStrength: Float, // Int -> Float
     loudnessEnabled: Boolean,
     loudnessStrength: Float, // Int -> Float
+    hiFiModeEnabled: Boolean,
     isBassBoostSupported: Boolean,
     isVirtualizerSupported: Boolean,
     isLoudnessEnhancerSupported: Boolean,
@@ -1178,6 +1181,7 @@ private fun EffectControlsSection(
     onVirtualizerStrengthChange: (Float) -> Unit, // Int -> Float
     onLoudnessEnabledChange: (Boolean) -> Unit,
     onLoudnessStrengthChange: (Float) -> Unit, // Int -> Float
+    onHiFiModeEnabledChange: (Boolean) -> Unit,
     onDismissBassBoost: () -> Unit,
     onDismissVirtualizer: () -> Unit,
     onDismissLoudness: () -> Unit
@@ -1195,13 +1199,9 @@ private fun EffectControlsSection(
             EffectCard(
                 title = stringResource(R.string.equalizer_bass_boost),
                 value = bassBoostStrength, // Already Float
-                valueRange = 0f..1000f, // Keeping range as is, assuming VM handles 0-100 normalization? 
-                // Wait, if VM stores 0-100 Float, but repo uses 0-1000 Int.
-                // If I incorrectly changed VM to store 0-100 Float, I must match UI ranges.
-                // Originally ranges were 0..1000. 
-                // Let's assume VM exposes raw 0..1000 as Float to match slider requirements.
+                valueRange = 0f..1000f,
                 isEnabled = bassBoostEnabled,
-                onValueChange = { onBassBoostStrengthChange(it) }, // Pass Float directly
+                onValueChange = { onBassBoostStrengthChange(it) },
                 onEnabledChange = onBassBoostEnabledChange
             )
         } else if (!isBassBoostDismissed) {
@@ -1211,10 +1211,10 @@ private fun EffectControlsSection(
             )
         }
         
-        // Virtualizer
+        // Virtualizer / Dolby & 3D Surround
         if (isVirtualizerSupported) {
             EffectCard(
-                title = stringResource(R.string.equalizer_virtualizer),
+                title = stringResource(R.string.equalizer_dolby_spatial_title),
                 value = virtualizerStrength,
                 valueRange = 0f..1000f,
                 isEnabled = virtualizerEnabled,
@@ -1223,7 +1223,7 @@ private fun EffectControlsSection(
             )
         } else if (!isVirtualizerDismissed) {
              UnsupportedEffectCard(
-                title = stringResource(R.string.equalizer_virtualizer),
+                title = stringResource(R.string.equalizer_dolby_spatial_title),
                 onDismiss = onDismissVirtualizer
             )
         }
@@ -1244,6 +1244,12 @@ private fun EffectControlsSection(
                 onDismiss = onDismissLoudness
             )
         }
+
+        // Hi-Res Audio (32-bit Float PCM Bit-perfect)
+        HiFiEffectCard(
+            isEnabled = hiFiModeEnabled,
+            onEnabledChange = onHiFiModeEnabledChange
+        )
     }
 }
 
@@ -1365,6 +1371,79 @@ private fun UnsupportedEffectCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiFiEffectCard(
+    isEnabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.width(150.dp).fillMaxHeight(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isEnabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                else MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .width(150.dp)
+                    .height(106.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isEnabled) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHighest
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.outline_high_quality_24),
+                        contentDescription = stringResource(R.string.hires_audio_title),
+                        tint = if (isEnabled) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onEnabledChange,
+                modifier = Modifier.scale(0.8f)
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.hires_audio_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.hires_audio_desc),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center
                 )
             }
         }

@@ -12,6 +12,7 @@ import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.database.FavoritesDao
 import com.theveloper.pixelplay.data.database.toSong
 import com.theveloper.pixelplay.data.model.ArtistRef
+import com.theveloper.pixelplay.data.media.AudioMetadataReader
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.observer.MediaStoreObserver
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -242,6 +243,18 @@ class MediaStoreSongRepository @Inject constructor(
                         )
                     }
 
+                    val rawDuration = cursor.getLong(durationCol)
+                    val effectiveDuration = if (rawDuration > 0) {
+                        rawDuration
+                    } else {
+                        runCatching {
+                            val f = File(path)
+                            if (f.exists() && f.length() > 0) {
+                                AudioMetadataReader.read(f, readArtwork = false)?.durationMs ?: 0L
+                            } else 0L
+                        }.getOrDefault(0L)
+                    }
+
                     val song = Song(
                         id = id.toString(),
                         title = displayTitle,
@@ -254,7 +267,7 @@ class MediaStoreSongRepository @Inject constructor(
                         path = path,
                         contentUriString = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString(),
                         albumArtUriString = albumArtUriString,
-                        duration = cursor.getLong(durationCol),
+                        duration = effectiveDuration,
                         genre = songIdToGenreMap[id],
                         lyrics = null,
                         isFavorite = favoriteIds.contains(id),

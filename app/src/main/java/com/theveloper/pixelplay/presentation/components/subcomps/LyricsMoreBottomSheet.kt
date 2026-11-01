@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Edit
 
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.Check
@@ -78,6 +80,8 @@ fun LyricsMoreBottomSheet(
     onAlignLyricsToAudio: (() -> Unit)? = null,
     onWriteLyricsWithCloudAi: (() -> Unit)? = null,
     onSaveLyricsAsMbLrc: (() -> Unit)? = null,
+    onOpenLyricsEditor: (() -> Unit)? = null,
+    onSearchOnline: (() -> Unit)? = null,
     isKaraokeEnabled: Boolean = false,
     onToggleKaraoke: (() -> Unit)? = null,
     onToggleSyncControls: () -> Unit,
@@ -217,6 +221,60 @@ fun LyricsMoreBottomSheet(
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,
                             headlineColor = contentColor,
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                if (onSearchOnline != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lyrics_search_action)) },
+                        supportingContent = { Text(stringResource(R.string.lyrics_search_action_desc)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onSearchOnline()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            supportingColor = contentColor.copy(alpha = 0.7f),
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                if (onOpenLyricsEditor != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lyrics_editor_action)) },
+                        supportingContent = { Text(stringResource(R.string.lyrics_editor_action_desc)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onOpenLyricsEditor()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            supportingColor = contentColor.copy(alpha = 0.7f),
                             leadingIconColor = contentColor
                         )
                     )

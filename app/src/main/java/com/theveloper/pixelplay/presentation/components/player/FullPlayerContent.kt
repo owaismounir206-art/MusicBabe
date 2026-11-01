@@ -31,6 +31,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -273,7 +274,8 @@ fun FullPlayerContent(
     onShowCastClicked: () -> Unit,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    onOpenEqualizer: () -> Unit = {}
 ) {
     var retainedSong by remember { mutableStateOf(currentSong) }
     LaunchedEffect(currentSong?.id) {
@@ -684,7 +686,8 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = downloadCurrentSong
+            onDownloadClick = downloadCurrentSong,
+            onOpenEqualizer = onOpenEqualizer
         )
     }
 
@@ -708,7 +711,8 @@ fun FullPlayerContent(
             onQueueClick = onSongMetadataQueueClick,
             onArtistClick = onSongMetadataArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onDownloadClick = downloadCurrentSong
+            onDownloadClick = downloadCurrentSong,
+            onOpenEqualizer = onOpenEqualizer
         )
     }
 
@@ -1053,6 +1057,7 @@ fun FullPlayerContent(
             colorScheme = LocalMaterialTheme.current,
             onBackClick = { showLyricsSheet = false },
             onSaveLyricsToFile = playerViewModel::saveLyricsToFile,
+            onSaveCustomLyrics = { song, lrc -> playerViewModel.saveCustomLyrics(song, lrc) },
             onTranslateViaAi = { playerViewModel.translateLyricsViaAi() },
             onGenerateAiLyrics = { playerViewModel.generateSyncedLyricsViaAi() },
             onAlignLyricsToAudio = { playerViewModel.alignLyricsToAudio() },
@@ -1434,7 +1439,8 @@ private fun FullPlayerSongMetadataSection(
     onQueueClick: () -> Unit,
     onArtistClick: () -> Unit,
     isPlayingProvider: () -> Boolean = { true },
-    onDownloadClick: () -> Unit = {}
+    onDownloadClick: () -> Unit = {},
+    onOpenEqualizer: () -> Unit = {}
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
 
@@ -1480,7 +1486,8 @@ private fun FullPlayerSongMetadataSection(
             onClickQueue = onQueueClick,
             onClickArtist = onArtistClick,
             isPlayingProvider = isPlayingProvider,
-            onClickDownload = onDownloadClick
+            onClickDownload = onDownloadClick,
+            onOpenEqualizer = onOpenEqualizer
         )
     }
 }
@@ -1580,6 +1587,7 @@ private fun SongMetadataDisplaySection(
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
     onClickDownload: () -> Unit = {},
+    onOpenEqualizer: () -> Unit = {},
     modifier: Modifier = Modifier,
     isPlayingProvider: () -> Boolean = { true }
 ) {
@@ -1699,6 +1707,20 @@ private fun SongMetadataDisplaySection(
                         .size(PlayerActionSize)
                         .clip(PlayerActionShape)
                         .background(chipColor)
+                        .clickable(role = Role.Button) { onOpenEqualizer() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = stringResource(R.string.settings_category_equalizer_title),
+                        tint = chipContentColor
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(PlayerActionSize)
+                        .clip(PlayerActionShape)
+                        .background(chipColor)
                         .clickable(role = Role.Button) { onClickLyrics() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1776,6 +1798,21 @@ private fun SongMetadataDisplaySection(
                 }
 
                 MusicVideoToggleButton(playerViewModel, chipColor, chipContentColor)
+
+                FilledIconButton(
+                    modifier = Modifier.size(PlayerActionSize),
+                    shape = PlayerActionShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = chipColor,
+                        contentColor = chipContentColor
+                    ),
+                    onClick = onOpenEqualizer,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = stringResource(R.string.settings_category_equalizer_title)
+                    )
+                }
 
                 FilledIconButton(
                     modifier = Modifier.size(PlayerActionSize),

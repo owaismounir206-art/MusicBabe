@@ -195,4 +195,23 @@
     <string name="lyrics_artist_album_line">%1$s • %2$s</string>
     <string name="lyrics_provided_by">Testi forniti da</string>
     <string name="lyrics_lrclib_uri">https://lrclib.net/</string>
+
+    <!-- Lyrics Editor & Sync -->
+    <string name="lyrics_editor_title">Editor &amp; Sincronizzazione Testi</string>
+    <string name="lyrics_editor_action">Crea o Modifica Testo</string>
+    <string name="lyrics_editor_action_desc">Modifica righe, incolla LRC o sincronizza a tempo di musica</string>
+    <string name="lyrics_editor_tab_edit">Modifica Testo</string>
+    <string name="lyrics_editor_tab_sync">Sincronizza dal vivo</string>
+    <string name="lyrics_editor_tap_to_mark">Segna Tempo</string>
+    <string name="lyrics_editor_paste">Incolla</string>
+    <string name="lyrics_editor_strip_timestamps">Rimuovi Timestamp</string>
+    <string name="lyrics_editor_sync_this_song">Sincronizza questo testo</string>
+    <string name="lyrics_editor_create_or_paste">Crea / Incolla Testo</string>
+    <string name="lyrics_search_action">Cerca Testo Online</string>
+    <string name="lyrics_search_action_desc">Cerca su LRCLIB, KuGou e NetEase</string>
+    <string name="lyrics_not_available_empty">Nessun testo trovato per questo brano</string>
+    <string name="lyrics_not_available_empty_desc">Cerca nei database online, crea o incolla le righe, oppure trascrivi con l\'IA</string>
+    <string name="hires_audio_title">Audio Hi-Res</string>
+    <string name="hires_audio_desc">32-bit Float PCM Bit-perfect</string>
+    <string name="equalizer_dolby_spatial_title">Dolby e Audio 3D Surround</string>
 </resources>

@@ -79,6 +79,66 @@ data class EqualizerPreset(
             displayName = "VOCAL",
             bandLevels = listOf(-3, -2, -1, 2, 5, 6, 5, 3, 1, 0) // Midrange boost
         )
+
+        val DANCE = EqualizerPreset(
+            name = "dance",
+            displayName = "DANCE",
+            bandLevels = listOf(6, 7, 4, 1, -1, -1, 2, 4, 6, 7) // Energetic club bass & sparkle
+        )
+
+        val ACOUSTIC = EqualizerPreset(
+            name = "acoustic",
+            displayName = "ACOUSTIC",
+            bandLevels = listOf(3, 3, 2, 1, 2, 3, 4, 4, 3, 2) // Natural instruments & acoustic presence
+        )
+
+        val METAL = EqualizerPreset(
+            name = "metal",
+            displayName = "METAL",
+            bandLevels = listOf(6, 5, 4, -2, -3, -1, 3, 5, 6, 6) // Heavy scoop for distorted guitars
+        )
+
+        val RNB = EqualizerPreset(
+            name = "rnb",
+            displayName = "R&B",
+            bandLevels = listOf(5, 6, 4, 1, 0, 1, 2, 3, 4, 4) // Smooth bass and warm mids
+        )
+
+        val LO_FI = EqualizerPreset(
+            name = "lo_fi",
+            displayName = "LO-FI",
+            bandLevels = listOf(4, 5, 3, 0, 0, -1, -2, -3, -4, -5) // Vintage vinyl warmth, rolled-off highs
+        )
+
+        val PODCAST = EqualizerPreset(
+            name = "podcast",
+            displayName = "PODCAST",
+            bandLevels = listOf(-4, -3, -1, 2, 5, 6, 4, 2, 0, -1) // Speech intelligibility & de-rumble
+        )
+
+        val LATIN = EqualizerPreset(
+            name = "latin",
+            displayName = "LATIN",
+            bandLevels = listOf(4, 5, 2, 1, -1, 0, 2, 4, 5, 5) // Rhythmic percussive punch
+        )
+
+        val DEEP_BASS = EqualizerPreset(
+            name = "deep_bass",
+            displayName = "DEEP BASS",
+            bandLevels = listOf(9, 8, 5, 2, 0, 0, 0, 0, 0, 0) // Subwoofer focus
+        )
+
+        val DOLBY_SURROUND = EqualizerPreset(
+            name = "dolby_surround",
+            displayName = "DOLBY SURROUND",
+            bandLevels = listOf(5, 4, 2, 1, 2, 3, 4, 5, 6, 7) // Wide cinematic stage with open air
+        )
+
+        val HI_RES_STUDIO = EqualizerPreset(
+            name = "hi_res_studio",
+            displayName = "HI-RES STUDIO",
+            bandLevels = listOf(1, 1, 0, 0, 0, 0, 0, 1, 1, 2) // Audiophile reference monitor curve
+        )
         
         fun custom(bandLevels: List<Int>) = EqualizerPreset(
             name = "custom",
@@ -88,7 +148,8 @@ data class EqualizerPreset(
         )
         
         val ALL_PRESETS = listOf(
-            FLAT, ROCK, POP, HIP_HOP, JAZZ, CLASSICAL, ELECTRONIC, BASS_BOOST, TREBLE_BOOST, VOCAL
+            FLAT, ROCK, POP, HIP_HOP, JAZZ, CLASSICAL, ELECTRONIC, BASS_BOOST, TREBLE_BOOST, VOCAL,
+            DANCE, ACOUSTIC, METAL, RNB, LO_FI, PODCAST, LATIN, DEEP_BASS, DOLBY_SURROUND, HI_RES_STUDIO
         )
         
         fun fromName(name: String): EqualizerPreset {

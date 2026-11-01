@@ -770,7 +770,8 @@ fun UnifiedPlayerSheetV2(
                             onQueueDragStart = sheetActionHandlers.beginQueueDrag,
                             onQueueDrag = sheetActionHandlers.dragQueueBy,
                             onQueueRelease = sheetActionHandlers.endQueueDrag,
-                            onShowCastClicked = castSheetState.openCastSheet
+                            onShowCastClicked = castSheetState.openCastSheet,
+                            onOpenEqualizer = sheetActionHandlers.onNavigateToEqualizer
                         )
                     }
                 }
@@ -791,7 +792,8 @@ fun UnifiedPlayerSheetV2(
                     onShowQueueClicked = sheetActionHandlers.openQueueSheet,
                     onQueueDragStart = sheetActionHandlers.beginQueueDrag,
                     onQueueDrag = sheetActionHandlers.dragQueueBy,
-                    onQueueRelease = sheetActionHandlers.endQueueDrag
+                    onQueueRelease = sheetActionHandlers.endQueueDrag,
+                    onOpenEqualizer = sheetActionHandlers.onNavigateToEqualizer
                 )
             }
 

@@ -1097,6 +1097,7 @@ class DualPlayerEngine @Inject constructor(
         val audioAttributes = Media3AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_AUTO)
             .build()
             
         val resolver = object : ResolvingDataSource.Resolver {

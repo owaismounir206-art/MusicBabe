@@ -132,8 +132,15 @@ import com.theveloper.pixelplay.presentation.components.snapping.ExperimentalSna
 import com.theveloper.pixelplay.presentation.components.snapping.SnapperLayoutInfo
 import com.theveloper.pixelplay.presentation.components.snapping.rememberLazyListSnapperLayoutInfo
 import com.theveloper.pixelplay.presentation.components.snapping.rememberSnapperFlingBehavior
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.theveloper.pixelplay.utils.LyricsUtils
 import com.theveloper.pixelplay.presentation.components.subcomps.LyricsMoreBottomSheet
+import com.theveloper.pixelplay.presentation.components.subcomps.LyricsEditorDialog
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material3.FilledTonalButton
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
@@ -279,6 +286,7 @@ fun LyricsSheet(
     isImmersiveTemporarilyDisabled: Boolean,
     onSetImmersiveTemporarilyDisabled: (Boolean) -> Unit,
     onSaveLyricsToFile: (Song, Lyrics, Boolean) -> Unit,
+    onSaveCustomLyrics: (Song, String) -> Unit = { _, _ -> },
     onTranslateViaAi: () -> Unit,
     onGenerateAiLyrics: () -> Unit = {},
     onAlignLyricsToAudio: (() -> Unit)? = null,
@@ -476,6 +484,9 @@ fun LyricsSheet(
         skipPartiallyExpanded = true
     )
 
+    var showLyricsEditorDialog by rememberSaveable { mutableStateOf(false) }
+    var lyricsEditorInitialLiveSync by rememberSaveable { mutableStateOf(false) }
+
     // Swipe Gesture State
     val hapticFeedback = LocalHapticFeedback.current
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -558,12 +569,33 @@ fun LyricsSheet(
                 onDismiss = {
                     showFetchLyricsDialog = false
                     onDismissLyricsSearch()
-                    if (lyrics == null && !isLoadingLyrics) {
-                        onBackClick()
-                    }
                 },
                 onImport = onImportLyrics,
                 onGenerateAiLyrics = onGenerateAiLyrics
+            )
+        }
+    }
+
+    val activeSong = currentSong
+    if (showLyricsEditorDialog && activeSong != null) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = MaterialTheme.typography,
+            shapes = MaterialTheme.shapes
+        ) {
+            LyricsEditorDialog(
+                song = activeSong,
+                initialLyrics = lyrics,
+                initialLiveSync = lyricsEditorInitialLiveSync,
+                currentPositionProvider = { playbackPositionFlow.value },
+                isPlayingProvider = { isPlaying },
+                onPlayPause = onPlayPause,
+                onSeek = onSeekTo,
+                onSave = { lrcContent ->
+                    onSaveCustomLyrics(activeSong, lrcContent)
+                    showLyricsEditorDialog = false
+                },
+                onDismiss = { showLyricsEditorDialog = false }
             )
         }
     }
@@ -844,6 +876,95 @@ fun LyricsSheet(
                                                 modifier = Modifier.width(100.dp)
                                             )
                                         }
+                                    } else {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                                            modifier = Modifier.padding(horizontal = 20.dp)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = accentColor.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(72.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.rounded_lyrics_24),
+                                                        contentDescription = null,
+                                                        tint = lyricHighlightColor,
+                                                        modifier = Modifier.size(36.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Text(
+                                                text = stringResource(R.string.lyrics_not_available_empty),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = lyricHighlightColor,
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            Text(
+                                                text = stringResource(R.string.lyrics_not_available_empty_desc),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = lyricHighlightColor.copy(alpha = 0.7f),
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Button(
+                                                    onClick = { showFetchLyricsDialog = true },
+                                                    shape = CircleShape,
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = accentColor,
+                                                        contentColor = onAccentColor
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(stringResource(R.string.common_search))
+                                                }
+
+                                                FilledTonalButton(
+                                                    onClick = {
+                                                        lyricsEditorInitialLiveSync = false
+                                                        showLyricsEditorDialog = true
+                                                    },
+                                                    shape = CircleShape
+                                                ) {
+                                                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(stringResource(R.string.lyrics_editor_create_or_paste))
+                                                }
+                                            }
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                TextButton(
+                                                    onClick = onImportLyrics
+                                                ) {
+                                                    Icon(painter = painterResource(R.drawable.rounded_upload_file_24), contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(stringResource(R.string.common_import))
+                                                }
+
+                                                TextButton(
+                                                    onClick = onGenerateAiLyrics
+                                                ) {
+                                                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(stringResource(R.string.lyrics_audio_transcribe_action))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -931,9 +1052,36 @@ fun LyricsSheet(
                                     start = Scena.Gutter + 8.dp,
                                     end = Scena.Gutter + 8.dp,
                                     top = 160.dp,
-                                    bottom = 24.dp
                                 )
                             ) {
+                                item(key = "sync_action_header") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        FilledTonalButton(
+                                            onClick = {
+                                                lyricsEditorInitialLiveSync = true
+                                                showLyricsEditorDialog = true
+                                            },
+                                            shape = CircleShape
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Sync,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(R.string.lyrics_editor_sync_this_song),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+
                                 itemsIndexed(
                                     items = plain,
                                     key = { index, line -> "$index-$line" }
@@ -1163,6 +1311,13 @@ fun LyricsSheet(
                         val song = currentSong
                         val currentLyrics = lyrics
                         if (song != null && currentLyrics != null) ({ save(song, currentLyrics) }) else null
+                    },
+                    onOpenLyricsEditor = {
+                        lyricsEditorInitialLiveSync = false
+                        showLyricsEditorDialog = true
+                    },
+                    onSearchOnline = {
+                        showFetchLyricsDialog = true
                     },
                     onToggleSyncControls = {
 
@@ -2456,6 +2611,7 @@ internal fun highlightSnapOffsetPx(
     return (clampedCenter - halfItem).roundToInt()
 }
 
+@OptIn(ExperimentalSnapperApi::class)
 internal suspend fun animateToSnapIndex(
     listState: LazyListState,
     layoutInfo: SnapperLayoutInfo,
@@ -2479,6 +2635,7 @@ internal suspend fun animateToSnapIndex(
     }
 }
 
+@OptIn(ExperimentalSnapperApi::class)
 internal suspend fun snapToSnapIndex(
     listState: LazyListState,
     layoutInfo: SnapperLayoutInfo,

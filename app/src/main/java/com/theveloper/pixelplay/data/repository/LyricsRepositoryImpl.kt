@@ -427,30 +427,37 @@ class LyricsRepositoryImpl @Inject constructor(
             fetchFromNeteaseLyrics(song)
         }
 
-        // Try sources in order based on preference, with fallback (matching Rhythm).
-        // The NetEase scraper always trails the LrcLib API so remote lyrics resolution
-        // follows the free 4-tier hierarchy: local sidecar -> embedded ID3 -> LrcLib -> NetEase.
+        // Livello 4: KuGou lyrics scraper (free, no login required)
+        val fetchFromKugou: suspend () -> Lyrics? = {
+            fetchFromKugouLyrics(song)
+        }
+
+        // Try sources in order based on preference, with fallback.
+        // Remote lyrics resolution follows: local sidecar -> embedded ID3 -> LrcLib -> NetEase -> KuGou.
         val sourceFetchers: List<Pair<String, suspend () -> Lyrics?>> = when (sourcePreference) {
             LyricsSourcePreference.API_FIRST -> listOf(
                 "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
                 "NetEase" to fetchFromNetease,
+                "KuGou" to fetchFromKugou,
                 "Embedded" to fetchFromEmbedded,
                 "Local" to fetchFromLocal
             )
             LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
                 "Embedded" to fetchFromEmbedded,
+                "Local" to fetchFromLocal,
                 "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
                 "NetEase" to fetchFromNetease,
-                "Local" to fetchFromLocal
+                "KuGou" to fetchFromKugou
             )
             LyricsSourcePreference.LOCAL_FIRST -> listOf(
                 "Local" to fetchFromLocal,
                 "Embedded" to fetchFromEmbedded,
                 "WordTimed" to fetchWordTimed,
                 "API" to fetchFromAPI,
-                "NetEase" to fetchFromNetease
+                "NetEase" to fetchFromNetease,
+                "KuGou" to fetchFromKugou
             )
         }
 
@@ -463,7 +470,7 @@ class LyricsRepositoryImpl @Inject constructor(
             try {
                 val lyrics = fetcher()
                 if (lyrics != null && lyrics.isValid()) {
-                    val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || sourceName == "WordTimed" || lyrics.areFromRemote
+                    val isRemoteSource = sourceName == "API" || sourceName == "NetEase" || sourceName == "KuGou" || sourceName == "WordTimed" || lyrics.areFromRemote
 
                     if (!lyrics.synced.isNullOrEmpty()) {
                         Log.d(TAG, "Found synced lyrics from $sourceName for: ${song.displayArtist} - ${song.title}")
@@ -503,7 +510,7 @@ class LyricsRepositoryImpl @Inject constructor(
         if (fallbackPlainLyrics != null) {
             Log.d(TAG, "Using plain lyrics fallback from $fallbackPlainSourceName for: ${song.displayArtist} - ${song.title}")
             lyricsCache.put(cacheKey, fallbackPlainLyrics)
-            val isRemoteSource = fallbackPlainSourceName == "API" || fallbackPlainSourceName == "NetEase" || fallbackPlainLyrics.areFromRemote
+            val isRemoteSource = fallbackPlainSourceName == "API" || fallbackPlainSourceName == "NetEase" || fallbackPlainSourceName == "KuGou" || fallbackPlainLyrics.areFromRemote
             if (isRemoteSource) {
                 saveLocalLyricsJson(song, fallbackPlainLyrics)
             }
@@ -1807,7 +1814,7 @@ class LyricsRepositoryImpl @Inject constructor(
         )
     }
 
-    /** Risultato di ricerca manuale da KuGou, usato quando LRCLIB non restituisce nulla. */
+    /** Risultato di ricerca manuale da KuGou, usato quando LRCLIB non restituisce nulla o per arricchire i risultati. */
     private suspend fun findKugouLyricsSearchResult(
         title: String,
         artist: String?
@@ -1836,6 +1843,49 @@ class LyricsRepositoryImpl @Inject constructor(
         )
     }
 
+    /** Risultato di ricerca manuale da NetEase, per includere tracce dal catalogo NetEase. */
+    private suspend fun findNeteaseLyricsSearchResult(
+        title: String,
+        artist: String?
+    ): LyricsSearchResult? = withContext(Dispatchers.IO) {
+        runCatching {
+            val query = listOfNotNull(artist?.trim()?.takeIf { it.isNotBlank() }, title.trim().takeIf { it.isNotBlank() })
+                .joinToString(" ")
+            if (query.isBlank()) return@runCatching null
+            val searchRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.searchSongs(query, 5) }
+            val songsArray = JSONObject(searchRaw).optJSONObject("result")?.optJSONArray("songs") ?: return@runCatching null
+            if (songsArray.length() == 0) return@runCatching null
+            val firstSong = songsArray.getJSONObject(0)
+            val songId = firstSong.optLong("id", -1L)
+            if (songId <= 0L) return@runCatching null
+            val name = firstSong.optString("name", title)
+            val artistName = firstSong.optJSONArray("artists")?.optJSONObject(0)?.optString("name", artist.orEmpty()) ?: artist.orEmpty()
+            val lyricRaw = withTimeout(NETEASE_LYRICS_TIMEOUT_MS) { neteaseApiService.getLyrics(songId) }
+            val lyricRoot = JSONObject(lyricRaw)
+            val lrc = lyricRoot.optJSONObject("lrc")?.optString("lyric", "").orEmpty()
+            if (lrc.isBlank()) return@runCatching null
+            val parsed = LyricsUtils.parseLyrics(lrc).copy(
+                areFromRemote = true,
+                source = com.theveloper.pixelplay.data.model.LyricsProvider.NETEASE
+            )
+            if (!parsed.isValid()) return@runCatching null
+            val hasSynced = !parsed.synced.isNullOrEmpty()
+            LyricsSearchResult(
+                record = LrcLibResponse(
+                    id = songId.toInt(),
+                    name = name,
+                    artistName = artistName,
+                    albumName = "",
+                    duration = firstSong.optDouble("duration", 0.0) / 1000.0,
+                    plainLyrics = if (hasSynced) null else lrc,
+                    syncedLyrics = if (hasSynced) lrc else null
+                ),
+                lyrics = parsed,
+                rawLyrics = lrc
+            )
+        }.getOrNull()
+    }
+
     override suspend fun searchRemoteByQuery(title: String, artist: String?): Result<Pair<String, List<LyricsSearchResult>>> = withContext(Dispatchers.IO) {
         try {
             val cleanTitle = title.trim()
@@ -1858,26 +1908,39 @@ class LyricsRepositoryImpl @Inject constructor(
                 }
             }
 
-            // Run both in parallel and take the first non-empty result set.
-            val responses = runSearchStrategiesFast(strategies)
+            // Esegui ricerca concorrente su LRCLIB, KuGou e NetEase
+            val lrcDeferred = async { runCatching { runSearchStrategiesFast(strategies) }.getOrDefault(emptyList()) }
+            val kugouDeferred = async { runCatching { findKugouLyricsSearchResult(cleanTitle, cleanArtist) }.getOrNull() }
+            val neteaseDeferred = async { runCatching { findNeteaseLyricsSearchResult(cleanTitle, cleanArtist) }.getOrNull() }
 
-            if (responses.isEmpty()) {
-                // Nessun risultato su LRCLIB: prova KuGou con i dati digitati, così la
-                // ricerca manuale non si ferma al primo provider.
-                findKugouLyricsSearchResult(cleanTitle, cleanArtist)?.let { kugouResult ->
-                    return@withContext Result.success(Pair(query, listOf(kugouResult)))
-                }
-                return@withContext Result.failure(NoLyricsFoundException(query))
-            }
+            val responses = lrcDeferred.await()
+            val kugouResult = kugouDeferred.await()
+            val neteaseResult = neteaseDeferred.await()
 
-            val results = responses.mapNotNull { response ->
-                val rawLyrics = response.syncedLyrics ?: response.plainLyrics ?: return@mapNotNull null
+            val allResults = mutableListOf<LyricsSearchResult>()
+
+            responses.mapNotNullTo(allResults) { response ->
+                val rawLyrics = response.syncedLyrics ?: response.plainLyrics ?: return@mapNotNullTo null
                 val parsed = LyricsUtils.parseLyrics(rawLyrics)
                     .copy(areFromRemote = true, source = com.theveloper.pixelplay.data.model.LyricsProvider.LRCLIB)
-                if (!parsed.isValid()) return@mapNotNull null
+                if (!parsed.isValid()) return@mapNotNullTo null
 
                 LyricsSearchResult(response, parsed, rawLyrics)
-            }.sortedByDescending { !it.record.syncedLyrics.isNullOrEmpty() }
+            }
+
+            if (kugouResult != null) {
+                allResults.add(kugouResult)
+            }
+            if (neteaseResult != null) {
+                allResults.add(neteaseResult)
+            }
+
+            val results = allResults
+                .distinctBy { it.rawLyrics.trim() }
+                .sortedWith(
+                    compareByDescending<LyricsSearchResult> { !it.record.syncedLyrics.isNullOrEmpty() }
+                        .thenByDescending { it.record.artistName.isNotBlank() }
+                )
 
             if (results.isEmpty()) {
                 Result.failure(NoLyricsFoundException(query))
@@ -1886,8 +1949,7 @@ class LyricsRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             LogUtils.e(this@LyricsRepositoryImpl, e, "Manual search failed")
-            Result.failure(LyricsException(context.getString(R.string.lyrics_failed_to_search), e)
-            )
+            Result.failure(LyricsException(context.getString(R.string.lyrics_failed_to_search), e))
         }
     }
 

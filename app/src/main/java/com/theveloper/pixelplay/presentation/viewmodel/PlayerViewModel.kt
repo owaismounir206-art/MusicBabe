@@ -3279,6 +3279,13 @@ class PlayerViewModel @Inject constructor(
         lyricsStateHolder.importLyricsFromFile(songId, validatedImport, currentSong)
     }
 
+    /**
+     * Salva testi creati o sincronizzati manualmente per il brano.
+     */
+    fun saveCustomLyrics(song: Song, lrcContent: String) {
+        lyricsStateHolder.saveCustomLyrics(song, lrcContent)
+    }
+
     /** Progress (0..100) of the on-device audio word alignment, null when idle. */
     val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
 
