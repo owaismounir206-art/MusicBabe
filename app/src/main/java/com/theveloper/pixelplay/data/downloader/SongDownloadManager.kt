@@ -1360,18 +1360,21 @@ class SongDownloadManager @Inject constructor(
             .filter { YouTubeExtractor.isValidVideoId(it.videoId) }
         if (hits.isEmpty()) return null
 
-        val match = if (durationSeconds > 0) {
-            hits.minByOrNull { abs(it.durationSeconds - durationSeconds) } ?: hits.first()
-        } else {
-            hits.first()
-        }
-
+        // Candidati in ordine di credibilità (titolo, artista, durata, versione); se uno non si
+        // risolve in uno stream si passa al successivo invece di arrendersi.
+        val ranked = TrackSourceRanker.rank(hits, cleanTitle, artist, durationSeconds)
+            .map { it.track }
+            .take(3)
+        if (ranked.isEmpty()) return null
         if (!youTubeStreamProxy.ensureReady()) return null
-        val uri = YouTubeStreamProxy.videoUri(match.videoId)
-        // Riscalda la cache: il proxy risolve l'URL upstream prima della prima richiesta.
-        youTubeStreamProxy.warmUpStreamUrl(uri)
-        val streamUrl = youTubeStreamProxy.resolveUri(uri)?.takeIf { it.isNotBlank() } ?: return null
-        return streamUrl to match
+        for (match in ranked) {
+            val uri = YouTubeStreamProxy.videoUri(match.videoId)
+            // Riscalda la cache: il proxy risolve l'URL upstream prima della prima richiesta.
+            youTubeStreamProxy.warmUpStreamUrl(uri)
+            val streamUrl = youTubeStreamProxy.resolveUri(uri)?.takeIf { it.isNotBlank() } ?: continue
+            return streamUrl to match
+        }
+        return null
     }
 
     /**

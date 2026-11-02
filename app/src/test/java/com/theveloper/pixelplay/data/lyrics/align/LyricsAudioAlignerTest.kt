@@ -80,4 +80,25 @@ class LyricsAudioAlignerTest {
         assertEquals(listOf(1_000, 2_100, 5_000), lines.map { it.time })
         assertEquals(listOf(1_000, 1_350, 1_650), lines[0].words!!.map { it.time })
     }
+
+    @Test
+    fun `a lone short anchor far from both neighbours is dropped`() {
+        // Words 0,1 sung early, word 2 ("tu") matched 60s later, words 3,4 another 60s on.
+        val times = longArrayOf(1_000, 1_400, 60_000, 120_000, 120_400)
+        LyricsAudioAligner.rejectOutlierAnchors(times, listOf(6, 6, 2, 6, 6))
+        assertEquals(-1L, times[2])
+        assertEquals(1_400L, times[1])
+        // A long word in the same spot is strong evidence and stays.
+        val strong = longArrayOf(1_000, 1_400, 60_000, 120_000, 120_400)
+        LyricsAudioAligner.rejectOutlierAnchors(strong, listOf(6, 6, 9, 6, 6))
+        assertEquals(60_000L, strong[2])
+    }
+
+    @Test
+    fun `a short word heard as a different short word is not an anchor`() {
+        val lines = listOf("la notte e lunga e fredda")
+        val rec = heard(1_000L to "le", 1_300L to "notte", 1_700L to "e", 2_000L to "lunga", 2_400L to "e", 2_700L to "fredda")
+        val result = LyricsAudioAligner.align(lines, rec, 200_000)!!
+        assertEquals(5.0 / 6, result.matchedRatio, 1e-9)
+    }
 }

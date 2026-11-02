@@ -102,7 +102,7 @@ object LyricsAudioAligner {
         for (i in 1..n) {
             for (j in 1..m) {
                 val sim = similarity(tokens[i - 1].norm, heard[j - 1])
-                val pair = if (sim >= SIMILARITY_THRESHOLD) 2f * sim.toFloat() else MISMATCH
+                val pair = if (isMatch(tokens[i - 1].norm, heard[j - 1], sim)) 2f * sim.toFloat() else MISMATCH
                 val diag = score[i - 1][j - 1] + pair
                 val up = score[i - 1][j] + GAP
                 val left = score[i][j - 1] + GAP
@@ -118,7 +118,7 @@ object LyricsAudioAligner {
         while (i > 0 && j > 0) {
             when (move[i][j].toInt()) {
                 0 -> {
-                    if (similarity(tokens[i - 1].norm, heard[j - 1]) >= SIMILARITY_THRESHOLD) {
+                    if (isMatch(tokens[i - 1].norm, heard[j - 1], similarity(tokens[i - 1].norm, heard[j - 1]))) {
                         times[i - 1] = recognized[j - 1].startMs
                     }
                     i--; j--
@@ -127,6 +127,8 @@ object LyricsAudioAligner {
                 else -> j--
             }
         }
+
+        rejectOutlierAnchors(times, tokens.map { it.norm.length })
 
         val matched = times.count { it >= 0 }
         val ratio = matched.toDouble() / n
@@ -142,6 +144,41 @@ object LyricsAudioAligner {
         }
         return AudioAlignment(out, ratio)
     }
+
+    /**
+     * Drops weak, isolated anchors. A short lyric word ("tu", "the") can fuzzy-match a stray
+     * recognised word far from where it is really sung. Matched times only ever increase, so such an
+     * anchor shows up as a lone short word separated from the anchors on BOTH sides by far more time
+     * than the words between them could take. Its neighbours are then interpolated instead of being
+     * stretched towards a wrong time. Repeats until stable, so a run of bad anchors unravels from
+     * its edges. Long words are strong evidence and are never dropped here.
+     */
+    internal fun rejectOutlierAnchors(times: LongArray, lengths: List<Int>) {
+        var changed = true
+        var guard = 0
+        while (changed && guard++ < 8) {
+            changed = false
+            val anchors = times.indices.filter { times[it] >= 0 }
+            for (a in 1 until anchors.size - 1) {
+                val prev = anchors[a - 1]
+                val cur = anchors[a]
+                val next = anchors[a + 1]
+                if (lengths[cur] > WEAK_WORD_MAX_LENGTH) continue
+                val before = times[cur] - times[prev]
+                val after = times[next] - times[cur]
+                if (before > (cur - prev) * MAX_MS_PER_WORD + SLACK_MS &&
+                    after > (next - cur) * MAX_MS_PER_WORD + SLACK_MS
+                ) {
+                    times[cur] = -1L
+                    changed = true
+                }
+            }
+        }
+    }
+
+    private const val WEAK_WORD_MAX_LENGTH = 4
+    private const val MAX_MS_PER_WORD = 1_500L
+    private const val SLACK_MS = 6_000L
 
     /** Interpolates unmatched words between matched neighbours, by word length; keeps times rising. */
     private fun fillGaps(times: LongArray, lengths: List<Int>, durationMs: Long) {
@@ -173,6 +210,10 @@ object LyricsAudioAligner {
         }
         for (t in 1 until n) if (times[t] < times[t - 1]) times[t] = times[t - 1]
     }
+
+    /** Short words must match exactly: one typo in "la" or "the" is a different word. */
+    private fun isMatch(lyric: String, heard: String, sim: Double): Boolean =
+        if (minOf(lyric.length, heard.length) <= 3) sim >= 1.0 else sim >= SIMILARITY_THRESHOLD
 
     internal fun normalize(word: String): String {
         val decomposed = Normalizer.normalize(word.lowercase(), Normalizer.Form.NFD)
