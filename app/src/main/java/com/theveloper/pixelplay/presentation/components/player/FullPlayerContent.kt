@@ -441,9 +441,10 @@ fun FullPlayerContent(
 
     if (showOnlineSongDownloadDialog && song != null) {
         com.theveloper.pixelplay.presentation.components.SaveStreamSheet(
-            onPick = { format ->
+            loadMetadata = { playerViewModel.previewCurrentDownloadMetadata() },
+            onSave = { format, metadata ->
                 showOnlineSongDownloadDialog = false
-                playerViewModel.saveCurrentStream(format)
+                playerViewModel.saveCurrentStream(format, metadata)
             },
             onDismiss = { showOnlineSongDownloadDialog = false }
         )

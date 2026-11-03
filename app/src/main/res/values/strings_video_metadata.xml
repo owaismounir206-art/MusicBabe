@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Download sheet: tags -->
+    <string name="meta_title">Title</string>
+    <string name="meta_artist">Artist</string>
+    <string name="meta_album">Album</string>
+    <string name="meta_album_artist">Album artist</string>
+    <string name="meta_genre">Genre</string>
+    <string name="meta_year">Year</string>
+    <string name="meta_track">Track</string>
+    <string name="meta_track_total">of</string>
+    <string name="meta_disc">Disc</string>
+    <string name="meta_embed_lyrics">Embed synced lyrics</string>
+    <string name="meta_embed_lyrics_desc">Inside the file, and as a .lrc beside it</string>
+    <string name="meta_replaygain">Volume normalisation</string>
+    <string name="meta_replaygain_desc">ReplayGain measured on the song</string>
+    <string name="meta_format">Format</string>
+    <string name="meta_format_m4a">M4A</string>
+    <string name="meta_format_wav">WAV</string>
+    <string name="meta_format_video">Video</string>
+    <string name="meta_loading">Looking up album, year and genre…</string>
+    <string name="meta_cover_found">Cover will be saved in the file</string>
+    <string name="meta_source_note">Completed from MusicBrainz. You can change it now or later from Edit song.</string>
+    <string name="meta_save">Save with metadata</string>
+    <string name="download_info_tagging">Writing tags…</string>
+
+    <!-- Full screen music video -->
+    <string name="fs_lyrics_off">Lyrics off</string>
+    <string name="fs_lyrics_karaoke">Karaoke</string>
+    <string name="fs_lyrics_side">Side</string>
+    <string name="fs_fit">Fit</string>
+    <string name="fs_fill">Fill</string>
+    <string name="fs_lock">Lock touches</string>
+    <string name="fs_locked">Screen locked · hold to unlock</string>
+    <string name="fs_pip">Picture in picture</string>
+    <string name="fs_save_video">Save to phone</string>
+    <string name="fs_sync_earlier">Lyrics earlier</string>
+    <string name="fs_sync_later">Lyrics later</string>
+    <string name="fs_sync_value">Sync %1$s s</string>
+    <string name="fs_seek_back">−10 s</string>
+    <string name="fs_seek_forward">+10 s</string>
+    <string name="fs_previous">Previous song</string>
+    <string name="fs_next">Next song</string>
+    <string name="fs_play">Play</string>
+    <string name="fs_pause">Pause</string>
+    <string name="fs_video_only">Video only</string>
+    <string name="fs_fill_hint">Fill the screen</string>
+    <string name="fs_fit_hint">Fit the screen</string>
+</resources>

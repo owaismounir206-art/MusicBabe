@@ -126,6 +126,11 @@ private fun FullscreenContent(playerViewModel: PlayerViewModel, onDismiss: () ->
     val offset by playerViewModel.currentSongLyricsSyncOffset.collectAsStateWithLifecycle()
     val videoVisible by playerViewModel.isMusicVideoVisible.collectAsStateWithLifecycle()
     val song = state.currentSong ?: return
+    if (videoVisible || song.isLocalMusicVideo) {
+        // A music video gets the whole screen, with its controls and lyrics floating over it.
+        FullscreenVideoContent(playerViewModel = playerViewModel, song = song, onDismiss = onDismiss)
+        return
+    }
     val ground = MaterialTheme.colorScheme.surface
 
     Box(Modifier.fillMaxSize()) {
@@ -237,7 +242,7 @@ private fun FullscreenContent(playerViewModel: PlayerViewModel, onDismiss: () ->
 }
 
 @Composable
-private fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, positionProvider: () -> Long) {
+internal fun FullscreenLyrics(playerViewModel: PlayerViewModel, position: Long, positionProvider: () -> Long) {
     val state by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val lyrics = state.lyrics
     val lines = remember(lyrics) {

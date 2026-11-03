@@ -148,6 +148,12 @@ fun MusicVideoPanel(
     playerViewModel: PlayerViewModel,
     modifier: Modifier = Modifier,
     onFullscreen: (() -> Unit)? = null,
+    /** Full screen: the video fills its box edge to edge, no rounded card, no 16:9 frame. */
+    fullBleed: Boolean = false,
+    /** Crops the video to fill the box instead of fitting it (full screen "Fill"). */
+    fillScreen: Boolean = false,
+    /** Lyrics as video subtitles; the full screen draws its own karaoke instead. */
+    showSubtitles: Boolean = true,
     viewModel: MusicVideoViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -160,11 +166,17 @@ fun MusicVideoPanel(
     )
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(Scena.CoverShape)
-            .background(Color.Black),
+        modifier = if (fullBleed) {
+            modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        } else {
+            modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(Scena.CoverShape)
+                .background(Color.Black)
+        },
         contentAlignment = Alignment.Center
     ) {
         val current = state
@@ -172,6 +184,7 @@ fun MusicVideoPanel(
             SyncedVideoPlayer(
                 stream = current.stream,
                 playerViewModel = playerViewModel,
+                fillScreen = fillScreen,
                 onFirstFrame = { firstFrameShown = true },
                 onError = { viewModel.onPlaybackFailed(song.id) }
             )
@@ -180,7 +193,7 @@ fun MusicVideoPanel(
             SmartImage(
                 model = song.albumArtUriString,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = if (fullBleed && !fillScreen) ContentScale.Fit else ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = coverAlpha }
@@ -192,7 +205,7 @@ fun MusicVideoPanel(
                     .background(Color.Black.copy(alpha = 0.45f))
             )
         }
-        if (VideoSubtitles.enabled && current is MusicVideoState.Ready) {
+        if (showSubtitles && VideoSubtitles.enabled && current is MusicVideoState.Ready) {
             val stable by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
             var line by remember { mutableStateOf("") }
             LaunchedEffect(stable.lyrics) {
@@ -262,6 +275,7 @@ fun MusicVideoPanel(
 private fun SyncedVideoPlayer(
     stream: YouTubeStream,
     playerViewModel: PlayerViewModel,
+    fillScreen: Boolean,
     onFirstFrame: () -> Unit,
     onError: () -> Unit
 ) {
@@ -376,7 +390,10 @@ private fun SyncedVideoPlayer(
                 player = videoPlayer
             }
         },
-        update = { it.player = videoPlayer }
+        update = {
+            it.player = videoPlayer
+            it.resizeMode = if (fillScreen) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
     )
 }
 

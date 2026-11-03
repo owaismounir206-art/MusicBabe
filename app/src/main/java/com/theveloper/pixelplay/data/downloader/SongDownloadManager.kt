@@ -23,6 +23,8 @@ import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.model.LyricsSourcePreference
 import com.theveloper.pixelplay.data.network.ensureCleartextAllowed
 import com.theveloper.pixelplay.data.model.OnlineTrack
+import com.theveloper.pixelplay.data.model.Lyrics
+import com.theveloper.pixelplay.data.model.toPlayableSong
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.netease.NeteaseRepository
 import com.theveloper.pixelplay.data.notification.NewSongAlert
@@ -88,7 +90,8 @@ class SongDownloadManager @Inject constructor(
     private val songMetadataEditor: SongMetadataEditor,
     private val downloadPreferencesRepository: DownloadPreferencesRepository,
     private val youTubeMediaDownloader: com.theveloper.pixelplay.data.youtube.YouTubeMediaDownloader,
-    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository
+    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository,
+    private val metadataResolver: com.theveloper.pixelplay.data.downloader.metadata.MusicBrainzMetadataResolver
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -207,8 +210,19 @@ class SongDownloadManager @Inject constructor(
         track: OnlineTrack,
         videoId: String,
         format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat,
+        metadata: com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata? = null,
         onComplete: ((Boolean, String) -> Unit)? = null
-    ): Long = enqueue(DownloadRequest.YouTube(track, videoId, format), null, onComplete)
+    ): Long = enqueue(DownloadRequest.YouTube(track, videoId, format, metadata), null, onComplete)
+
+    /**
+     * Metadata the download sheet shows before saving [track]: what the song already has, completed
+     * from MusicBrainz (album, year, track number, genre, cover).
+     */
+    suspend fun previewMetadata(track: OnlineTrack): com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata =
+        metadataResolver.complete(
+            com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata.from(track),
+            track.durationSeconds * 1000L
+        )
 
     /**
      * Mette in coda il download a partire dal testo digitato nella barra di ricerca:
@@ -540,6 +554,14 @@ class SongDownloadManager @Inject constructor(
         }
         try {
             val format = request.format
+            // Every format gets complete tags, written into the file before it is published.
+            updateTask(task.id) { it.copy(message = context.getString(R.string.download_info_tagging)) }
+            val meta = metadataResolver.complete(
+                request.metadata ?: com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata.from(track),
+                track.durationSeconds * 1000L
+            )
+            val lyrics = if (meta.embedLyrics) fetchLyricsFor(track) else null
+            writeFullTags(file.absolutePath, null, meta, analyzeFile = file, lyrics = lyrics)
             val safeName = "${track.artistName} - ${track.title}".replace(Regex("[\\\\/:*?\"<>|]"), " ").trim()
             val fileName = "$safeName.${format.extension}"
             val resolver = context.contentResolver
@@ -555,18 +577,25 @@ class SongDownloadManager @Inject constructor(
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
                 if (!format.isVideo) {
                     put(MediaStore.Audio.Media.ARTIST, track.artistName)
-                    put(MediaStore.Audio.Media.ALBUM, track.albumTitle.ifBlank { "MusicBabe" })
+                    put(MediaStore.Audio.Media.ALBUM, meta.album.ifBlank { "MusicBabe" })
                 }
             }
             val uri = resolver.insert(collection, values) ?: throw DownloadFailure(context.getString(R.string.download_error_generic))
             resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
                 ?: throw DownloadFailure(context.getString(R.string.download_error_generic))
-            if (format == com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat.AUDIO_M4A) {
-                muxDownloadedFileMetadata(fileName, uri, track.title, track.artistName, track.albumTitle.ifBlank { "MusicBabe" }, null)
-            }
             values.clear()
             values.put(MediaStore.MediaColumns.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
+            if (!format.isVideo && lyrics != null && !lyrics.synced.isNullOrEmpty()) {
+                // The .lrc beside the file too, for players that do not read embedded lyrics.
+                runCatching {
+                    val audioPath = File(
+                        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "MusicBabe"),
+                        fileName
+                    ).absolutePath
+                    LyricsUtils.writeSidecarLrcFile(audioPath, lyrics)
+                }
+            }
             if (format.isVideo) {
                 // The saved video shows up in "Music videos", with its lyrics found or written.
                 runCatching { localMusicVideos.import(listOf(uri)) }
@@ -1074,13 +1103,15 @@ class SongDownloadManager @Inject constructor(
 
                 // Muxing metadati ID3: Titolo, Artista, Album e copertina JPEG ad alta
                 // risoluzione scritti direttamente nei tag del file audio.
-                muxDownloadedFileMetadata(
+                writeFullTags(
                     filePath = absolutePath,
                     contentUri = audioUri,
-                    title = track.title,
-                    artist = track.artistName,
-                    album = track.albumTitle.ifBlank { "MusicBabe" },
-                    coverBytes = downloadHighResCoverBytes(track.albumCoverUrl)
+                    meta = metadataResolver.complete(
+                        com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata.from(track),
+                        track.durationSeconds * 1000L
+                    ),
+                    analyzeFile = File(absolutePath),
+                    lyrics = fetchLyricsFor(track)
                 )
 
                 try {
@@ -1119,13 +1150,15 @@ class SongDownloadManager @Inject constructor(
                 }
 
                 // Muxing metadati ID3: Titolo, Artista, Album e copertina JPEG ad alta risoluzione
-                muxDownloadedFileMetadata(
+                writeFullTags(
                     filePath = targetFile.absolutePath,
                     contentUri = null,
-                    title = track.title,
-                    artist = track.artistName,
-                    album = track.albumTitle.ifBlank { "MusicBabe" },
-                    coverBytes = downloadHighResCoverBytes(track.albumCoverUrl)
+                    meta = metadataResolver.complete(
+                        com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata.from(track),
+                        track.durationSeconds * 1000L
+                    ),
+                    analyzeFile = File(targetFile.absolutePath),
+                    lyrics = fetchLyricsFor(track)
                 )
 
                 val scannedUri = musicFolderScanner.scanFileAsync(targetFile.absolutePath, audioFormat.mimeType)
@@ -1618,12 +1651,42 @@ class SongDownloadManager @Inject constructor(
      * Muxing dei metadati direttamente nei tag del file audio tramite TagLib:
      * Titolo, Artista, Album e copertina frontale JPEG ad alta risoluzione.
      */
+    /**
+     * Writes complete tags into a downloaded file: title, artist, album, album artist, year,
+     * track/disc number, genre, cover, the lyrics (synced LRC when there are) and ReplayGain 2.0
+     * measured on the file itself.
+     */
+    private suspend fun writeFullTags(
+        filePath: String,
+        contentUri: Uri?,
+        meta: com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata,
+        analyzeFile: File?,
+        lyrics: Lyrics?
+    ) = withContext(Dispatchers.IO) {
+        val gain = if (meta.replayGain && analyzeFile != null && analyzeFile.exists()) {
+            com.theveloper.pixelplay.data.downloader.metadata.AudioLoudnessAnalyzer.analyze(analyzeFile)
+        } else null
+        val lrc = lyrics?.let { LyricsUtils.toLrcString(it) }?.takeIf { it.isNotBlank() }
+        muxDownloadedFileMetadata(
+            filePath = filePath,
+            contentUri = contentUri,
+            properties = meta.toProperties(lrc, gain),
+            coverBytes = downloadHighResCoverBytes(meta.coverUrl)
+        )
+    }
+
+    /** Lyrics of a song being downloaded, from the usual providers; never holds the download long. */
+    private suspend fun fetchLyricsFor(track: OnlineTrack): Lyrics? =
+        kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+            runCatching {
+                lyricsRepository.getLyrics(track.toPlayableSong(), LyricsSourcePreference.API_FIRST)
+            }.getOrNull()
+        }
+
     private fun muxDownloadedFileMetadata(
         filePath: String,
         contentUri: Uri?,
-        title: String,
-        artist: String,
-        album: String,
+        properties: Map<String, Array<String>>,
         coverBytes: ByteArray?
     ) {
         try {
@@ -1642,10 +1705,7 @@ class SongDownloadManager @Inject constructor(
                 val existingMetadata = TagLib.getMetadata(metadataFd.detachFd())
                 val propertyMap = HashMap(existingMetadata?.propertyMap ?: emptyMap())
 
-                propertyMap["TITLE"] = arrayOf(title)
-                propertyMap["ARTIST"] = arrayOf(artist)
-                propertyMap["ALBUM"] = arrayOf(album)
-                propertyMap["ALBUMARTIST"] = arrayOf(artist)
+                propertyMap.putAll(properties)
 
                 val saveFd = fd.dup()
                 val metadataSaved = TagLib.savePropertyMap(saveFd.detachFd(), propertyMap)
@@ -1686,7 +1746,19 @@ class SongDownloadManager @Inject constructor(
      */
     private fun downloadHighResCoverBytes(coverUrl: String?): ByteArray? {
         if (coverUrl.isNullOrBlank()) return null
+        if (coverUrl.startsWith("content://") || coverUrl.startsWith("file://")) {
+            return runCatching {
+                context.contentResolver.openInputStream(Uri.parse(coverUrl))?.use { it.readBytes() }
+            }.getOrNull()?.takeIf { it.isNotEmpty() && it.size <= 8 * 1024 * 1024 }
+        }
         val candidateUrls = buildList {
+            // YouTube Music art (googleusercontent "=w120-h120…") and video thumbnails.
+            if (Regex("""=w\d+-h\d+""").containsMatchIn(coverUrl)) {
+                add(coverUrl.replace(Regex("""=w\d+-h\d+[^/?]*"""), "=w1200-h1200-l90-rj"))
+            }
+            if (coverUrl.contains("ytimg.com/vi/")) {
+                add(coverUrl.replace(Regex("""/[a-z]*default\.jpg"""), "/maxresdefault.jpg"))
+            }
             add(coverUrl.replaceFirst(Regex("""/\d+x\d+(?=[-/.])"""), "/1000x1000"))
             add(coverUrl)
         }.distinct()

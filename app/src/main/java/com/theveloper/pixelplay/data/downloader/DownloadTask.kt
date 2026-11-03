@@ -13,7 +13,9 @@ sealed interface DownloadRequest {
     data class YouTube(
         val track: OnlineTrack,
         val videoId: String,
-        val format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat
+        val format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat,
+        /** Tags reviewed in the download sheet; null = completed automatically. */
+        val metadata: com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata? = null
     ) : DownloadRequest
 }
 

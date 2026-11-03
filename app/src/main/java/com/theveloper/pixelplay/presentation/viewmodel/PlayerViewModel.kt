@@ -381,7 +381,24 @@ class PlayerViewModel @Inject constructor(
      * its music video (.mp4). A library song is matched once on YouTube (by title, artist and
      * length) only for the video.
      */
-    fun saveCurrentStream(format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat) {
+    /** The tags the download sheet shows for the song playing now, completed from MusicBrainz. */
+    suspend fun previewCurrentDownloadMetadata(): com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata? {
+        val song = stablePlayerState.value.currentSong ?: return null
+        val track = OnlineTrack(
+            id = 0L,
+            title = song.title,
+            artistName = song.artist,
+            albumTitle = song.album.takeUnless { it == "YouTube" || it == "YouTube Music" || it == "Online" }.orEmpty(),
+            albumCoverUrl = song.albumArtUriString,
+            durationSeconds = (song.duration / 1000).toInt()
+        )
+        return songDownloadManager.previewMetadata(track)
+    }
+
+    fun saveCurrentStream(
+        format: com.theveloper.pixelplay.data.youtube.YouTubeDownloadFormat,
+        metadata: com.theveloper.pixelplay.data.downloader.metadata.DownloadMetadata? = null
+    ) {
         val song = stablePlayerState.value.currentSong ?: return
         viewModelScope.launch {
             val ownVideoId = song.contentUriString
@@ -409,7 +426,7 @@ class PlayerViewModel @Inject constructor(
                 youtubeVideoId = videoId
             )
             _toastEvents.emit(context.getString(R.string.save_stream_started, song.title))
-            songDownloadManager.startYouTubeDownload(track, videoId, format) { _, message ->
+            songDownloadManager.startYouTubeDownload(track, videoId, format, metadata) { _, message ->
                 viewModelScope.launch { _toastEvents.emit(message) }
             }
         }

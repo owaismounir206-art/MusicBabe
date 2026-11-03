@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="meta_title">Titolo</string>
+    <string name="meta_artist">Artista</string>
+    <string name="meta_album">Album</string>
+    <string name="meta_album_artist">Artista album</string>
+    <string name="meta_genre">Genere</string>
+    <string name="meta_year">Anno</string>
+    <string name="meta_track">Traccia</string>
+    <string name="meta_track_total">di</string>
+    <string name="meta_disc">Disco</string>
+    <string name="meta_embed_lyrics">Testo sincronizzato incorporato</string>
+    <string name="meta_embed_lyrics_desc">Dentro il file e come .lrc accanto</string>
+    <string name="meta_replaygain">Normalizzazione volume</string>
+    <string name="meta_replaygain_desc">ReplayGain misurato sul brano</string>
+    <string name="meta_format">Formato</string>
+    <string name="meta_format_m4a">M4A</string>
+    <string name="meta_format_wav">WAV</string>
+    <string name="meta_format_video">Video</string>
+    <string name="meta_loading">Cerco album, anno e genere…</string>
+    <string name="meta_cover_found">La copertina verrà salvata nel file</string>
+    <string name="meta_source_note">Completati con MusicBrainz. Puoi correggerli ora o dopo, da “Modifica brano”.</string>
+    <string name="meta_save">Scarica con metadati</string>
+    <string name="download_info_tagging">Scrivo i tag…</string>
+
+    <string name="fs_lyrics_off">Testo off</string>
+    <string name="fs_lyrics_karaoke">Karaoke</string>
+    <string name="fs_lyrics_side">Laterale</string>
+    <string name="fs_fit">Adatta</string>
+    <string name="fs_fill">Riempi</string>
+    <string name="fs_lock">Blocca i tocchi</string>
+    <string name="fs_locked">Schermo bloccato · tieni premuto per sbloccare</string>
+    <string name="fs_pip">Picture in picture</string>
+    <string name="fs_save_video">Salva sul telefono</string>
+    <string name="fs_sync_earlier">Testo prima</string>
+    <string name="fs_sync_later">Testo dopo</string>
+    <string name="fs_sync_value">Sync %1$s s</string>
+    <string name="fs_seek_back">−10 s</string>
+    <string name="fs_seek_forward">+10 s</string>
+    <string name="fs_previous">Brano precedente</string>
+    <string name="fs_next">Brano successivo</string>
+    <string name="fs_play">Riproduci</string>
+    <string name="fs_pause">Pausa</string>
+    <string name="fs_video_only">Solo video</string>
+    <string name="fs_fill_hint">Riempi lo schermo</string>
+    <string name="fs_fit_hint">Adatta allo schermo</string>
+</resources>
