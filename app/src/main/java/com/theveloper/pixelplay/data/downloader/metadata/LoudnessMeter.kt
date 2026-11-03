@@ -35,8 +35,8 @@ class LoudnessMeter(sampleRate: Int, private val channels: Int) {
         }
     }
 
-    private val shelf: Array<Biquad>
-    private val highPass: Array<Biquad>
+    private val shelf: Array<Biquad> = Array(channels) { shelfFilter(sampleRate.toDouble()) }
+    private val highPass: Array<Biquad> = Array(channels) { highPassFilter(sampleRate.toDouble()) }
     private val subBlockSize = (sampleRate / 10).coerceAtLeast(1)
     private val subBlockEnergy = ArrayList<Double>()
     private var currentSum = 0.0
@@ -46,36 +46,33 @@ class LoudnessMeter(sampleRate: Int, private val channels: Int) {
 
     init {
         require(channels > 0 && sampleRate > 0)
-        val fs = sampleRate.toDouble()
-        // Stage 1: high shelf.
-        run {
-            val f0 = 1681.974450955533
-            val g = 3.999843853973347
-            val q = 0.7071752369554196
-            val k = tan(PI * f0 / fs)
-            val vh = 10.0.pow(g / 20.0)
-            val vb = vh.pow(0.4996667741545416)
-            val a0 = 1.0 + k / q + k * k
-            shelf = Array(channels) {
-                Biquad(
-                    b0 = (vh + vb * k / q + k * k) / a0,
-                    b1 = 2.0 * (k * k - vh) / a0,
-                    b2 = (vh - vb * k / q + k * k) / a0,
-                    a1 = 2.0 * (k * k - 1.0) / a0,
-                    a2 = (1.0 - k / q + k * k) / a0
-                )
-            }
-        }
-        // Stage 2: high-pass.
-        run {
-            val f0 = 38.13547087602444
-            val q = 0.5003270373238773
-            val k = tan(PI * f0 / fs)
-            val a0 = 1.0 + k / q + k * k
-            highPass = Array(channels) {
-                Biquad(b0 = 1.0, b1 = -2.0, b2 = 1.0, a1 = 2.0 * (k * k - 1.0) / a0, a2 = (1.0 - k / q + k * k) / a0)
-            }
-        }
+    }
+
+    /** Stage 1 of K-weighting: high shelf. */
+    private fun shelfFilter(fs: Double): Biquad {
+        val f0 = 1681.974450955533
+        val g = 3.999843853973347
+        val q = 0.7071752369554196
+        val k = tan(PI * f0 / fs)
+        val vh = 10.0.pow(g / 20.0)
+        val vb = vh.pow(0.4996667741545416)
+        val a0 = 1.0 + k / q + k * k
+        return Biquad(
+            b0 = (vh + vb * k / q + k * k) / a0,
+            b1 = 2.0 * (k * k - vh) / a0,
+            b2 = (vh - vb * k / q + k * k) / a0,
+            a1 = 2.0 * (k * k - 1.0) / a0,
+            a2 = (1.0 - k / q + k * k) / a0
+        )
+    }
+
+    /** Stage 2 of K-weighting: high-pass. */
+    private fun highPassFilter(fs: Double): Biquad {
+        val f0 = 38.13547087602444
+        val q = 0.5003270373238773
+        val k = tan(PI * f0 / fs)
+        val a0 = 1.0 + k / q + k * k
+        return Biquad(b0 = 1.0, b1 = -2.0, b2 = 1.0, a1 = 2.0 * (k * k - 1.0) / a0, a2 = (1.0 - k / q + k * k) / a0)
     }
 
     /** Feeds [frames] frames of interleaved samples from [samples]. */
