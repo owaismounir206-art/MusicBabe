@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-03
+
+### Added
+- Video musicali a schermo intero ridisegnati: il video occupa tutto lo schermo e i controlli
+  galleggiano sopra e si nascondono da soli. Testo spento, karaoke parola per parola sopra il
+  video o in colonna accanto; Adatta/Riempi; regolazione della sincronia del testo; blocco dei
+  tocchi; picture in picture e salvataggio direttamente da lì.
+- Gesti sul video: doppio tocco ai lati per ±10 s, scorrimento a sinistra per la luminosità e a
+  destra per il volume, pizzico per riempire lo schermo, scorrimento in giù al centro per uscire.
+- Download con metadati completi: prima di salvare si vedono e si correggono titolo, artista,
+  album, artista album, genere, anno, traccia e disco. I campi mancanti vengono completati da
+  MusicBrainz (con copertina dal Cover Art Archive).
+- Tag scritti dentro il file per M4A, WAV e video MP4 (prima WAV e MP4 non ne avevano, M4A era
+  senza copertina), con il testo sincronizzato incorporato e anche come .lrc.
+- ReplayGain 2.0 misurato sul brano scaricato (loudness ITU-R BS.1770 / EBU R128).
+
+### Changed
+- Allineamento dei testi all'audio più preciso: le parole corte devono coincidere esattamente e
+  le ancore isolate e sospette vengono scartate.
+- Download da YouTube: il risultato è scelto con un punteggio su titolo, artista, durata e
+  versione (live, cover, karaoke… penalizzati) e, se uno stream non parte, si prova il successivo.
+
 ## [3.1.0] - 2026-11-01
 
 ### Added
