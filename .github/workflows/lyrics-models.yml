@@ -1,0 +1,85 @@
+name: Lyrics sync models
+
+# Converts the wav2vec2 CTC models used by the on-device lyrics sync to int8 ONNX and publishes them
+# (with their manifests and checksums) as a GitHub prerelease the app downloads from on first use.
+# An existing release is never overwritten unless `force` is set: the app pins each file's SHA-256.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag'
+        default: 'lyrics-models-v1'
+      force:
+        description: 'Rebuild and replace the files of an existing release'
+        type: boolean
+        default: false
+  push:
+    branches: [ 'claude/**' ]
+    paths: [ 'scripts/models/**', '.github/workflows/lyrics-models.yml' ]
+
+permissions:
+  contents: write
+
+jobs:
+  models:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || 'lyrics-models-v1' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Skip if already published
+        id: exists
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && [ "${{ inputs.force }}" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists: nothing to do."
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.exists.outputs.skip != 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Install converter
+        if: steps.exists.outputs.skip != 'true'
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "transformers<5" onnx onnxruntime==1.20.1 onnxscript numpy
+
+      - name: Convert Italian
+        if: steps.exists.outputs.skip != 'true'
+        run: |
+          python scripts/models/export_ctc_model.py --model jonatasgrosman/wav2vec2-large-xlsr-53-italian --id ctc-it-v1 --language it --out dist
+          rm -rf ~/.cache/huggingface
+
+      - name: Convert English
+        if: steps.exists.outputs.skip != 'true'
+        run: |
+          python scripts/models/export_ctc_model.py --model jonatasgrosman/wav2vec2-large-xlsr-53-english --id ctc-en-v1 --language en --out dist
+          rm -rf ~/.cache/huggingface
+
+      - name: Publish
+        if: steps.exists.outputs.skip != 'true'
+        run: |
+          cd dist
+          sha256sum *.onnx > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          Acoustic models for MusicBabe's on-device lyrics sync (CTC forced alignment), downloaded by the app on first use.
+
+          - `ctc-it-v1.onnx`: [jonatasgrosman/wav2vec2-large-xlsr-53-italian](https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-italian)
+          - `ctc-en-v1.onnx`: [jonatasgrosman/wav2vec2-large-xlsr-53-english](https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english)
+
+          Both are fine-tuned from facebook/wav2vec2-large-xlsr-53 and licensed under the Apache License 2.0.
+          Changes: exported to ONNX with a log-softmax output and dynamically quantized to int8 (MatMul weights)
+          by scripts/models/export_ctc_model.py. The .json files describe vocabulary, frame rate and checksum.
+          NOTES
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" *.onnx *.json SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" *.onnx *.json SHA256SUMS --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Lyrics sync models (v1)" --notes-file notes.md
+          fi
