@@ -246,7 +246,9 @@ class PlayerViewModel @Inject constructor(
     val songDownloadManager: SongDownloadManager,
     val inAppYtdlnisInstaller: InAppYtdlnisInstaller,
     private val downloadPreferencesRepository: DownloadPreferencesRepository,
-    val newSongAlertManager: NewSongAlertManager
+    val newSongAlertManager: NewSongAlertManager,
+    /** Listening history, for the "up next" recommendations of the library radio. */
+    private val playbackStatsRepository: com.theveloper.pixelplay.data.stats.PlaybackStatsRepository? = null
 ) : ViewModel() {
 
     // --- In-App New Song Alert Integration ---
@@ -3344,11 +3346,23 @@ class PlayerViewModel @Inject constructor(
             .onEach { (song, queue) ->
                 extended += song.id
                 val inQueue = queue.map { it.id }.toSet()
-                val pool = allSongsFlow.value.filter { it.id !in inQueue }
-                val similar = (pool.filter { it.artist == song.artist }.shuffled().take(4) +
-                    pool.filter { !song.genre.isNullOrBlank() && it.genre == song.genre }.shuffled().take(8) +
-                    pool.shuffled().take(4)).distinctBy { it.id }.take(10)
-                similar.forEach { addSongToQueue(it) }
+                val library = allSongsFlow.value
+                val history = runCatching { playbackStatsRepository?.exportEventsForBackup() }.getOrNull().orEmpty()
+                    .map { com.theveloper.pixelplay.data.recommend.ListenEvent(it.songId, it.timestamp, it.durationMs) }
+                // Related by artist, album, genre, era and the user's own "what I play next" habits;
+                // skipped and just-heard songs wait (see NextSongRecommender).
+                val picks = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    com.theveloper.pixelplay.data.recommend.NextSongRecommender.recommend(
+                        seed = song.toTrackFeatures(),
+                        candidates = library.map { it.toTrackFeatures() },
+                        history = history,
+                        now = System.currentTimeMillis(),
+                        count = 10,
+                        exclude = inQueue,
+                    )
+                }
+                val byId = library.associateBy { it.id }
+                picks.mapNotNull { byId[it.id] }.forEach { addSongToQueue(it) }
             }
             .launchIn(viewModelScope)
     }
@@ -4090,3 +4104,13 @@ data class UiExtras(val movingCover: Boolean = false, val guest: Boolean = false
 object LyricsTextScale {
     var value by androidx.compose.runtime.mutableFloatStateOf(1f)
 }
+
+private fun Song.toTrackFeatures() = com.theveloper.pixelplay.data.recommend.TrackFeatures(
+    id = id,
+    artists = artists.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOf(artist) },
+    album = album,
+    genre = genre,
+    year = year,
+    durationMs = duration,
+    isFavorite = isFavorite,
+)

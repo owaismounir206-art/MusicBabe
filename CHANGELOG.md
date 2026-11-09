@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-09
+
+### Added
+- Sincronizzazione dei testi interamente sul telefono (allineamento forzato CTC): dato il testo,
+  un modello acustico wav2vec2 ascolta il brano e mette i tempi riga per riga e parola per parola.
+  Niente server e niente rete durante la sincronizzazione; il modello della lingua (italiano o
+  inglese, ~350 MB, licenza Apache-2.0) si scarica una volta sola, con ripresa del download e
+  verifica SHA-256.
+- La sincronizzazione gira in primo piano con una notifica (fase e percentuale, pulsante Annulla) e
+  continua anche se chiudi l'app. Il risultato viene salvato come testo parola per parola, e anche come
+  LRC standard + JSON con i tempi delle parole, in una cache (stesso brano + stesso testo = istantaneo).
+- Avviso quando il testo sembra non appartenere alla registrazione (o la voce si sente poco).
+- Opzioni in Impostazioni › Libreria › Sincronizzazione testi sul telefono: isolamento della voce
+  (Spleeter) prima dell'ascolto, thread CPU, accelerazione XNNPACK, lingua, gestione dei modelli.
+- Test per tappe in Impostazioni › Sperimentali (decodifica, modello, sincronizzazione completa) con
+  tempi e picco di memoria misurati sul telefono.
+- Radio della libreria con un algoritmo per il brano successivo: sceglie brani collegati per
+  artista, album, genere ed epoca e in base alle tue abitudini (gli artisti che ascolti di solito
+  dopo questo, i brani che ascolti fino in fondo), evitando quelli saltati spesso o appena sentiti e
+  mai più di due brani di fila dello stesso artista.
+
+### Changed
+- Editor dei testi: ritocco di ±100 ms per riga; spostare o ri-sincronizzare una riga sposta anche
+  i tempi delle sue parole, che ora vengono conservati al salvataggio.
+- Decodifica audio per la sincronizzazione con un vero filtro anti-aliasing (le frequenze sopra gli
+  8 kHz non si ripiegano più nella banda della voce).
+- Il modello Whisper non è più dentro l'APK (circa 60 MB in meno): si scarica la prima volta che
+  serve, con verifica del checksum.
+
 ## [3.2.0] - 2026-11-03
 
 ### Added
