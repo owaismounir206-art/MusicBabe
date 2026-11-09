@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LinearScale
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Style
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Rectangle
@@ -788,6 +789,21 @@ fun ExperimentalSettingsScreen(
                            }
                         }
                     }
+                }
+            }
+
+            item(key = "lyrics_sync_lab_section") {
+                SettingsSection(
+                    title = stringResource(R.string.lyrics_lab_section),
+                    icon = {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Outlined.GraphicEq,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                ) {
+                    com.theveloper.pixelplay.presentation.screens.lyricssync.LyricsSyncLabSection(playerViewModel = playerViewModel)
                 }
             }
 

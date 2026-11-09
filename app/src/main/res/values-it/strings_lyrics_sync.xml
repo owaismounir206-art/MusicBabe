@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lyrics_lab_section">Sincronizzazione testi on-device · test</string>
+    <string name="lyrics_lab_decode_title">Tappa 1 · Decodifica audio</string>
+    <string name="lyrics_lab_decode_subtitle">Decodifica «%1$s» come farà la sincronizzazione: 16 kHz mono, a finestre da 30 s. Misura tempo e memoria.</string>
+    <string name="lyrics_lab_no_song">Prima avvia un brano salvato sul telefono.</string>
+    <string name="lyrics_lab_run">Avvia test</string>
+    <string name="lyrics_lab_cancel">Annulla</string>
+    <string name="lyrics_lab_decode_report">%1$s\nFile: %2$s · %3$d Hz · %4$d canali\nDecodificato: %5$s · %6$d campioni a 16 kHz · %7$d finestre da 30 s\nTempo: %8$s s (%9$s× il tempo reale)\nMemoria: %10$s all\'inizio, picco %11$s %12$s\nLivello: RMS %13$s · picco %14$s</string>
+    <string name="lyrics_lab_peak_test">(durante il test)</string>
+    <string name="lyrics_lab_peak_process">(di tutta l\'app, non azzerabile)</string>
+    <string name="lyrics_lab_err_not_local">Si possono sincronizzare solo brani salvati sul telefono.</string>
+    <string name="lyrics_lab_err_no_track">Il file non ha una traccia audio.</string>
+    <string name="lyrics_lab_err_corrupt">Il file audio è danneggiato o in un formato che il telefono non sa decodificare.</string>
+    <string name="lyrics_lab_err_too_long">L\'audio dura più di 15 minuti.</string>
+    <string name="lyrics_lab_err_empty">Il file non contiene suono.</string>
+    <string name="lyrics_lab_err_other">Il test non è riuscito.</string>
+</resources>
