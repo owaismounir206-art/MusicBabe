@@ -295,6 +295,7 @@ fun LyricsSheet(
     isKaraokeEnabled: Boolean = false,
     onToggleKaraoke: (() -> Unit)? = null,
     audioAlignmentProgress: Int? = null,
+    audioAlignmentPhase: Int? = null,
     onCancelAudioAlignment: () -> Unit = {},
     // BottomToggleRow Params
 
@@ -843,6 +844,7 @@ fun LyricsSheet(
                 if (audioAlignmentProgress != null) {
                     AudioAlignmentBanner(
                         progress = audioAlignmentProgress,
+                        phase = audioAlignmentPhase,
                         onCancel = onCancelAudioAlignment,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -2666,6 +2668,7 @@ internal fun resolveCurrentLineIndex(
 @Composable
 private fun AudioAlignmentBanner(
     progress: Int,
+    phase: Int?,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2680,7 +2683,7 @@ private fun AudioAlignmentBanner(
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                text = stringResource(R.string.lyrics_audio_align_progress, progress),
+                text = if (phase != null) "${stringResource(phase)} · $progress%" else stringResource(R.string.lyrics_audio_align_progress, progress),
                 style = MaterialTheme.typography.labelLarge,
                 color = scena.ink,
                 maxLines = 1,

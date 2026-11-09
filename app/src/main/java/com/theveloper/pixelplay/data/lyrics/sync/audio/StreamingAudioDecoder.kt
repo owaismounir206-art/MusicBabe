@@ -8,7 +8,6 @@ import android.media.MediaFormat
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.ByteOrder
@@ -50,6 +49,19 @@ class StreamingAudioDecoder @Inject constructor(@ApplicationContext private val 
         onProgress: (Float) -> Unit = {},
         sink: (FloatArray, Int) -> Unit,
     ): DecodeStats = withContext(Dispatchers.Default) {
+        val job = coroutineContext[kotlinx.coroutines.Job]
+        decodeBlocking(uri, outputRate, maxSeconds, isCancelled = { job?.isActive == false }, onProgress = onProgress, sink = sink)
+    }
+
+    /** Same as [decode], on the calling thread; [isCancelled] is checked between packets. */
+    fun decodeBlocking(
+        uri: Uri,
+        outputRate: Int = AudioWindower.SAMPLE_RATE,
+        maxSeconds: Int = MAX_SECONDS,
+        isCancelled: () -> Boolean = { false },
+        onProgress: (Float) -> Unit = {},
+        sink: (FloatArray, Int) -> Unit,
+    ): DecodeStats {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         try {
@@ -97,7 +109,7 @@ class StreamingAudioDecoder @Inject constructor(@ApplicationContext private val 
             var idleRounds = 0
             var lastPercent = -1
             while (!outputDone) {
-                coroutineContext.ensureActive()
+                if (isCancelled()) throw java.util.concurrent.CancellationException("Decoding cancelled")
                 var progressed = false
                 if (!inputDone) {
                     val inId = codec.dequeueInputBuffer(TIMEOUT_US)
@@ -175,7 +187,7 @@ class StreamingAudioDecoder @Inject constructor(@ApplicationContext private val 
             resampler.flush(countingSink)
             if (produced == 0L) throw AudioDecodeException.Empty()
             onProgress(1f)
-            DecodeStats(mime, format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT), outputRate, produced)
+            return DecodeStats(mime, format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT), outputRate, produced)
         } catch (e: MediaCodec.CodecException) {
             throw AudioDecodeException.Corrupt(e)
         } finally {

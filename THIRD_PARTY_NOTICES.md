@@ -81,12 +81,29 @@ https://github.com/ggml-org/whisper.cpp (v1.9.5) under `app/src/main/cpp/third_p
 CPU backend only. MIT License, Copyright (c) 2023-2026 The ggml authors; full text in
 `app/src/main/cpp/third_party/whisper.cpp/LICENSE`.
 
-## Whisper model (ggml-base-q5_1)
+## Whisper model (ggml-base-q5_1, downloaded on first use)
 
 OpenAI Whisper "base" weights converted and quantized for ggml, from
 https://huggingface.co/ggerganov/whisper.cpp (SHA-256
 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898). The Whisper code and model
 weights are released by OpenAI under the MIT License.
+
+## Lyrics sync models (wav2vec2, Apache License 2.0)
+
+The on-device lyrics sync downloads, on first use, acoustic models derived from:
+
+- `jonatasgrosman/wav2vec2-large-xlsr-53-italian` (https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-italian)
+- `jonatasgrosman/wav2vec2-large-xlsr-53-english` (https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english)
+
+Both by Jonatas Grosman, fine-tuned from `facebook/wav2vec2-large-xlsr-53`, licensed under the Apache
+License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0). Modifications: exported to ONNX
+with a log-softmax output and dynamically quantized to int8 by `scripts/models/export_ctc_model.py`.
+They are not included in the APK.
+
+## Spleeter vocals model
+
+Voice isolation (optional) downloads the Spleeter 2-stems vocals model by Deezer Research (MIT License),
+in the ONNX conversion published by the sherpa-onnx project.
 
 ## NewPipe Extractor
 

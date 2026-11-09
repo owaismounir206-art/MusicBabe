@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="lyrics_lab_section">On-device lyrics sync · tests</string>
+    <string name="lyrics_lab_section">On-device lyrics sync · stage tests</string>
     <string name="lyrics_lab_decode_title">Stage 1 · Audio decoding</string>
     <string name="lyrics_lab_decode_subtitle">Decodes “%1$s” the way the sync will: 16 kHz mono, in 30 s windows. Measures time and memory.</string>
     <string name="lyrics_lab_no_song">Play a song stored on the phone first.</string>
@@ -15,4 +15,57 @@
     <string name="lyrics_lab_err_too_long">The audio is longer than 15 minutes.</string>
     <string name="lyrics_lab_err_empty">The file contains no sound.</string>
     <string name="lyrics_lab_err_other">The test failed.</string>
+    <string name="lyrics_sync_channel">Lyrics sync</string>
+    <string name="lyrics_sync_notification_title">Syncing lyrics · %1$s</string>
+    <string name="lyrics_sync_phase_preparing">Preparing</string>
+    <string name="lyrics_sync_phase_download">Downloading the voice model (once)</string>
+    <string name="lyrics_sync_phase_listening">Listening to the song</string>
+    <string name="lyrics_sync_phase_aligning">Placing the words</string>
+    <string name="lyrics_sync_phase_saving">Saving</string>
+    <string name="lyrics_sync_done">Lyrics synced word by word</string>
+    <string name="lyrics_sync_done_mismatch">Synced, but unreliable: the lyrics may not belong to this recording, or the voice is hard to hear</string>
+    <string name="lyrics_sync_failed_title">Lyrics sync failed</string>
+    <string name="lyrics_sync_err_empty">There are no lyrics to sync. Add or paste them first.</string>
+    <string name="lyrics_sync_err_language">No sync model for this language yet (Italian and English are available).</string>
+    <string name="lyrics_sync_err_text_too_long">The lyrics are longer than the song: are they the right ones?</string>
+    <string name="lyrics_sync_err_memory">Not enough memory on this phone. Close other apps and try again.</string>
+    <string name="lyrics_sync_err_storage">Not enough free space to download the voice model (about 350 MB).</string>
+    <string name="lyrics_sync_err_download">The voice model could not be downloaded. It will resume from where it stopped next time.</string>
+    <string name="lyrics_sync_err_other">Something went wrong while syncing.</string>
+    <string name="lyrics_sync_started">Syncing on the phone: you can close the app, a notification shows the progress.</string>
+    <string name="lyrics_sync_busy">Another song is being synced: wait for it to finish.</string>
+    <string name="lyrics_sync_from_cache">Already synced: restored from the cache.</string>
+    <string name="lyrics_sync_settings_section">On-device lyrics sync</string>
+    <string name="lyrics_sync_settings_intro">“Sync with the audio” times the lyrics word by word on the phone, without sending anything online. The voice model of each language is downloaded once (about 350 MB); after that it works offline.</string>
+    <string name="lyrics_sync_settings_voice_title">Isolate the voice first</string>
+    <string name="lyrics_sync_settings_voice_subtitle">Removes the music before listening (Spleeter, 26 MB). Better on loud mixes, about twice as slow.</string>
+    <string name="lyrics_sync_settings_xnnpack_title">XNNPACK acceleration</string>
+    <string name="lyrics_sync_settings_xnnpack_subtitle">Optimised CPU kernels; falls back automatically if the phone does not support them.</string>
+    <string name="lyrics_sync_settings_threads_title">CPU threads: %1$d</string>
+    <string name="lyrics_sync_settings_threads_subtitle">More is faster but warmer; the default leaves one core free for playback.</string>
+    <string name="lyrics_sync_settings_language_title">Language of the lyrics</string>
+    <string name="lyrics_sync_settings_language_auto">Automatic</string>
+    <string name="lyrics_sync_settings_model_title">Voice model · %1$s</string>
+    <string name="lyrics_sync_settings_model_ready">Downloaded · %1$s</string>
+    <string name="lyrics_sync_settings_model_partial">Partly downloaded · %1$s of %2$s (resumes)</string>
+    <string name="lyrics_sync_settings_model_missing">Not downloaded · %1$s, downloaded automatically when needed</string>
+    <string name="lyrics_sync_settings_model_downloading">Downloading · %1$d%%</string>
+    <string name="lyrics_sync_settings_model_license">wav2vec2 · licence %1$s · %2$s</string>
+    <string name="lyrics_sync_settings_download">Download now</string>
+    <string name="lyrics_sync_settings_delete">Delete</string>
+    <string name="lyrics_lab_model_title">Stage 2 · Voice model</string>
+    <string name="lyrics_lab_model_subtitle">Loads the model (downloads it the first time, ~350 MB), runs it on the first 15 s of the song and shows what it hears.</string>
+    <string name="lyrics_lab_model_report">%1$s · %2$s
+Load: %3$.1f s · %4$d s of audio in %5$.1f s · %6$d frames
+Memory peak: %7$d MB
+What the model hears:</string>
+    <string name="lyrics_lab_full_title">Stage 3-5 · Full sync</string>
+    <string name="lyrics_lab_full_subtitle">Syncs the %1$d lines of the current lyrics on the phone exactly as the lyrics screen does (with the options in Settings), and measures it.</string>
+    <string name="lyrics_lab_full_report">Song %1$s · language %2$s
+Listening (decode + model): %3$.1f s · alignment: %4$.2f s · total: %5$.1f s
+Memory peak: %6$d MB
+%7$d lines, %8$d words, %9$d frames, %10$d tokens
+Order match: %11$.2f · %12$s</string>
+    <string name="lyrics_lab_full_ok">the lyrics match the audio</string>
+    <string name="lyrics_lab_full_mismatch">unreliable: the lyrics may not match</string>
 </resources>

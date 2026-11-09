@@ -89,8 +89,29 @@ import java.util.Locale
 private data class EditableLyricLine(
     val id: Int,
     val text: String,
-    val timestampMs: Long? = null
-)
+    val timestampMs: Long? = null,
+    /** Word times of the original line (karaoke), kept and moved with the line while its text is unchanged. */
+    val words: List<com.theveloper.pixelplay.data.model.SyncedWord>? = null,
+    val originalText: String? = null,
+) {
+    /** The line [deltaMs] later (or earlier), its words with it. */
+    fun shifted(deltaMs: Long): EditableLyricLine {
+        val start = timestampMs ?: return this
+        val newStart = (start + deltaMs).coerceAtLeast(0L)
+        val applied = newStart - start
+        return copy(
+            timestampMs = newStart,
+            words = words?.map { it.copy(time = (it.time + applied).toInt().coerceAtLeast(0)) }
+        )
+    }
+
+    /** Placed at [ms] by a tap: the words keep their spacing, moved by the same amount. */
+    fun placedAt(ms: Long): EditableLyricLine =
+        if (timestampMs != null) shifted(ms - timestampMs) else copy(timestampMs = ms, words = null)
+}
+
+/** Fine-tuning step of a line's time in the sync studio. */
+private const val NUDGE_MS = 100L
 
 @Composable
 fun LyricsEditorDialog(
@@ -513,31 +534,27 @@ fun LyricsEditorDialog(
                                                     TextButton(
                                                         onClick = {
                                                             val updated = syncLines.toMutableList()
-                                                            updated[index] = line.copy(
-                                                                timestampMs = (line.timestampMs - 200L).coerceAtLeast(0L)
-                                                            )
+                                                            updated[index] = line.shifted(-NUDGE_MS)
                                                             syncLines = updated
                                                         }
                                                     ) {
-                                                        Text("-0.2s", style = MaterialTheme.typography.labelSmall)
+                                                        Text("−0,1 s", style = MaterialTheme.typography.labelSmall)
                                                     }
 
                                                     TextButton(
                                                         onClick = {
                                                             val updated = syncLines.toMutableList()
-                                                            updated[index] = line.copy(
-                                                                timestampMs = line.timestampMs + 200L
-                                                            )
+                                                            updated[index] = line.shifted(NUDGE_MS)
                                                             syncLines = updated
                                                         }
                                                     ) {
-                                                        Text("+0.2s", style = MaterialTheme.typography.labelSmall)
+                                                        Text("+0,1 s", style = MaterialTheme.typography.labelSmall)
                                                     }
 
                                                     TextButton(
                                                         onClick = {
                                                             val updated = syncLines.toMutableList()
-                                                            updated[index] = line.copy(timestampMs = null)
+                                                            updated[index] = line.copy(timestampMs = null, words = null)
                                                             syncLines = updated
                                                         }
                                                     ) {
@@ -556,9 +573,7 @@ fun LyricsEditorDialog(
                                     onClick = {
                                         if (syncLines.isNotEmpty() && activeLineIndex in syncLines.indices) {
                                             val updated = syncLines.toMutableList()
-                                            updated[activeLineIndex] = updated[activeLineIndex].copy(
-                                                timestampMs = currentPlaybackMs
-                                            )
+                                            updated[activeLineIndex] = updated[activeLineIndex].placedAt(currentPlaybackMs)
                                             syncLines = updated
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
@@ -617,7 +632,7 @@ fun LyricsEditorDialog(
                     Button(
                         onClick = {
                             val finalLrc = if (isLiveSyncMode) {
-                                compileLinesToLrc(syncLines)
+                                compileForSave(syncLines)
                             } else {
                                 rawEditorText.trim()
                             }
@@ -662,7 +677,9 @@ private fun parseToEditableLines(rawText: String, initialLyrics: Lyrics?): List<
                 EditableLyricLine(
                     id = index,
                     text = line.line.trim(),
-                    timestampMs = line.time.toLong()
+                    timestampMs = line.time.toLong(),
+                    words = line.words?.takeIf { it.isNotEmpty() },
+                    originalText = line.line.trim()
                 )
             }
         } else if (!initialLyrics.plain.isNullOrEmpty()) {
@@ -703,6 +720,24 @@ private fun parseToEditableLines(rawText: String, initialLyrics: Lyrics?): List<
             EditableLyricLine(id = index, text = trimmed, timestampMs = null)
         }
     }
+}
+
+/**
+ * What the studio saves: word-timed .mblrc when every line has a time and word times survive (the
+ * text of those lines was not edited), so karaoke keeps working after a correction; LRC otherwise.
+ */
+private fun compileForSave(lines: List<EditableLyricLine>): String {
+    val keepsWords = lines.isNotEmpty() && lines.all { it.timestampMs != null } &&
+        lines.any { it.words != null && it.text.trim() == it.originalText }
+    if (!keepsWords) return compileLinesToLrc(lines)
+    val synced = lines.sortedBy { it.timestampMs }.map { line ->
+        SyncedLine(
+            time = line.timestampMs!!.toInt(),
+            line = line.text.trim(),
+            words = line.words?.takeIf { line.text.trim() == line.originalText }
+        )
+    }
+    return com.theveloper.pixelplay.utils.MbLrcFormat.encode(synced, source = "editor")
 }
 
 private fun compileLinesToLrc(lines: List<EditableLyricLine>): String {

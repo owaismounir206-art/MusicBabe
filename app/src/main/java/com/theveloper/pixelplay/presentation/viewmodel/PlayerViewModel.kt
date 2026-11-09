@@ -3305,6 +3305,7 @@ class PlayerViewModel @Inject constructor(
 
     /** Progress (0..100) of the on-device audio word alignment, null when idle. */
     val lyricsAudioAlignmentProgress: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentProgress
+    val lyricsAudioAlignmentPhase: StateFlow<Int?> get() = lyricsStateHolder.audioAlignmentPhase
 
     private val _isMusicVideoVisible = MutableStateFlow(false)
 
@@ -3875,7 +3876,9 @@ class PlayerViewModel @Inject constructor(
         val currentSong = stablePlayerState.value.currentSong ?: return
         val lyrics = stablePlayerState.value.lyrics
         viewModelScope.launch {
-            if (geminiAudioLyricsTranscriber.hasKey()) {
+            // Lyrics we have are synced on the phone (no upload); the cloud only writes missing ones.
+            val hasText = lyrics?.synced?.any { it.line.isNotBlank() } == true || lyrics?.plain?.any { it.isNotBlank() } == true
+            if (!hasText && geminiAudioLyricsTranscriber.hasKey()) {
                 lyricsStateHolder.alignLyricsWithCloudAi(
                     currentSong = currentSong,
                     lyricsObj = lyrics,

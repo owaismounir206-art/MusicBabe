@@ -33,6 +33,111 @@ fun LyricsSyncLabSection(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val playerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val song = playerState.currentSong
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        DecodeTestCard(viewModel, state, song)
+        ModelTestCard(viewModel, song)
+        FullSyncCard(viewModel, song, playerState.lyrics)
+    }
+}
+
+@Composable
+private fun ModelTestCard(viewModel: LyricsSyncLabViewModel, song: com.theveloper.pixelplay.data.model.Song?) {
+    val state by viewModel.model.collectAsStateWithLifecycle()
+    var language by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(viewModel.languages.firstOrNull() ?: "it") }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(R.string.lyrics_lab_model_title), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.lyrics_lab_model_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                viewModel.languages.forEach { code ->
+                    androidx.compose.material3.FilterChip(selected = language == code, onClick = { language = code }, label = { Text(code.uppercase()) })
+                }
+            }
+            val running = state is ModelLabState.Running
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { viewModel.runModelTest(song, language) }, enabled = !running && song != null) { Text(stringResource(R.string.lyrics_lab_run)) }
+                if (running) OutlinedButton(onClick = viewModel::cancelModelTest) { Text(stringResource(R.string.lyrics_lab_cancel)) }
+            }
+            when (val s = state) {
+                ModelLabState.Idle -> Unit
+                is ModelLabState.Running -> LinearProgressIndicator(progress = { s.progress }, modifier = Modifier.fillMaxWidth())
+                is ModelLabState.Done -> {
+                    val r = s.report
+                    Text(
+                        stringResource(
+                            R.string.lyrics_lab_model_report,
+                            r.modelId, r.provider, r.loadMs / 1000.0, r.windowSeconds, r.inferenceMs / 1000.0,
+                            r.frames, r.peakRamKb?.let { it / 1024 } ?: 0L
+                        ),
+                        style = MaterialTheme.typography.bodySmall.merge(TextStyle(fontFeatureSettings = "tnum"))
+                    )
+                    Text("“${r.heard.ifBlank { "…" }}”", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                is ModelLabState.Failed -> Text(stringResource(R.string.lyrics_lab_err_other) + (s.detail?.let { "\n$it" } ?: ""), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullSyncCard(viewModel: LyricsSyncLabViewModel, song: com.theveloper.pixelplay.data.model.Song?, lyrics: com.theveloper.pixelplay.data.model.Lyrics?) {
+    val state by viewModel.syncState.collectAsStateWithLifecycle(com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Idle)
+    var report by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<FullSyncReport?>(null) }
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(state) {
+        val s = state
+        if (s is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Succeeded) report = viewModel.reportFor(s)
+    }
+    val lines = (lyrics?.synced?.map { it.line } ?: lyrics?.plain).orEmpty().filter { it.isNotBlank() }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(R.string.lyrics_lab_full_title), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                if (lines.isEmpty()) stringResource(R.string.lyrics_sync_err_empty) else stringResource(R.string.lyrics_lab_full_subtitle, lines.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val running = state is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Running
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { busy = !viewModel.startFullSync(song, lines); report = null }, enabled = !running && song != null && lines.isNotEmpty()) {
+                    Text(stringResource(R.string.lyrics_lab_run))
+                }
+                if (running) OutlinedButton(onClick = viewModel::cancelFullSync) { Text(stringResource(R.string.lyrics_lab_cancel)) }
+            }
+            if (busy) Text(stringResource(R.string.lyrics_sync_busy), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            when (val s = state) {
+                is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Running -> {
+                    Text("${stringResource(com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncWorker.phaseText(s.phase))} · ${(s.progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                    LinearProgressIndicator(progress = { s.progress }, modifier = Modifier.fillMaxWidth())
+                }
+                is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Failed ->
+                    Text(stringResource(com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncWorker.errorText(s.error)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                else -> Unit
+            }
+            report?.let { r ->
+                val seconds = r.stats.audioMs / 1000
+                Text(
+                    stringResource(
+                        R.string.lyrics_lab_full_report,
+                        String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60),
+                        r.language,
+                        r.stats.decodeAndModelMs / 1000.0,
+                        r.stats.alignMs / 1000.0,
+                        r.stats.totalMs / 1000.0,
+                        r.stats.peakRamKb?.let { it / 1024 } ?: 0L,
+                        r.lines, r.words, r.stats.frames, r.stats.tokens,
+                        r.orderGain ?: 0.0,
+                        stringResource(if (r.mismatch) R.string.lyrics_lab_full_mismatch else R.string.lyrics_lab_full_ok),
+                    ) + if (r.fromCache) "\n" + stringResource(R.string.lyrics_sync_from_cache) else "",
+                    style = MaterialTheme.typography.bodySmall.merge(TextStyle(fontFeatureSettings = "tnum"))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DecodeTestCard(viewModel: LyricsSyncLabViewModel, state: LyricsSyncLabState, song: com.theveloper.pixelplay.data.model.Song?) {
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,

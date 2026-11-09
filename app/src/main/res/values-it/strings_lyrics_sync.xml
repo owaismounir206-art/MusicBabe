@@ -15,4 +15,57 @@
     <string name="lyrics_lab_err_too_long">L\'audio dura più di 15 minuti.</string>
     <string name="lyrics_lab_err_empty">Il file non contiene suono.</string>
     <string name="lyrics_lab_err_other">Il test non è riuscito.</string>
+    <string name="lyrics_sync_channel">Sincronizzazione testi</string>
+    <string name="lyrics_sync_notification_title">Sincronizzo il testo · %1$s</string>
+    <string name="lyrics_sync_phase_preparing">Preparazione</string>
+    <string name="lyrics_sync_phase_download">Scarico il modello vocale (una volta sola)</string>
+    <string name="lyrics_sync_phase_listening">Ascolto il brano</string>
+    <string name="lyrics_sync_phase_aligning">Posiziono le parole</string>
+    <string name="lyrics_sync_phase_saving">Salvataggio</string>
+    <string name="lyrics_sync_done">Testo sincronizzato parola per parola</string>
+    <string name="lyrics_sync_done_mismatch">Sincronizzato, ma poco affidabile: il testo potrebbe non essere di questa registrazione, oppure la voce si sente poco</string>
+    <string name="lyrics_sync_failed_title">Sincronizzazione non riuscita</string>
+    <string name="lyrics_sync_err_empty">Non c\'è un testo da sincronizzare. Aggiungilo o incollalo prima.</string>
+    <string name="lyrics_sync_err_language">Per questa lingua non c\'è ancora un modello (sono disponibili italiano e inglese).</string>
+    <string name="lyrics_sync_err_text_too_long">Il testo è più lungo del brano: è quello giusto?</string>
+    <string name="lyrics_sync_err_memory">Memoria insufficiente. Chiudi altre app e riprova.</string>
+    <string name="lyrics_sync_err_storage">Spazio insufficiente per scaricare il modello vocale (circa 350 MB).</string>
+    <string name="lyrics_sync_err_download">Non sono riuscito a scaricare il modello vocale. La prossima volta riprende da dove si è fermato.</string>
+    <string name="lyrics_sync_err_other">Qualcosa è andato storto durante la sincronizzazione.</string>
+    <string name="lyrics_sync_started">Sincronizzo sul telefono: puoi chiudere l\'app, una notifica mostra l\'avanzamento.</string>
+    <string name="lyrics_sync_busy">Sto già sincronizzando un altro brano: attendi che finisca.</string>
+    <string name="lyrics_sync_from_cache">Già sincronizzato: ripristinato dalla cache.</string>
+    <string name="lyrics_sync_settings_section">Sincronizzazione testi sul telefono</string>
+    <string name="lyrics_sync_settings_intro">«Sincronizza con l\'audio» mette i tempi al testo parola per parola sul telefono, senza mandare nulla online. Il modello vocale di ogni lingua si scarica una volta (circa 350 MB); poi funziona offline.</string>
+    <string name="lyrics_sync_settings_voice_title">Isola prima la voce</string>
+    <string name="lyrics_sync_settings_voice_subtitle">Toglie la musica prima di ascoltare (Spleeter, 26 MB). Meglio sui mix rumorosi, circa il doppio più lento.</string>
+    <string name="lyrics_sync_settings_xnnpack_title">Accelerazione XNNPACK</string>
+    <string name="lyrics_sync_settings_xnnpack_subtitle">Calcoli CPU ottimizzati; se il telefono non li supporta si torna da soli al normale.</string>
+    <string name="lyrics_sync_settings_threads_title">Thread CPU: %1$d</string>
+    <string name="lyrics_sync_settings_threads_subtitle">Più thread = più veloce ma più caldo; il valore predefinito lascia un core libero per la musica.</string>
+    <string name="lyrics_sync_settings_language_title">Lingua del testo</string>
+    <string name="lyrics_sync_settings_language_auto">Automatica</string>
+    <string name="lyrics_sync_settings_model_title">Modello vocale · %1$s</string>
+    <string name="lyrics_sync_settings_model_ready">Scaricato · %1$s</string>
+    <string name="lyrics_sync_settings_model_partial">Scaricato in parte · %1$s di %2$s (riprende)</string>
+    <string name="lyrics_sync_settings_model_missing">Non scaricato · %1$s, si scarica da solo quando serve</string>
+    <string name="lyrics_sync_settings_model_downloading">Download · %1$d%%</string>
+    <string name="lyrics_sync_settings_model_license">wav2vec2 · licenza %1$s · %2$s</string>
+    <string name="lyrics_sync_settings_download">Scarica ora</string>
+    <string name="lyrics_sync_settings_delete">Elimina</string>
+    <string name="lyrics_lab_model_title">Tappa 2 · Modello vocale</string>
+    <string name="lyrics_lab_model_subtitle">Carica il modello (la prima volta lo scarica, ~350 MB), lo esegue sui primi 15 s del brano e mostra cosa sente.</string>
+    <string name="lyrics_lab_model_report">%1$s · %2$s
+Caricamento: %3$.1f s · %4$d s di audio in %5$.1f s · %6$d frame
+Picco di memoria: %7$d MB
+Cosa sente il modello:</string>
+    <string name="lyrics_lab_full_title">Tappe 3-5 · Sincronizzazione completa</string>
+    <string name="lyrics_lab_full_subtitle">Sincronizza le %1$d righe del testo attuale sul telefono, esattamente come la schermata dei testi (con le opzioni delle Impostazioni), e la misura.</string>
+    <string name="lyrics_lab_full_report">Brano %1$s · lingua %2$s
+Ascolto (decodifica + modello): %3$.1f s · allineamento: %4$.2f s · totale: %5$.1f s
+Picco di memoria: %6$d MB
+%7$d righe, %8$d parole, %9$d frame, %10$d token
+Corrispondenza dell\'ordine: %11$.2f · %12$s</string>
+    <string name="lyrics_lab_full_ok">il testo corrisponde all\'audio</string>
+    <string name="lyrics_lab_full_mismatch">poco affidabile: il testo potrebbe non corrispondere</string>
 </resources>

@@ -26,6 +26,7 @@ import kotlin.coroutines.coroutineContext
 /** Why an alignment could not be produced. */
 sealed class AudioAlignmentException(message: String) : Exception(message) {
     class Unsupported : AudioAlignmentException("Speech model not available on this device")
+    class ModelUnavailable : AudioAlignmentException("The speech model could not be downloaded")
     class NotLocal : AudioAlignmentException("Only songs stored on the device can be aligned")
     class NoSpeech : AudioAlignmentException("No words were recognised in the audio")
     class TooFewMatches(val ratio: Double) : AudioAlignmentException("Too few lyric words were heard in the audio")
@@ -33,7 +34,7 @@ sealed class AudioAlignmentException(message: String) : Exception(message) {
 
 /**
  * Times the real lyrics of a song word by word by listening to the audio on the device
- * (whisper.cpp, model bundled in the APK). Runs one song at a time; [cancel] stops it.
+ * (whisper.cpp, model downloaded on first use). Runs one song at a time; [cancel] stops it.
  */
 @Singleton
 class LyricsAudioAlignmentService @Inject constructor(
@@ -81,7 +82,7 @@ class LyricsAudioAlignmentService @Inject constructor(
         if (uri.scheme != "content" && uri.scheme != "file") throw AudioAlignmentException.NotLocal()
 
         _progress.value = 0
-        val model = ensureModel()
+        val model = runCatching { ensureModel() }.getOrElse { throw AudioAlignmentException.ModelUnavailable() }
         // The voice alone (Spleeter), then louder: quiet vocals under a loud mix are heard and placed.
         // Without the model (no connection the first time) the voice range is kept with a filter.
         val mix = WhisperAudioDecoder.decode(context, uri)
@@ -127,25 +128,35 @@ class LyricsAudioAlignmentService @Inject constructor(
         if (!isActive) throw kotlinx.coroutines.CancellationException("Alignment cancelled")
     }
 
-    /** Copies the bundled model out of the APK once (whisper.cpp reads it from a file path). */
-    private fun ensureModel(): File {
+    /**
+     * The Whisper model, downloaded on first use (no longer bundled in the APK: −60 MB) with resume
+     * and SHA-256 check. An older install that still has it in its assets copies it from there.
+     */
+    private suspend fun ensureModel(): File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val target = File(context.filesDir, "whisper/$MODEL_ASSET_NAME")
-        val expectedSize = context.assets.openFd("whisper/$MODEL_ASSET_NAME").use { it.length }
-        if (target.exists() && target.length() == expectedSize) return target
-        target.parentFile?.mkdirs()
-        val partial = File(target.parentFile, "$MODEL_ASSET_NAME.part")
-        context.assets.open("whisper/$MODEL_ASSET_NAME").use { input ->
-            partial.outputStream().use { output -> input.copyTo(output) }
+        if (com.theveloper.pixelplay.data.lyrics.sync.model.ResumableDownloader.isComplete(target, MODEL_SHA256)) return@withContext target
+        if (target.exists() && target.length() == MODEL_BYTES) {
+            // Copied from the APK by an older version: verify once, then trust it.
+            if (com.theveloper.pixelplay.data.lyrics.sync.model.ResumableDownloader.sha256Of(target) == MODEL_SHA256) {
+                File(target.path + ".sha256").writeText(MODEL_SHA256)
+                return@withContext target
+            }
         }
-        if (!partial.renameTo(target)) {
-            partial.copyTo(target, overwrite = true)
-            partial.delete()
-        }
-        return target
+        val job = coroutineContext[kotlinx.coroutines.Job]
+        com.theveloper.pixelplay.data.lyrics.sync.model.ResumableDownloader.download(
+            url = MODEL_URL,
+            target = target,
+            sha256 = MODEL_SHA256,
+            bytes = MODEL_BYTES,
+            isCancelled = { job?.isActive == false },
+        ) { done, total -> if (total > 0) _progress.value = ((done * 5) / total).toInt() }
     }
 
     private companion object {
         const val MODEL_ASSET_NAME = "ggml-base-q5_1.bin"
+        const val MODEL_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin"
+        const val MODEL_SHA256 = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
+        const val MODEL_BYTES = 59_707_625L
         /** Whisper's prompt is capped at about 224 tokens; the start of the lyrics is enough to bias it. */
         const val PROMPT_CHARS = 600
         const val MIN_TRANSCRIBED_LINES = 3

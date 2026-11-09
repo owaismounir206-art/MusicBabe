@@ -1034,6 +1034,7 @@ fun FullPlayerContent(
         ) + fadeOut(animationSpec = tween(durationMillis = 120))
     ) {
         val lyricsAudioAlignmentProgress by playerViewModel.lyricsAudioAlignmentProgress.collectAsStateWithLifecycle()
+        val lyricsAudioAlignmentPhase by playerViewModel.lyricsAudioAlignmentPhase.collectAsStateWithLifecycle()
         // The lyrics are always a dark stage tinted by the cover: the glow needs a dark ground.
         MaterialTheme(colorScheme = lyricsStageScheme(MaterialTheme.colorScheme)) {
         LyricsSheet(
@@ -1067,6 +1068,7 @@ fun FullPlayerContent(
             isKaraokeEnabled = isKaraokeEnabled,
             onToggleKaraoke = playerViewModel::toggleKaraoke,
             audioAlignmentProgress = lyricsAudioAlignmentProgress,
+            audioAlignmentPhase = lyricsAudioAlignmentPhase,
             onCancelAudioAlignment = { playerViewModel.cancelLyricsAudioAlignment() },
             onSeekTo = { playerViewModel.seekTo(it) },
 

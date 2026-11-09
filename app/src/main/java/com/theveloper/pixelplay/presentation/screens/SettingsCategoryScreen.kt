@@ -536,6 +536,13 @@ fun SettingsCategoryScreen(
                                     onClick = { showClearLyricsDialog = true }
                                 )
                             }
+
+                            SettingsSubsection(
+                                title = stringResource(R.string.lyrics_sync_settings_section),
+                                addBottomSpace = false
+                            ) {
+                                com.theveloper.pixelplay.presentation.screens.lyricssync.LyricsSyncSettingsPanel()
+                            }
                         }
                         SettingsCategory.APPEARANCE -> {
                             val useSmoothCorners by settingsViewModel.useSmoothCorners.collectAsStateWithLifecycle()

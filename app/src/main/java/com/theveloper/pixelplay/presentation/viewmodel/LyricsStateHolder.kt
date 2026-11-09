@@ -69,7 +69,11 @@ class LyricsStateHolder @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val songMetadataEditor: SongMetadataEditor,
     private val audioAligner: com.theveloper.pixelplay.data.lyrics.align.LyricsAudioAlignmentService? = null,
-    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository? = null
+    private val localMusicVideos: com.theveloper.pixelplay.data.videos.LocalMusicVideoRepository? = null,
+    /** On-device CTC lyrics sync (WorkManager). */
+    private val syncScheduler: com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncScheduler? = null,
+    private val syncCache: com.theveloper.pixelplay.data.lyrics.sync.SyncCache? = null,
+    private val syncModels: com.theveloper.pixelplay.data.lyrics.sync.model.SyncModelStore? = null,
 ) {
     /** Library songs keep lyrics in the database; imported music videos keep them with the video. */
     private suspend fun persistLyrics(song: Song, rawLyrics: String) {
@@ -117,6 +121,8 @@ class LyricsStateHolder @Inject constructor(
     ) {
         scope = coroutineScope
         loadCallback = callback
+        playerStateRef = stablePlayerState
+        observeAudioAlignment(coroutineScope)
 
         coroutineScope.launch {
             stablePlayerState
@@ -347,8 +353,91 @@ class LyricsStateHolder @Inject constructor(
      * Import from file.
      */
     /** Progress (0..100) of the audio word alignment, null when none is running. */
-    val audioAlignmentProgress: StateFlow<Int?> =
-        audioAligner?.progress ?: MutableStateFlow<Int?>(null).asStateFlow()
+    private val _audioAlignmentProgress = MutableStateFlow<Int?>(null)
+    val audioAlignmentProgress: StateFlow<Int?> = _audioAlignmentProgress.asStateFlow()
+
+    /** String resource of the on-device sync phase shown with the progress (null for Whisper). */
+    private val _audioAlignmentPhase = MutableStateFlow<Int?>(null)
+    val audioAlignmentPhase: StateFlow<Int?> = _audioAlignmentPhase.asStateFlow()
+
+    private var playerStateRef: StateFlow<com.theveloper.pixelplay.presentation.viewmodel.StablePlayerState>? = null
+    private var handledSyncWork: String? = null
+    private var getStringRef: ((Int) -> String)? = null
+
+    private fun observeAudioAlignment(scope: CoroutineScope) {
+        audioAligner?.let { aligner ->
+            scope.launch {
+                aligner.progress.collect { p -> if (_audioAlignmentPhase.value == null) _audioAlignmentProgress.value = p }
+            }
+        }
+        val scheduler = syncScheduler ?: return
+        scope.launch {
+            scheduler.state.collect { state ->
+                when (state) {
+                    is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Running -> {
+                        _audioAlignmentPhase.value = com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncWorker.phaseText(state.phase)
+                        _audioAlignmentProgress.value = (state.progress * 100).toInt().coerceIn(0, 100)
+                    }
+                    is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Succeeded -> {
+                        clearOnDeviceProgress()
+                        if (handledSyncWork != state.workId) {
+                            handledSyncWork = state.workId
+                            onOnDeviceSyncSucceeded(state)
+                        }
+                    }
+                    is com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Failed -> {
+                        clearOnDeviceProgress()
+                        if (handledSyncWork != state.workId) {
+                            handledSyncWork = state.workId
+                            getStringRef?.let { gs ->
+                                _messageEvents.emit(gs(com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncWorker.errorText(state.error)))
+                            }
+                        }
+                    }
+                    com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Idle -> clearOnDeviceProgress()
+                }
+            }
+        }
+    }
+
+    private fun clearOnDeviceProgress() {
+        if (_audioAlignmentPhase.value != null) {
+            _audioAlignmentPhase.value = null
+            _audioAlignmentProgress.value = null
+        }
+    }
+
+    /** The worker saved the lyrics in the library; show them now if that song is still playing. */
+    private suspend fun onOnDeviceSyncSucceeded(state: com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncState.Succeeded) {
+        val song = playerStateRef?.value?.currentSong ?: return
+        if (song.id != state.songId) return
+        val gs = getStringRef
+        val document = withContext(Dispatchers.IO) {
+            val key = state.cacheKey ?: return@withContext null
+            syncCache?.get(key)?.toResult()?.lines?.map { line ->
+                SyncedLine(
+                    time = line.startMs.toInt(),
+                    line = line.text,
+                    words = line.words.map { com.theveloper.pixelplay.data.model.SyncedWord(it.startMs.toInt(), it.text, true) }
+                )
+            }?.let { MbLrcFormat.encode(it, source = com.theveloper.pixelplay.data.lyrics.sync.work.LyricsSyncWorker.SOURCE) }
+        } ?: return
+        val parsed = LyricsUtils.parseLyrics(document)
+        val refreshedAlbumArtUri = persistLyricsToFileMetadataIfPossible(song, document)
+        _songUpdates.emit(song.withPersistedLyrics(document, refreshedAlbumArtUri) to parsed.takeIf(::hasValidLyrics))
+        _searchUiState.value = LyricsSearchUiState.Success(parsed)
+        if (gs != null) {
+            _messageEvents.emit(
+                gs(
+                    when {
+                        state.mismatch -> R.string.lyrics_sync_done_mismatch
+                        state.fromCache -> R.string.lyrics_sync_from_cache
+                        else -> R.string.lyrics_sync_done
+                    }
+                )
+            )
+        }
+    }
 
     private var audioAlignmentJob: Job? = null
 
@@ -361,6 +450,24 @@ class LyricsStateHolder @Inject constructor(
      * them written from the audio. The result is saved as `.mblrc` (an LRC copy goes in the tags).
      */
     fun alignLyricsToAudio(currentSong: Song, lyricsObj: Lyrics?, getString: (Int) -> String) {
+        getStringRef = getString
+        // Lyrics we already have: forced alignment on the device (CTC model, background worker).
+        val known = (lyricsObj?.synced?.map { it.line } ?: lyricsObj?.plain).orEmpty()
+        val scheduler = syncScheduler
+        if (scheduler != null && known.any { it.isNotBlank() } && !syncModels?.specs.isNullOrEmpty()) {
+            val uri = android.net.Uri.parse(currentSong.contentUriString)
+            if (uri.scheme != "content" && uri.scheme != "file") {
+                _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_not_local))
+                return
+            }
+            val started = scheduler.enqueue(currentSong, known)
+            _messageEvents.tryEmit(getString(if (started) R.string.lyrics_sync_started else R.string.lyrics_sync_busy))
+            if (started) {
+                _audioAlignmentPhase.value = R.string.lyrics_sync_phase_preparing
+                _audioAlignmentProgress.value = 0
+            }
+            return
+        }
         val aligner = audioAligner
         if (aligner == null || !aligner.isSupported) {
             _messageEvents.tryEmit(getString(R.string.lyrics_audio_align_unsupported))
@@ -455,6 +562,8 @@ class LyricsStateHolder @Inject constructor(
                         is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.NoSpeech,
                         is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.TooFewMatches ->
                             R.string.lyrics_audio_align_too_few
+                        is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.ModelUnavailable ->
+                            R.string.lyrics_sync_err_download
                         is com.theveloper.pixelplay.data.lyrics.align.AudioAlignmentException.Unsupported ->
                             R.string.lyrics_audio_align_unsupported
                         else -> null
@@ -471,6 +580,8 @@ class LyricsStateHolder @Inject constructor(
     }
 
     fun cancelAudioAlignment() {
+        syncScheduler?.cancel()
+        clearOnDeviceProgress()
         audioAligner?.cancel()
         audioAlignmentJob?.cancel()
     }

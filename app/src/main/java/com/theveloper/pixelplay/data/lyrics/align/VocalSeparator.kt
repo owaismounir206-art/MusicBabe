@@ -34,6 +34,58 @@ class VocalSeparator @Inject constructor(@ApplicationContext private val context
 
     private val modelFile get() = File(context.filesDir, "spleeter/vocals.int8.onnx")
 
+    /**
+     * A Spleeter session for the on-device lyrics sync, which isolates the voice one window at a
+     * time (blocking, on the caller's thread). Null when the model cannot be had. Close it after use.
+     */
+    suspend fun openWindowSession(threads: Int = 2): WindowSession? {
+        val model = runCatching { ensureModel() }.onFailure { Timber.w(it, "Spleeter model unavailable") }.getOrNull()
+            ?: return null
+        val env = OrtEnvironment.getEnvironment()
+        val session = runCatching {
+            env.createSession(model.absolutePath, OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(threads)
+                setCPUArenaAllocator(false)
+            })
+        }.onFailure { Timber.w(it, "Spleeter session failed") }.getOrNull() ?: return null
+        return WindowSession(env, session)
+    }
+
+    inner class WindowSession internal constructor(
+        private val env: OrtEnvironment,
+        private val session: OrtSession,
+    ) : java.io.Closeable {
+        /** The voice of [length] samples of 16 kHz [window]; null if separation failed (the mix is used). */
+        fun separate(window: FloatArray, length: Int, isCancelled: () -> Boolean): FloatArray? = try {
+            val up = com.theveloper.pixelplay.data.lyrics.sync.audio.PcmResampler(IN_RATE, MODEL_RATE)
+            val hi = ArrayList<FloatArray>()
+            var hiSize = 0
+            val collect: (FloatArray, Int) -> Unit = { b, n -> hi += b.copyOf(n); hiSize += n }
+            up.process(window, 0, length, collect)
+            up.flush(collect)
+            val audio = FloatArray(hiSize).also { a -> var p = 0; hi.forEach { System.arraycopy(it, 0, a, p, it.size); p += it.size } }
+            val voice = maskVoice(audio, session, env, onProgress = {}, isCancelled = isCancelled)
+            val down = com.theveloper.pixelplay.data.lyrics.sync.audio.PcmResampler(MODEL_RATE, IN_RATE)
+            val out = FloatArray(length)
+            var p = 0
+            val put: (FloatArray, Int) -> Unit = { b, n -> val m = minOf(n, length - p); if (m > 0) { System.arraycopy(b, 0, out, p, m); p += m } }
+            down.process(voice, 0, voice.size, put)
+            down.flush(put)
+            VocalFocus.normalize(out)
+            out
+        } catch (e: java.util.concurrent.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Voice separation failed on a window")
+            null
+        } catch (e: OutOfMemoryError) {
+            Timber.w(e, "Voice separation ran out of memory")
+            null
+        }
+
+        override fun close() = session.close()
+    }
+
     /** The voice of [pcm16k], or null when the model is missing and cannot be downloaded. */
     suspend fun separate(pcm16k: FloatArray, onProgress: (Int) -> Unit = {}): FloatArray? = withContext(Dispatchers.Default) {
         val model = runCatching { ensureModel() }.onFailure { Timber.w(it, "Spleeter model unavailable") }.getOrNull()
@@ -43,8 +95,9 @@ class VocalSeparator @Inject constructor(@ApplicationContext private val context
             env.createSession(model.absolutePath, OrtSession.SessionOptions().apply { setIntraOpNumThreads(4) })
         }.onFailure { Timber.w(it, "Spleeter session failed") }.getOrNull() ?: return@withContext null
         try {
+            val job = coroutineContext[kotlinx.coroutines.Job]
             val audio = resample(pcm16k, IN_RATE, MODEL_RATE)
-            val voice = maskVoice(audio, session, env, onProgress)
+            val voice = maskVoice(audio, session, env, onProgress) { job?.isActive == false }
             resample(voice, MODEL_RATE, IN_RATE).copyOf(pcm16k.size)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -56,7 +109,13 @@ class VocalSeparator @Inject constructor(@ApplicationContext private val context
     }
 
     /** STFT (4096, hop 1024, Hann), the model's vocal magnitude as a mask, inverse STFT; 512 frames at a time. */
-    private suspend fun maskVoice(x: FloatArray, session: OrtSession, env: OrtEnvironment, onProgress: (Int) -> Unit): FloatArray {
+    private fun maskVoice(
+        x: FloatArray,
+        session: OrtSession,
+        env: OrtEnvironment,
+        onProgress: (Int) -> Unit,
+        isCancelled: () -> Boolean,
+    ): FloatArray {
         val frames = if (x.size < N_FFT) 0 else 1 + (x.size - N_FFT) / HOP
         val out = FloatArray(x.size)
         val norm = FloatArray(x.size)
@@ -66,7 +125,7 @@ class VocalSeparator @Inject constructor(@ApplicationContext private val context
         val im = Array(SPLIT) { FloatArray(N_FFT) }
         val mag = FloatArray(SPLIT * BINS)
         for (split in 0 until splits) {
-            coroutineContext.ensureActive()
+            if (isCancelled()) throw java.util.concurrent.CancellationException("Voice separation cancelled")
             val first = split * SPLIT
             val count = minOf(SPLIT, frames - first)
             java.util.Arrays.fill(mag, 0f)

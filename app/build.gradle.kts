@@ -275,10 +275,8 @@ androidComponents {
             copyThirdPartyNotices,
             CopyThirdPartyNotices::outputDirectory,
         )
-        variant.sources.assets?.addGeneratedSourceDirectory(
-            fetchWhisperModel,
-            FetchWhisperModel::outputDirectory,
-        )
+        // The Whisper model is no longer bundled: the app downloads it on first use (checksum
+        // verified), so the APK is ~60 MB lighter. `fetchWhisperModel` stays for local tooling.
     }
 }
 
