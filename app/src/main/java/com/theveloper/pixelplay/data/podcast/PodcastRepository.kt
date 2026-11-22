@@ -118,7 +118,10 @@ class PodcastRepository @Inject constructor(
         id = songIdFor(episode.guid),
         title = episode.title,
         artist = show.author.ifBlank { show.title },
+        // Positive ids like the online songs: -1 means "unknown" in parts of the player.
+        artistId = kotlin.math.abs(show.author.ifBlank { show.title }.hashCode().toLong()).coerceAtLeast(1000L),
         album = show.title,
+        albumId = kotlin.math.abs(show.feedUrl.hashCode().toLong()).coerceAtLeast(1000L),
         albumArtUriString = episode.artworkUrl ?: show.artworkUrl,
         contentUriString = episode.audioUrl.replaceFirst("http://", "https://"),
         path = "",
