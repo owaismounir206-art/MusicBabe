@@ -65,8 +65,12 @@ private enum class PlaybackButtonType { NONE, PREVIOUS, PLAY_PAUSE, NEXT }
 // Scena transport: previous/next are squircle buttons (about 76 x 64 dp), play/pause is a square
 // of the row height that turns from a rounded square (paused) into a circle (playing).
 private val SkipButtonWidth = 76.dp
-private val SkipButtonHeight = 64.dp
-private val ButtonGap = 12.dp
+private val SkipButtonHeight = 76.dp
+/** Fluido: the three buttons are a connected group, close together. */
+private val ButtonGap = 6.dp
+// Connected button group: the outer side of a skip button is round, the side facing play is squarer.
+private val PreviousShape = androidx.compose.foundation.shape.RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50, topEndPercent = 16, bottomEndPercent = 16)
+private val NextShape = androidx.compose.foundation.shape.RoundedCornerShape(topStartPercent = 16, bottomStartPercent = 16, topEndPercent = 50, bottomEndPercent = 50)
 
 /** Corner radius of the play button as a fraction of its shorter side. */
 private const val PlayCornerPausedFraction = 0.36f
@@ -260,7 +264,7 @@ fun AnimatedPlaybackControls(
                         scaleX = prevScale
                         scaleY = prevScale
                     }
-                    .clip(Scena.ControlShape)
+                    .clip(PreviousShape)
                     .background(colorPreviousButton)
                     .clickable(role = Role.Button) {
                         lastClicked = PlaybackButtonType.PREVIOUS
@@ -338,7 +342,7 @@ fun AnimatedPlaybackControls(
                         scaleX = nextScale
                         scaleY = nextScale
                     }
-                    .clip(Scena.ControlShape)
+                    .clip(NextShape)
                     .background(colorNextButton)
                     .clickable(role = Role.Button) {
                         lastClicked = PlaybackButtonType.NEXT

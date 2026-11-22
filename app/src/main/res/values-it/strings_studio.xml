@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fluido rinnovato -->
+    <string name="fluido_greeting_morning">Buongiorno</string>
+    <string name="fluido_greeting_afternoon">Buon pomeriggio</string>
+    <string name="fluido_greeting_evening">Buonasera</string>
+    <string name="fluido_search_everything">Brani, artisti, testi, video</string>
+    <string name="fluido_your_mix">Il tuo mix</string>
+    <plurals name="fluido_mix_summary">
+        <item quantity="one">%2$s · %1$d brano</item>
+        <item quantity="other">%2$s · %1$d brani</item>
+    </plurals>
+
+    <!-- Studio testi -->
+    <string name="studio_title">Studio testi</string>
+    <string name="studio_close">Chiudi lo studio</string>
+    <string name="studio_save">Salva</string>
+    <string name="studio_tab_text">Testo</string>
+    <string name="studio_tab_timing">Tempi</string>
+    <string name="studio_tab_preview">Anteprima</string>
+    <string name="studio_paste">Incolla</string>
+    <string name="studio_dictate">Detta</string>
+    <string name="studio_clean">Pulisci</string>
+    <string name="studio_split">Dividi righe lunghe</string>
+    <string name="studio_copy">Copia</string>
+    <string name="studio_clear">Svuota</string>
+    <string name="studio_undo">Annulla</string>
+    <string name="studio_text_placeholder">Scrivi o incolla il testo, un verso per riga. Puoi anche dettarlo.</string>
+    <string name="studio_dictation_hint">Mentre detti, di\' «a capo» per andare a capo</string>
+    <string name="studio_dictation_prompt">Detta il testo. Di\' «a capo» per andare a capo</string>
+    <string name="studio_dictation_missing">La dettatura vocale non è disponibile su questo telefono</string>
+    <string name="studio_clipboard_empty">Non c\'è testo da incollare</string>
+    <string name="studio_already_clean">Il testo è già pulito</string>
+    <string name="studio_no_long_lines">Nessuna riga è troppo lunga</string>
+    <string name="studio_split_done">Righe lunghe divise in due</string>
+    <string name="studio_copied">Testo copiato</string>
+    <string name="studio_text_cleared">Testo svuotato</string>
+    <string name="studio_start_timing">Dai i tempi</string>
+    <plurals name="studio_line_count">
+        <item quantity="one">%d riga</item>
+        <item quantity="other">%d righe</item>
+    </plurals>
+    <plurals name="studio_long_lines">
+        <item quantity="one">%d riga è lunga: si può dividere in due</item>
+        <item quantity="other">%d righe sono lunghe: si possono dividere in due</item>
+    </plurals>
+    <plurals name="studio_cleaned">
+        <item quantity="one">Tolta %d riga di tempi, titoli di sezione o testo della pagina web</item>
+        <item quantity="other">Tolte %d righe di tempi, titoli di sezione o testo della pagina web</item>
+    </plurals>
+    <plurals name="studio_pasted_timed">
+        <item quantity="one">%d riga incollata con il suo tempo</item>
+        <item quantity="other">%d righe incollate con i loro tempi</item>
+    </plurals>
+
+    <string name="studio_mode_line">Per riga</string>
+    <string name="studio_mode_word">Per parola</string>
+    <string name="studio_rewind">3 s</string>
+    <string name="studio_play">Riproduci</string>
+    <string name="studio_pause">Pausa</string>
+    <string name="studio_fill_gaps">Riempi i vuoti</string>
+    <string name="studio_filled">Le righe senza tempo sono state messe in base alla lunghezza</string>
+    <string name="studio_shift_earlier">Tutto −0,1 s</string>
+    <string name="studio_shift_later">Tutto +0,1 s</string>
+    <string name="studio_shifted">Tutte le righe spostate di %1$s</string>
+    <string name="studio_anticipation">Ritardo tocco %1$d ms</string>
+    <string name="studio_volume_keys">Tasti volume</string>
+    <string name="studio_clear_times">Cancella i tempi</string>
+    <string name="studio_times_cleared">Tutti i tempi cancellati</string>
+    <string name="studio_progress">%1$d di %2$d righe con il tempo</string>
+    <plurals name="studio_out_of_order_chip">
+        <item quantity="one">%d riga fuori ordine</item>
+        <item quantity="other">%d righe fuori ordine</item>
+    </plurals>
+    <string name="studio_nudge_earlier">−0,1 s</string>
+    <string name="studio_nudge_later">+0,1 s</string>
+    <string name="studio_clear_line">Togli il tempo</string>
+    <string name="studio_tap_line">Tocca quando inizia la riga</string>
+    <string name="studio_tap_word">Tocca quando inizia la parola</string>
+    <string name="studio_all_timed">Tutte le righe hanno il tempo</string>
+    <string name="studio_tap_hint">Tocca una riga per ripartire da lì. Rallenta il brano se è troppo veloce.</string>
+    <string name="studio_tap_hint_volume">Volume giù segna, volume su annulla. Tocca una riga per ripartire da lì.</string>
+    <string name="studio_preview_empty">Prima dai i tempi: qui vedrai il testo scorrere con il brano.</string>
+
+    <string name="studio_discard_title">Annullare le modifiche?</string>
+    <string name="studio_discard_body">Quello che hai scritto e segnato da quando hai aperto lo studio andrà perso.</string>
+    <string name="studio_discard">Annulla modifiche</string>
+    <string name="studio_keep_editing">Continua</string>
+    <plurals name="studio_missing_title">
+        <item quantity="one">%d riga non ha il tempo</item>
+        <item quantity="other">%d righe non hanno il tempo</item>
+    </plurals>
+    <string name="studio_missing_body">Possono essere messe da sole tra le righe che hai segnato, in base alla lunghezza, oppure puoi continuare a toccare.</string>
+    <string name="studio_fill_and_save">Mettile e salva</string>
+    <plurals name="studio_out_of_order_title">
+        <item quantity="one">%d riga inizia prima di quella sopra</item>
+        <item quantity="other">%d righe iniziano prima di quella sopra</item>
+    </plurals>
+    <string name="studio_out_of_order_body">Probabilmente un tocco troppo presto o troppo tardi. Se salvi, le righe vengono messe in ordine di tempo.</string>
+    <string name="studio_save_anyway">Salva comunque</string>
+    <string name="studio_keep_tapping">Correggi</string>
+</resources>

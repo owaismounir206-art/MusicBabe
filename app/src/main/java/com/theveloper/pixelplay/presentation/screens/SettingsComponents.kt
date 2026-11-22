@@ -166,7 +166,7 @@ fun SettingsItem(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier =
                     Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(2.dp))
+                            .clip(RoundedCornerShape(4.dp))
                             .clickable(onClick = onClick)
     ) {
         Row(
@@ -174,7 +174,7 @@ fun SettingsItem(
                 modifier = Modifier.padding(16.dp).fillMaxWidth()
         ) {
             Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
+                    modifier = Modifier.padding(end = 16.dp).size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
             ) { leadingIcon() }
 
@@ -215,7 +215,7 @@ fun SwitchSettingItem(
 
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
     ) {
         Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -224,7 +224,7 @@ fun SwitchSettingItem(
         ) {
             if (leadingIcon != null) {
                 Box(
-                        modifier = Modifier.padding(end = 4.dp).size(24.dp),
+                        modifier = Modifier.padding(end = 4.dp).size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
                         contentAlignment = Alignment.Center
                 ) { leadingIcon() }
             }
@@ -304,7 +304,7 @@ fun ThemeSelectorItem(
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier =
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp)).clickable {
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).clickable {
                         showSheet = true
                     }
     ) {
@@ -314,7 +314,7 @@ fun ThemeSelectorItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
+                    modifier = Modifier.padding(end = 16.dp).size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
                         contentAlignment = Alignment.Center
                 ) { leadingIcon() }
 
@@ -636,7 +636,7 @@ fun SliderSettingsItem(
 ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -680,7 +680,7 @@ fun RefreshLibraryItem(
 ) {
     Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -688,7 +688,7 @@ fun RefreshLibraryItem(
                     modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                        modifier = Modifier.padding(end = 16.dp).size(24.dp),
+                        modifier = Modifier.padding(end = 16.dp).size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
                         contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -845,7 +845,7 @@ fun ActionSettingsItem(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -853,7 +853,7 @@ fun ActionSettingsItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
+                    modifier = Modifier.padding(end = 16.dp).size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     icon()

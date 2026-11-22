@@ -421,7 +421,7 @@ fun SettingsCategoryScreen(
                                 SettingsItem(
                                     title = stringResource(R.string.settings_excluded_directories_title),
                                     subtitle = stringResource(R.string.settings_excluded_directories_subtitle),
-                                    leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.settings_cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = {
                                         showExplorerSheet = true
@@ -431,7 +431,7 @@ fun SettingsCategoryScreen(
                                 SettingsItem(
                                     title = stringResource(R.string.settings_artists_title),
                                     subtitle = stringResource(R.string.settings_artists_subtitle),
-                                    leadingIcon = { Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.settings_cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.ArtistSettings.route) }
                                 )
@@ -505,7 +505,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_auto_scan_lrc_subtitle),
                                     checked = uiState.autoScanLrcFiles,
                                     onCheckedChange = { settingsViewModel.setAutoScanLrcFiles(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -527,12 +527,12 @@ fun SettingsCategoryScreen(
                                             LyricsSourcePreference.fromName(key)
                                         )
                                     },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_reset_imported_lyrics_title),
                                     subtitle = stringResource(R.string.settings_reset_imported_lyrics_subtitle),
-                                    leadingIcon = { Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(Icons.Outlined.ClearAll, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     onClick = { showClearLyricsDialog = true }
                                 )
                             }
@@ -557,7 +557,7 @@ fun SettingsCategoryScreen(
                                         settingsViewModel.setAppLanguage(it)
                                         (context as? Activity)?.recreate()
                                     },
-                                    leadingIcon = { Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_app_theme_title),
@@ -569,7 +569,7 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.appThemeMode,
                                     onSelectionChanged = { settingsViewModel.setAppThemeMode(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.LightMode, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.LightMode, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 val appPalette by settingsViewModel.appPalette.collectAsStateWithLifecycle()
                                 ThemeSelectorItem(
@@ -584,28 +584,28 @@ fun SettingsCategoryScreen(
                                     },
                                     selectedKey = appPalette,
                                     onSelectionChanged = { settingsViewModel.setAppPalette(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_smooth_corners_title),
                                     subtitle = stringResource(R.string.settings_smooth_corners_subtitle),
                                     checked = useSmoothCorners,
                                     onCheckedChange = settingsViewModel::setUseSmoothCorners,
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_rounded_corner_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_rounded_corner_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_disable_blur_all_over_title),
                                     subtitle = stringResource(R.string.settings_disable_blur_all_over_subtitle),
                                     checked = uiState.disableBlurAllOver,
                                     onCheckedChange = { settingsViewModel.setDisableBlurAllOver(it) },
-                                    leadingIcon = { Icon(Icons.Rounded.BlurOff, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Rounded.BlurOff, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_show_scrollbar_title),
                                     subtitle = stringResource(R.string.settings_show_scrollbar_subtitle),
                                     checked = uiState.showScrollbar,
                                     onCheckedChange = { settingsViewModel.setShowScrollbar(it) },
-                                    leadingIcon = { Icon(Icons.Rounded.UnfoldMore, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Rounded.UnfoldMore, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -619,19 +619,19 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.playerThemePreference,
                                     onSelectionChanged = { settingsViewModel.setPlayerThemePreference(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.PlayCircle, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.PlayCircle, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_show_player_file_info_title),
                                     subtitle = stringResource(R.string.settings_show_player_file_info_subtitle),
                                     checked = uiState.showPlayerFileInfo,
                                     onCheckedChange = { settingsViewModel.setShowPlayerFileInfo(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_attach_file_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_attach_file_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_album_art_palette_title),
                                     subtitle = stringResource(R.string.settings_album_art_palette_subtitle, uiState.albumArtPaletteStyle.label),
-                                    leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.PaletteStyle.route) }
                                 )
@@ -645,7 +645,7 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.carouselStyle,
                                     onSelectionChanged = { settingsViewModel.setCarouselStyle(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_view_carousel_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_view_carousel_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -658,14 +658,14 @@ fun SettingsCategoryScreen(
                                     onSelectionChanged = { key ->
                                         settingsViewModel.setCollagePattern(CollagePattern.fromStorageKey(key))
                                     },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_view_column_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_auto_rotate_patterns_title),
                                     subtitle = stringResource(R.string.settings_auto_rotate_patterns_subtitle),
                                     checked = uiState.collageAutoRotate,
                                     onCheckedChange = { settingsViewModel.setCollageAutoRotate(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -679,7 +679,7 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.navBarStyle,
                                     onSelectionChanged = { settingsViewModel.setNavBarStyle(it) },
-                                    leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Outlined.Style, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_compact_mode_title),
@@ -697,7 +697,7 @@ fun SettingsCategoryScreen(
                                 SettingsItem(
                                     title = stringResource(R.string.settings_navbar_corner_title),
                                     subtitle = stringResource(R.string.settings_navbar_corner_subtitle),
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_rounded_corner_24), null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_rounded_corner_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely("nav_bar_corner_radius") }
                                 )
@@ -709,7 +709,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_immersive_lyrics_subtitle),
                                     checked = uiState.immersiveLyricsEnabled,
                                     onCheckedChange = { settingsViewModel.setImmersiveLyricsEnabled(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_lyrics_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
 
                                 if (uiState.immersiveLyricsEnabled) {
@@ -724,7 +724,7 @@ fun SettingsCategoryScreen(
                                         ),
                                         selectedKey = uiState.immersiveLyricsTimeout.toString(),
                                         onSelectionChanged = { settingsViewModel.setImmersiveLyricsTimeout(it.toLong()) },
-                                        leadingIcon = { Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.secondary) }
+                                        leadingIcon = { Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                     )
                                 }
                             }
@@ -743,7 +743,7 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.launchTab,
                                     onSelectionChanged = { settingsViewModel.setLaunchTab(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.tab_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.tab_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 ThemeSelectorItem(
                                     label = stringResource(R.string.settings_library_navigation_title),
@@ -754,7 +754,7 @@ fun SettingsCategoryScreen(
                                     ),
                                     selectedKey = uiState.libraryNavigationMode,
                                     onSelectionChanged = { settingsViewModel.setLibraryNavigationMode(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_library_music_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
                         }
@@ -766,7 +766,7 @@ fun SettingsCategoryScreen(
                                     options = mapOf("true" to stringResource(R.string.settings_label_on), "false" to stringResource(R.string.settings_label_off)),
                                     selectedKey = if (uiState.keepPlayingInBackground) "true" else "false",
                                     onSelectionChanged = { settingsViewModel.setKeepPlayingInBackground(it.toBoolean()) },
-                                    leadingIcon = { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SettingsItem(
                                     title = stringResource(R.string.settings_battery_optimization_title),
@@ -791,7 +791,7 @@ fun SettingsCategoryScreen(
                                             }
                                         }
                                     },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_all_inclusive_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_all_inclusive_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -801,7 +801,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_replaygain_enable_subtitle),
                                     checked = uiState.replayGainEnabled,
                                     onCheckedChange = { settingsViewModel.setReplayGainEnabled(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 AnimatedVisibility(
                                     visible = uiState.replayGainEnabled,
@@ -814,7 +814,7 @@ fun SettingsCategoryScreen(
                                         options = mapOf("track" to stringResource(R.string.settings_gain_mode_track), "album" to stringResource(R.string.settings_gain_mode_album)),
                                         selectedKey = if (uiState.replayGainUseAlbumGain) "album" else "track",
                                         onSelectionChanged = { settingsViewModel.setReplayGainUseAlbumGain(it == "album") },
-                                        leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                        leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                     )
                                 }
                             }
@@ -826,7 +826,7 @@ fun SettingsCategoryScreen(
                                     options = mapOf("false" to stringResource(R.string.settings_label_enabled), "true" to stringResource(R.string.settings_label_disabled)),
                                     selectedKey = if (uiState.disableCastAutoplay) "true" else "false",
                                     onSelectionChanged = { settingsViewModel.setDisableCastAutoplay(it.toBoolean()) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_cast_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_cast_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -836,7 +836,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_pause_on_volume_zero_desc),
                                     checked = uiState.pauseOnVolumeZero,
                                     onCheckedChange = { settingsViewModel.setPauseOnVolumeZero(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_volume_down_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -846,7 +846,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_headphones_resume_subtitle),
                                     checked = uiState.resumeOnHeadsetReconnect,
                                     onCheckedChange = { settingsViewModel.setResumeOnHeadsetReconnect(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_headphones_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_headphones_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -857,7 +857,7 @@ fun SettingsCategoryScreen(
                                     options = mapOf("true" to stringResource(R.string.settings_label_enabled), "false" to stringResource(R.string.settings_label_disabled)),
                                     selectedKey = if (uiState.isCrossfadeEnabled) "true" else "false",
                                     onSelectionChanged = { settingsViewModel.setCrossfadeEnabled(it.toBoolean()) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_align_justify_space_even_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_align_justify_space_even_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 if (uiState.isCrossfadeEnabled) {
                                     SliderSettingsItem(
@@ -878,21 +878,21 @@ fun SettingsCategoryScreen(
                                     checked = uiState.hiFiModeEnabled,
                                     onCheckedChange = { settingsViewModel.setHiFiModeEnabled(it) },
                                     enabled = uiState.hiFiModeDeviceSupported,
-                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.outline_high_quality_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_persistent_shuffle_title),
                                     subtitle = stringResource(R.string.settings_persistent_shuffle_subtitle),
                                     checked = uiState.persistentShuffleEnabled,
                                     onCheckedChange = { settingsViewModel.setPersistentShuffleEnabled(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_shuffle_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                                 SwitchSettingItem(
                                     title = stringResource(R.string.settings_show_queue_history_title),
                                     subtitle = stringResource(R.string.settings_show_queue_history_subtitle),
                                     checked = uiState.showQueueHistory,
                                     onCheckedChange = { settingsViewModel.setShowQueueHistory(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_queue_music_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
 
@@ -923,7 +923,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_tap_bg_closes_subtitle),
                                     checked = uiState.tapBackgroundClosesPlayer,
                                     onCheckedChange = { settingsViewModel.setTapBackgroundClosesPlayer(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
                             SettingsSubsection(
@@ -935,7 +935,7 @@ fun SettingsCategoryScreen(
                                     subtitle = stringResource(R.string.settings_haptic_feedback_subtitle),
                                     checked = uiState.hapticsEnabled,
                                     onCheckedChange = { settingsViewModel.setHapticsEnabled(it) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.secondary) }
+                                    leadingIcon = { Icon(painterResource(R.drawable.rounded_touch_app_24), null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                 )
                             }
                         }
@@ -1064,7 +1064,7 @@ fun SettingsCategoryScreen(
                                             models = uiState.availableModels,
                                             selectedModelName = currentAiModel.ifEmpty { uiState.availableModels.firstOrNull()?.name ?: "" },
                                             onModelSelected = { settingsViewModel.onAiModelChange(it) },
-                                            leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary) }
+                                            leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
                                         )
                                     }
                                 }
@@ -1414,7 +1414,7 @@ fun SettingsCategoryScreen(
                                 SettingsItem(
                                     title = stringResource(R.string.settings_experimental_title),
                                     subtitle = stringResource(R.string.settings_experimental_subtitle),
-                                    leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary) },
+                                    leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) },
                                     trailingIcon = { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.settings_cd_open), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = { navController.navigateSafely(Screen.Experimental.route) }
                                 )
@@ -2992,7 +2992,8 @@ private fun SettingsSubsection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            // Fluido: a group is one rounded card made of rows 2 dp apart.
+            .clip(RoundedCornerShape(20.dp))
             .background(Color.Transparent),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {

@@ -122,6 +122,11 @@ val enableComposeCompilerReports = providers.gradleProperty("pixelplay.enableCom
     .getOrElse("false")
     .toBoolean()
 
+/** -Ppixelplay.screenshots=true: run only the Robolectric screenshot tests and record their PNGs. */
+val screenshotTests = providers.gradleProperty("pixelplay.screenshots")
+    .getOrElse("false")
+    .toBoolean()
+
 val generatedNoticesAssets = layout.buildDirectory.dir("generated/assets/thirdPartyNotices")
 val fetchWhisperModel = tasks.register<FetchWhisperModel>("fetchWhisperModel") {
     url.set("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
@@ -244,6 +249,8 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Screenshot tests (Robolectric) need the app's resources; only built when asked for.
+        unitTests.isIncludeAndroidResources = screenshotTests
         unitTests.all { it.useJUnitPlatform() }
     }
 
@@ -434,6 +441,10 @@ dependencies {
 
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.ui.test.junit4)
     testImplementation(libs.junit.jupiter.params)
     testRuntimeOnly(libs.junit.jupiter.engine)
     // JUnit 4 (Vintage) — required for legacy JUnit 4 tests under useJUnitPlatform()
@@ -484,4 +495,17 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    if (screenshotTests) {
+        // Writes the PNGs of *ScreenshotTest to app/build/outputs/roborazzi.
+        systemProperty("roborazzi.test.record", "true")
+        providers.gradleProperty("pixelplay.robolectricRepo").orNull?.let {
+            systemProperty("robolectric.dependency.repo.url", it)
+        }
+        filter { includeTestsMatching("*ScreenshotTest") }
+    } else {
+        filter {
+            excludeTestsMatching("*ScreenshotTest")
+            isFailOnNoMatchingTests = false
+        }
+    }
 }

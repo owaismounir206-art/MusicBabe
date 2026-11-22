@@ -1,4 +1,6 @@
 [versions]
+robolectric = "4.17"
+roborazzi = "1.76.0"
 onnxruntime = "1.20.0"
 accompanistDrawablepainter = "0.37.3"
 aboutLibraries = "15.0.3"
@@ -113,6 +115,9 @@ wearCompose = "1.6.2"
 playServicesWearable = "20.0.1"
 
 [libraries]
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor", version.ref = "newpipeExtractor" }
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }

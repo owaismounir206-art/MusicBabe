@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fluido renewed -->
+    <string name="fluido_greeting_morning">Good morning</string>
+    <string name="fluido_greeting_afternoon">Good afternoon</string>
+    <string name="fluido_greeting_evening">Good evening</string>
+    <string name="fluido_search_everything">Songs, artists, lyrics, videos</string>
+    <string name="fluido_your_mix">Your mix</string>
+    <plurals name="fluido_mix_summary">
+        <item quantity="one">%2$s · %1$d song</item>
+        <item quantity="other">%2$s · %1$d songs</item>
+    </plurals>
+
+    <!-- Lyrics studio -->
+    <string name="studio_title">Lyrics studio</string>
+    <string name="studio_close">Close the studio</string>
+    <string name="studio_save">Save</string>
+    <string name="studio_tab_text">Text</string>
+    <string name="studio_tab_timing">Timing</string>
+    <string name="studio_tab_preview">Preview</string>
+    <string name="studio_paste">Paste</string>
+    <string name="studio_dictate">Dictate</string>
+    <string name="studio_clean">Clean up</string>
+    <string name="studio_split">Split long lines</string>
+    <string name="studio_copy">Copy</string>
+    <string name="studio_clear">Clear</string>
+    <string name="studio_undo">Undo</string>
+    <string name="studio_text_placeholder">Write or paste the lyrics, one line per row. You can also dictate them.</string>
+    <string name="studio_dictation_hint">Dictating, say “new line” to start a new row</string>
+    <string name="studio_dictation_prompt">Say the lyrics. Say “new line” to start a new row</string>
+    <string name="studio_dictation_missing">Voice typing is not available on this phone</string>
+    <string name="studio_clipboard_empty">There is no text to paste</string>
+    <string name="studio_already_clean">The text is already clean</string>
+    <string name="studio_no_long_lines">No line is too long</string>
+    <string name="studio_split_done">Long lines split in two</string>
+    <string name="studio_copied">Lyrics copied</string>
+    <string name="studio_text_cleared">Text cleared</string>
+    <string name="studio_start_timing">Tap the timing</string>
+    <plurals name="studio_line_count">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <plurals name="studio_long_lines">
+        <item quantity="one">%d line is long: it can be split in two</item>
+        <item quantity="other">%d lines are long: they can be split in two</item>
+    </plurals>
+    <plurals name="studio_cleaned">
+        <item quantity="one">Removed %d row of timestamps, section titles or web page text</item>
+        <item quantity="other">Removed %d rows of timestamps, section titles or web page text</item>
+    </plurals>
+    <plurals name="studio_pasted_timed">
+        <item quantity="one">%d line pasted with its time</item>
+        <item quantity="other">%d lines pasted with their times</item>
+    </plurals>
+
+    <string name="studio_mode_line">Line by line</string>
+    <string name="studio_mode_word">Word by word</string>
+    <string name="studio_rewind">3 s</string>
+    <string name="studio_play">Play</string>
+    <string name="studio_pause">Pause</string>
+    <string name="studio_fill_gaps">Fill the gaps</string>
+    <string name="studio_filled">Lines without a time were placed by their length</string>
+    <string name="studio_shift_earlier">All −0.1 s</string>
+    <string name="studio_shift_later">All +0.1 s</string>
+    <string name="studio_shifted">All lines moved %1$s</string>
+    <string name="studio_anticipation">Tap delay %1$d ms</string>
+    <string name="studio_volume_keys">Volume keys</string>
+    <string name="studio_clear_times">Clear the times</string>
+    <string name="studio_times_cleared">All times cleared</string>
+    <string name="studio_progress">%1$d of %2$d lines timed</string>
+    <plurals name="studio_out_of_order_chip">
+        <item quantity="one">%d line out of order</item>
+        <item quantity="other">%d lines out of order</item>
+    </plurals>
+    <string name="studio_nudge_earlier">−0.1 s</string>
+    <string name="studio_nudge_later">+0.1 s</string>
+    <string name="studio_clear_line">Clear time</string>
+    <string name="studio_tap_line">Tap when the line starts</string>
+    <string name="studio_tap_word">Tap when the word starts</string>
+    <string name="studio_all_timed">Every line has its time</string>
+    <string name="studio_tap_hint">Tap a line to start again from there. Slow the song down if it is too fast.</string>
+    <string name="studio_tap_hint_volume">Volume down marks, volume up undoes. Tap a line to start again from there.</string>
+    <string name="studio_preview_empty">Tap the timing first: here you will see the lyrics play with the song.</string>
+
+    <string name="studio_discard_title">Discard the changes?</string>
+    <string name="studio_discard_body">What you wrote and tapped since opening the studio will be lost.</string>
+    <string name="studio_discard">Discard</string>
+    <string name="studio_keep_editing">Keep editing</string>
+    <plurals name="studio_missing_title">
+        <item quantity="one">%d line has no time</item>
+        <item quantity="other">%d lines have no time</item>
+    </plurals>
+    <string name="studio_missing_body">They can be placed automatically between the lines you tapped, by their length, or you can keep tapping.</string>
+    <string name="studio_fill_and_save">Place and save</string>
+    <plurals name="studio_out_of_order_title">
+        <item quantity="one">%d line starts before the one above</item>
+        <item quantity="other">%d lines start before the one above</item>
+    </plurals>
+    <string name="studio_out_of_order_body">It is probably a tap too early or too late. If you save, the lines are put in time order.</string>
+    <string name="studio_save_anyway">Save anyway</string>
+    <string name="studio_keep_tapping">Fix it</string>
+</resources>

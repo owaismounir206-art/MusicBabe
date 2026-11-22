@@ -3882,6 +3882,11 @@ class PlayerViewModel @Inject constructor(
     /** Speed the audio is playing at (1 = normal). */
     fun livePlaybackSpeed(): Float = mediaController?.playbackParameters?.speed ?: 1f
 
+    /** Changes the speed of what is playing (the pitch follows), e.g. to tap lyrics on a slow song. */
+    fun setLivePlaybackSpeed(speed: Float) {
+        mediaController?.setPlaybackSpeed(speed.coerceIn(0.25f, 2f))
+    }
+
     /**
      * Sync lyrics to the audio. With a Gemini key the text and the audio go to Gemini, which is
      * far more precise than the on-device model; without a key the phone does it.

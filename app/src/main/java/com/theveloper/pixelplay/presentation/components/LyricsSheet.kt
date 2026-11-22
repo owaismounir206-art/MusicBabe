@@ -135,7 +135,8 @@ import com.theveloper.pixelplay.presentation.components.snapping.rememberSnapper
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.theveloper.pixelplay.utils.LyricsUtils
 import com.theveloper.pixelplay.presentation.components.subcomps.LyricsMoreBottomSheet
-import com.theveloper.pixelplay.presentation.components.subcomps.LyricsEditorDialog
+import com.theveloper.pixelplay.presentation.components.subcomps.LyricsStudioDialog
+import com.theveloper.pixelplay.presentation.components.subcomps.StudioTab
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sync
@@ -297,6 +298,10 @@ fun LyricsSheet(
     audioAlignmentProgress: Int? = null,
     audioAlignmentPhase: Int? = null,
     onCancelAudioAlignment: () -> Unit = {},
+    /** Exact audio position (for tapping lyrics in time), when the caller can read it. */
+    livePositionProvider: (() -> Long)? = null,
+    playbackSpeedProvider: () -> Float = { 1f },
+    onSetPlaybackSpeed: ((Float) -> Unit)? = null,
     // BottomToggleRow Params
 
     isShuffleEnabled: Boolean,
@@ -584,14 +589,16 @@ fun LyricsSheet(
             typography = MaterialTheme.typography,
             shapes = MaterialTheme.shapes
         ) {
-            LyricsEditorDialog(
+            LyricsStudioDialog(
                 song = activeSong,
                 initialLyrics = lyrics,
-                initialLiveSync = lyricsEditorInitialLiveSync,
-                currentPositionProvider = { playbackPositionFlow.value },
+                initialTab = if (lyricsEditorInitialLiveSync) StudioTab.Timing else StudioTab.Text,
+                currentPositionProvider = livePositionProvider ?: { playbackPositionFlow.value },
                 isPlayingProvider = { isPlaying },
                 onPlayPause = onPlayPause,
                 onSeek = onSeekTo,
+                playbackSpeedProvider = playbackSpeedProvider,
+                onSetPlaybackSpeed = onSetPlaybackSpeed,
                 onSave = { lrcContent ->
                     onSaveCustomLyrics(activeSong, lrcContent)
                     showLyricsEditorDialog = false

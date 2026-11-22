@@ -97,48 +97,11 @@ fun YouTubeHomeFilterChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(categories, key = { it.name }) { category ->
-            val selected = category == selectedCategory
-            val interaction = remember { MutableInteractionSource() }
-            val pressed by interaction.collectIsPressedAsState()
-            val radius by animateDpAsState(
-                if (selected || pressed) 10.dp else 18.dp,
-                Fluido.springDefault(),
-                label = "chipRadius"
+            com.theveloper.pixelplay.presentation.components.fluido.FluidoFilterChip(
+                label = stringResource(category.labelRes),
+                selected = category == selectedCategory,
+                onClick = { onSelectCategory(category) },
             )
-            val shape = RoundedCornerShape(radius)
-            val c = MaterialTheme.colorScheme
-            val bg by animateColorAsState(
-                if (selected) c.secondaryContainer else c.surfaceContainerHigh,
-                Fluido.colorSpec(),
-                label = "chipBg"
-            )
-            val contentColor by animateColorAsState(
-                if (selected) c.onSecondaryContainer else c.onSurface,
-                Fluido.colorSpec(),
-                label = "chipContent"
-            )
-
-            Box(
-                modifier = Modifier
-                    .height(38.dp)
-                    .clip(shape)
-                    .background(bg, shape)
-                    .clickable(
-                        interactionSource = interaction,
-                        indication = androidx.compose.material3.ripple(),
-                        role = Role.Button
-                    ) { onSelectCategory(category) }
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(category.labelRes),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                    ),
-                    color = contentColor
-                )
-            }
         }
     }
 }

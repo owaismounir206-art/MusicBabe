@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-11-22
+
+### Added
+- Studio testi, al posto del vecchio editor, in tre passi: Testo, Tempi, Anteprima.
+  - **Testo**: incolla un testo preso dal web e viene ripulito da solo (via i tempi, i titoli
+    delle sezioni come [Ritornello] e le righe della pagina tipo "Embed" o "N contributors").
+    Se il testo incollato ha già i tempi LRC, vengono tenuti. Puoi dettare il testo con la voce
+    (di' «a capo» per andare a capo; la musica va in pausa mentre detti), dividere le righe troppo
+    lunghe, copiarlo o svuotarlo; ogni pulizia si può annullare.
+  - **Tempi**: detti tu il tempo toccando a ritmo con il brano, riga per riga o parola per parola,
+    con un grande pulsante o con i tasti del volume (giù segna, su annulla). Puoi rallentare il
+    brano a 0,5× o 0,75× (al termine torna alla velocità di prima), tornare indietro di 3 secondi,
+    annullare ogni tocco, toccare una riga per ripartire da lì, ritoccarla di ±0,1 s, spostare
+    tutto il testo di ±0,1 s, compensare il ritardo del tocco (0–300 ms), riempire i vuoti in base
+    alla lunghezza delle righe. Le righe fuori ordine vengono segnalate.
+  - **Anteprima**: il testo scorre con il brano come verrà mostrato, con le parole evidenziate.
+  - Al salvataggio avvisa se mancano dei tempi (e li può mettere da solo) o se ci sono righe fuori
+    ordine; chiede conferma prima di perdere le modifiche. I testi con i tempi delle parole si
+    salvano parola per parola (karaoke), gli altri in LRC.
+  - Modificare il testo dopo aver dato i tempi conserva i tempi delle righe rimaste uguali.
+
+### Changed
+- Nuovo design "Fluido rinnovato" (Material 3 Expressive, chiaro e scuro secondo il sistema):
+  - Home: barra di ricerca in alto, saluto dell'ora, filtri a chip con la spunta, card "Il tuo mix"
+    con le copertine in forme espressive e i pulsanti Riproduci e Casuale.
+  - Libreria: le sezioni sono chip, con un pulsante per riordinarle.
+  - Player: precedente, play e successivo formano un gruppo connesso, con il play più grande.
+  - Impostazioni: icone in cerchi tonali e gruppi con gli angoli arrotondati.
+
 ## [3.3.0] - 2026-11-09
 
 ### Added

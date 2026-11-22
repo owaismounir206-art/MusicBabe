@@ -115,8 +115,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
-import com.theveloper.pixelplay.data.preferences.CollagePattern
-import com.theveloper.pixelplay.presentation.components.AlbumArtCollage
 import com.theveloper.pixelplay.presentation.components.BetaInfoBottomSheet
 import com.theveloper.pixelplay.presentation.components.Beta05CleanInstallDisclaimerDialog
 import com.theveloper.pixelplay.presentation.components.ChangelogBottomSheet
@@ -125,7 +123,6 @@ import com.theveloper.pixelplay.presentation.jellyfin.dashboard.JellyfinDashboar
 import com.theveloper.pixelplay.presentation.navidrome.dashboard.NavidromeDashboardViewModel
 import com.theveloper.pixelplay.presentation.qqmusic.dashboard.QqMusicDashboardViewModel
 import com.theveloper.pixelplay.presentation.components.DailyMixSection
-import com.theveloper.pixelplay.presentation.components.HomeGradientTopBar
 import com.theveloper.pixelplay.presentation.components.HomeOptionsBottomSheet
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
 import com.theveloper.pixelplay.presentation.components.RecentlyPlayedSection
@@ -162,6 +159,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.theveloper.pixelplay.presentation.navigation.navigateToTopLevelSafely
+import com.theveloper.pixelplay.ui.theme.PixelPlayStatusBarStyle
 
 private const val HomeLoadingPlaceholderMinDurationMillis = 1200L
 
@@ -397,23 +399,17 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             containerColor = scena.bg,
             topBar = {
-                HomeGradientTopBar(
-                    onNavigationIconClick = {
-                        navController.navigateSafely(Screen.Settings.route)
-                    },
-                    onMoreOptionsClick = {
-                        showChangelogBottomSheet = true
-                    },
-                    onBetaClick = {
-                        showBetaInfoBottomSheet = true
-                    },
-                    onTelegramClick = {
-                         showStreamingProviderSheet = true
-                    },
-                    onMenuClick = {
-                        // onOpenSidebar() // Disabled
-                    },
-                    isScrolled = isScrolledPastThreshold.value
+                // Fluido: the header scrolls with the page; only the status bar area turns solid
+                // once the content passes under it.
+                PixelPlayStatusBarStyle(color = scena.bg)
+                val scrimAlpha by androidx.compose.animation.core.animateFloatAsState(
+                    if (isScrolledPastThreshold.value) 1f else 0f, label = "statusScrim"
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(scena.bg.copy(alpha = scrimAlpha))
+                        .statusBarsPadding()
                 )
             }
         ) { innerPadding ->
@@ -430,6 +426,16 @@ fun HomeScreen(
                 // Scena: 28 dp of air above every section title.
                 verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
+                item(key = "fluido_header", contentType = "fluido_header") {
+                    com.theveloper.pixelplay.presentation.components.fluido.FluidoHomeHeader(
+                        onSearch = { navController.navigateToTopLevelSafely(Screen.Search.route) },
+                        onCloud = { showStreamingProviderSheet = true },
+                        onNews = { showChangelogBottomSheet = true },
+                        onSettings = { navController.navigateSafely(Screen.Settings.route) },
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
                 // 0) YouTube Music Filter Chips
                 item(
                     key = "yt_filter_chips",
@@ -470,62 +476,36 @@ fun HomeScreen(
                             key = "your_mix_header",
                             contentType = "your_mix_header"
                         ) {
-                            YourMixHeader(
-                                song = yourMixSong,
-                                isShuffleEnabled = isShuffleEnabled,
-                                isPlaying = isPlaying,
-                                coverArtUri = yourMixSongs.firstOrNull()?.albumArtUriString,
-                                modifier = Modifier.homeRise(homeIntroPlayed, 0),
-                                onPlayShuffled = {
-                                    if (usesFallbackHomeMix) {
-                                        playerViewModel.shuffleAllSongs(queueName = "Your Mix")
-                                    } else {
-                                        playerViewModel.playSongsShuffled(
-                                            songsToPlay = yourMixSongs,
-                                            queueName = "Your Mix",
-                                            startAtZero = true,
-                                        )
-                                    }
+                            val playMix: (Boolean) -> Unit = { shuffled ->
+                                when {
+                                    usesFallbackHomeMix && shuffled -> playerViewModel.shuffleAllSongs(queueName = "Your Mix")
+                                    usesFallbackHomeMix -> playerViewModel.showAndPlaySongFromLibrary(yourMixSongs.first(), queueName = "Your Mix")
+                                    shuffled -> playerViewModel.playSongsShuffled(
+                                        songsToPlay = yourMixSongs,
+                                        queueName = "Your Mix",
+                                        startAtZero = true,
+                                    )
+                                    else -> playerViewModel.showAndPlaySong(yourMixSongs.first(), yourMixSongs, "Your Mix")
                                 }
-                            )
-                        }
-                    }
-
-                    // Collage
-                    if (yourMixSongs.isNotEmpty()) {
-                        item(
-                            key = "album_art_collage",
-                            contentType = "album_art_collage"
-                        ) {
-                            val basePattern = settingsUiState.collagePattern
-                            val isAutoRotate = settingsUiState.collageAutoRotate
-                            val patterns = remember { CollagePattern.entries }
-
-                            val activePattern = if (isAutoRotate) {
-                                var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                                LaunchedEffect(Unit) { rotationIndex++ }
-                                remember(rotationIndex) {
-                                    patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
-                                }
-                            } else {
-                                basePattern
                             }
-
-                            AlbumArtCollage(
+                            val mixArtists = remember(yourMixSongs) {
+                                yourMixSongs.map { it.displayArtist }.filter { it.isNotBlank() }.distinct().take(3).joinToString(", ")
+                            }
+                            val covers = remember(yourMixSongs) {
+                                yourMixSongs.mapNotNull { it.albumArtUriString }.distinct().take(3)
+                            }
+                            com.theveloper.pixelplay.presentation.components.fluido.FluidoHeroMixCard(
+                                eyebrow = stringResource(R.string.fluido_your_mix),
+                                title = yourMixSong,
+                                subtitle = pluralStringResource(R.plurals.fluido_mix_summary, yourMixSongs.size, yourMixSongs.size, mixArtists),
+                                covers = covers,
+                                playLabel = stringResource(R.string.online_play),
+                                shuffleDescription = stringResource(R.string.online_shuffle),
+                                onPlay = { playMix(isShuffleEnabled) },
+                                onShuffle = { playMix(true) },
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .homeRise(homeIntroPlayed, 1),
-                                songs = yourMixSongs,
-                                padding = 14.dp,
-                                height = 400.dp,
-                                pattern = activePattern,
-                                onSongClick = { song ->
-                                    if (usesFallbackHomeMix) {
-                                        playerViewModel.showAndPlaySongFromLibrary(song, queueName = "Your Mix")
-                                    } else {
-                                        playerViewModel.showAndPlaySong(song, yourMixSongs, "Your Mix")
-                                    }
-                                }
+                                    .padding(horizontal = 16.dp)
+                                    .homeRise(homeIntroPlayed, 0),
                             )
                         }
                     }

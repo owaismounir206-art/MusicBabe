@@ -77,7 +77,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TabRowDefaults
@@ -928,23 +929,28 @@ fun LibraryScreen(
                     )
                 )
                 if (!isCompactNavigation) {
-                    // Typographic tabs: wide Scena type, full ink when selected, 40 percent otherwise.
-                    // TabAnimation springs the accent dot in under the selected tab.
-                    PrimaryScrollableTabRow(
-                        selectedTabIndex = currentTabIndex,
-                        modifier = Modifier.scenaRise(1),
-                        containerColor = Color.Transparent,
-                        contentColor = scenaColors.ink,
-                        edgePadding = 0.dp,
-                        indicator = {},
-                        divider = {}
+                    // Fluido: the sections are filter chips (check and secondary container when
+                    // selected); the last chip reorders them.
+                    val chipScroll = rememberScrollState()
+                    LaunchedEffect(currentTabIndex) {
+                        // Keep the selected chip in view when the pager is swiped.
+                        val target = (chipScroll.maxValue * currentTabIndex / tabTitles.size.coerceAtLeast(1))
+                        chipScroll.animateScrollTo(target.coerceAtMost(chipScroll.maxValue))
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .scenaRise(1)
+                            .horizontalScroll(chipScroll)
+                            .padding(horizontal = Scena.Gutter, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         tabTitles.forEachIndexed { index, rawId ->
                             val tabId = rawId.toLibraryTabIdOrNull() ?: LibraryTabId.SONGS
-                            TabAnimation(
-                                index = index,
-                                title = tabId.storageKey,
-                                selectedIndex = currentTabIndex,
+                            com.theveloper.pixelplay.presentation.components.fluido.FluidoFilterChip(
+                                label = stringResource(tabId.titleRes),
+                                selected = index == currentTabIndex,
                                 onClick = {
                                     scope.launch {
                                         pagerState.animateScrollToPage(
@@ -957,26 +963,22 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
-                            ) {
-                                Text(
-                                    text = stringResource(tabId.titleRes),
-                                    style = scenaWide(24.sp),
-                                    maxLines = 1
+                            )
+                        }
+                        Surface(
+                            onClick = { showReorderTabsSheet = true },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = stringResource(R.string.library_cd_reorder_tabs),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
-                        }
-                        TabAnimation(
-                            index = -1,
-                            title = stringResource(R.string.library_tab_edit),
-                            selectedIndex = currentTabIndex,
-                            onClick = { showReorderTabsSheet = true }
-                        ) {
-                            // No explicit tint: the tab sets the content colour (ink at 40 percent).
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = stringResource(R.string.library_cd_reorder_tabs),
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
                     }
                 } else {
