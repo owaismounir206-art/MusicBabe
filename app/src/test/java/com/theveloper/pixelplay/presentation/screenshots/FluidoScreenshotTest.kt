@@ -109,6 +109,24 @@ class FluidoScreenshotTest {
     }
 
     @Test
+    fun togetherDark() {
+        val mixes = listOf(
+            com.theveloper.pixelplay.data.recommend.GeneratedMix("a", com.theveloper.pixelplay.data.recommend.MixKind.ON_REPEAT, "", List(24) { "s$it" }, emptyList()),
+            com.theveloper.pixelplay.data.recommend.GeneratedMix("b", com.theveloper.pixelplay.data.recommend.MixKind.ARTIST, "Mina", List(40) { "s$it" }, emptyList()),
+            com.theveloper.pixelplay.data.recommend.GeneratedMix("c", com.theveloper.pixelplay.data.recommend.MixKind.DECADE, "1990", List(31) { "s$it" }, emptyList()),
+        )
+        compose.setContent {
+            PixelPlayTheme(darkTheme = true) {
+                Column(Modifier.background(MaterialTheme.colorScheme.surface).padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    com.theveloper.pixelplay.presentation.components.fluido.FluidoMixesShelf(mixes, onPlay = { _, _ -> })
+                    com.theveloper.pixelplay.presentation.components.fluido.FluidoTogetherRow(onJam = {}, onBlend = {}, onPodcasts = {})
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage(out("together_dark"))
+    }
+
+    @Test
     fun kitLight() {
         compose.setContent { PixelPlayTheme(darkTheme = false) { Kit() } }
         compose.onRoot().captureRoboImage(out("kit_light"))

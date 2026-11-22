@@ -643,6 +643,7 @@ fun FullPlayerContent(
         )
     }
 
+    val isSmartShuffle by playerViewModel.isSmartShuffle.collectAsStateWithLifecycle()
     val controlsSection: @Composable () -> Unit = {
         FullPlayerControlsSection(
             loadingTweaks = loadingTweaks,
@@ -663,7 +664,8 @@ fun FullPlayerContent(
             isFavoriteProvider = isFavoriteProvider,
             onShuffleToggle = onShuffleToggle,
             onRepeatToggle = onRepeatToggle,
-            onFavoriteToggle = onFavoriteToggle
+            onFavoriteToggle = onFavoriteToggle,
+            isSmartShuffle = isSmartShuffle,
         )
     }
 
@@ -1250,7 +1252,8 @@ private fun FullPlayerControlsSection(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isSmartShuffle: Boolean = false,
 ) {
     val motionScheme = remember { MotionScheme.expressive() }
     val controlSpatialSpec = remember { motionScheme.fastSpatialSpec<Float>() }
@@ -1314,7 +1317,8 @@ private fun FullPlayerControlsSection(
                 isFavoriteProvider = isFavoriteProvider,
                 onShuffleToggle = onShuffleToggle,
                 onRepeatToggle = onRepeatToggle,
-                onFavoriteToggle = onFavoriteToggle
+                onFavoriteToggle = onFavoriteToggle,
+                isSmartShuffle = isSmartShuffle,
             )
         }
     }
@@ -2866,7 +2870,8 @@ private fun BottomToggleRow(
     isFavoriteProvider: () -> Boolean,
     onShuffleToggle: () -> Unit,
     onRepeatToggle: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    isSmartShuffle: Boolean = false,
 ) {
     val isFavorite = isFavoriteProvider()
     val rowCorners = 60.dp
@@ -2921,8 +2926,8 @@ private fun BottomToggleRow(
                 inactiveColor = inactiveBg,
                 inactiveContentColor = inactiveContentColor,
                 onClick = onShuffleToggle,
-                iconId = R.drawable.rounded_shuffle_24,
-                contentDesc = stringResource(R.string.common_shuffle)
+                iconId = if (isSmartShuffle) R.drawable.rounded_smart_shuffle_24 else R.drawable.rounded_shuffle_24,
+                contentDesc = stringResource(if (isSmartShuffle) R.string.smart_shuffle_label else R.string.common_shuffle)
             )
             val repeatActive = repeatMode != Player.REPEAT_MODE_OFF
             val repeatIcon = when (repeatMode) {

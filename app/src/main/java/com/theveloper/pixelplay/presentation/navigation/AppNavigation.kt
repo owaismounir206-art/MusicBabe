@@ -249,6 +249,21 @@ fun AppNavigation(
             composable(Screen.YouTubeSignIn.route) {
                 com.theveloper.pixelplay.presentation.screens.account.YouTubeSignInScreen(navController)
             }
+            composable(Screen.Podcasts.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.together.PodcastsScreen(navController = navController, playerViewModel = playerViewModel)
+                }
+            }
+            composable(Screen.Jam.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.together.JamScreen(navController = navController, playerViewModel = playerViewModel)
+                }
+            }
+            composable(Screen.Blend.route) {
+                ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
+                    com.theveloper.pixelplay.presentation.screens.together.BlendScreen(navController = navController, playerViewModel = playerViewModel)
+                }
+            }
             composable(Screen.MusicVideos.route) {
                 ScreenWrapper(navController = navController, playerViewModel = playerViewModel, animatedVisibilityScope = this) {
                     com.theveloper.pixelplay.presentation.screens.videos.MusicVideosScreen(

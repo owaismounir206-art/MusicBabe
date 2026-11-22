@@ -448,7 +448,7 @@ fun FluidoShelfTile(
     size: Dp = 128.dp,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
-    Column(modifier.width(size).clip(FluidoShapes.Art).clickable(role = Role.Button, onClick = onClick), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.width(size).clickable(role = Role.Button, onClick = onClick), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier
                 .size(size)

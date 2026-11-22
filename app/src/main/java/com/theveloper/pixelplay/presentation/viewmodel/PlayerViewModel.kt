@@ -108,6 +108,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.isActive
+import com.theveloper.pixelplay.data.online.toSong
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -248,7 +252,9 @@ class PlayerViewModel @Inject constructor(
     private val downloadPreferencesRepository: DownloadPreferencesRepository,
     val newSongAlertManager: NewSongAlertManager,
     /** Listening history, for the "up next" recommendations of the library radio. */
-    private val playbackStatsRepository: com.theveloper.pixelplay.data.stats.PlaybackStatsRepository? = null
+    private val playbackStatsRepository: com.theveloper.pixelplay.data.stats.PlaybackStatsRepository? = null,
+    val podcastRepository: com.theveloper.pixelplay.data.podcast.PodcastRepository? = null,
+    val jamManager: com.theveloper.pixelplay.data.social.JamManager? = null,
 ) : ViewModel() {
 
     // --- In-App New Song Alert Integration ---
@@ -1060,6 +1066,9 @@ class PlayerViewModel @Inject constructor(
     init {
         observeOnlineRadio()
         observeLibraryRadio()
+        observeSmartShuffle()
+        observePodcastProgress()
+        observeJam()
         viewModelScope.launch { kotlinx.coroutines.delay(1_500); runCatching { restorePlaybackExtras() }.onFailure { Timber.w(it, "Listening extras not restored") } }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
@@ -3415,6 +3424,307 @@ class PlayerViewModel @Inject constructor(
                     .forEach(::addSongToQueue)
             }
             .launchIn(viewModelScope)
+    }
+
+    // ─── Smart Shuffle ────────────────────────────────────────────────────────────────────
+    private val _isSmartShuffle = MutableStateFlow(false)
+    /** Shuffle with a recommended song slipped in every few songs (see SmartShuffle). */
+    val isSmartShuffle: StateFlow<Boolean> = _isSmartShuffle.asStateFlow()
+    private val _smartShuffleSongIds = MutableStateFlow<Set<String>>(emptySet())
+    /** Queue items added by Smart Shuffle, to mark them in the queue. */
+    val smartShuffleSongIds: StateFlow<Set<String>> = _smartShuffleSongIds.asStateFlow()
+
+    /** The shuffle button, Spotify-style: off, shuffle, Smart Shuffle, off again. */
+    fun cycleShuffleMode() {
+        when {
+            !stablePlayerState.value.isShuffleEnabled -> toggleShuffle()
+            !_isSmartShuffle.value -> enableSmartShuffle()
+            else -> {
+                disableSmartShuffle()
+                toggleShuffle()
+            }
+        }
+    }
+
+    fun enableSmartShuffle() {
+        if (_isSmartShuffle.value) return
+        _isSmartShuffle.value = true
+        viewModelScope.launch {
+            val controller = mediaController ?: return@launch
+            if (!stablePlayerState.value.isShuffleEnabled) toggleShuffle()
+            val queue = queueFlow.value
+            val current = controller.currentMediaItemIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
+            val count = com.theveloper.pixelplay.data.recommend.SmartShuffle
+                .suggestionsFor(queue.size - current - 1).coerceIn(1, 40)
+            val suggestions = runCatching { smartShuffleSuggestions(queue, current, count) }
+                .onFailure { Timber.w(it, "Smart Shuffle suggestions failed") }
+                .getOrDefault(emptyList())
+            if (!_isSmartShuffle.value) return@launch
+            if (suggestions.isEmpty()) {
+                _isSmartShuffle.value = false
+                android.widget.Toast.makeText(context, context.getString(R.string.smart_shuffle_none), android.widget.Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val indices = com.theveloper.pixelplay.data.recommend.SmartShuffle.insertionIndices(queue.size, current, suggestions.size)
+            indices.zip(suggestions).forEach { (index, song) -> playbackDispatchStateHolder.insertSongAt(index, song) }
+            _smartShuffleSongIds.value = suggestions.map { it.id }.toSet()
+            android.widget.Toast.makeText(
+                context,
+                context.resources.getQuantityString(R.plurals.smart_shuffle_added, suggestions.size, suggestions.size),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    /** Shuffle turned off, or a new queue started: Smart Shuffle ends with it. */
+    private fun observeSmartShuffle() {
+        stablePlayerState.map { it.isShuffleEnabled }.distinctUntilChanged()
+            .onEach { shuffled -> if (!shuffled && _isSmartShuffle.value) disableSmartShuffle() }
+            .launchIn(viewModelScope)
+        playerUiState.map { it.currentQueueSourceName }.distinctUntilChanged()
+            .onEach {
+                if (_isSmartShuffle.value) {
+                    _isSmartShuffle.value = false
+                    _smartShuffleSongIds.value = emptySet()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun disableSmartShuffle() {
+        if (!_isSmartShuffle.value) return
+        _isSmartShuffle.value = false
+        val ids = _smartShuffleSongIds.value
+        _smartShuffleSongIds.value = emptySet()
+        if (ids.isNotEmpty()) playbackDispatchStateHolder.removeUpcoming(ids)
+    }
+
+    /**
+     * Songs to slip into the queue: for a phone queue, songs of the library related to the song
+     * just before each slot (NextSongRecommender, which also knows the user's habits); for an online
+     * queue, YouTube Music's related songs.
+     */
+    private suspend fun smartShuffleSuggestions(queue: List<Song>, current: Int, count: Int): List<Song> {
+        val inQueue = queue.map { it.id }.toMutableSet()
+        val online = queue.count { com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.isYouTubeUri(it.contentUriString) } > queue.size / 2
+        if (online) {
+            val seed = queue.getOrNull(current) ?: return emptyList()
+            val videoId = seed.contentUriString
+                .removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+                .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)
+                ?: youTubeExtractor.findVideoId(seed.title, seed.artist, seed.duration)
+                ?: return emptyList()
+            return youTubeExtractor.relatedSongs(videoId).map { it.toSong() }
+                .filter { it.id !in inQueue }
+                .distinctBy { it.id }
+                .take(count)
+        }
+        val library = allSongsFlow.value
+        if (library.isEmpty()) return emptyList()
+        val history = runCatching { playbackStatsRepository?.exportEventsForBackup() }.getOrNull().orEmpty()
+            .map { com.theveloper.pixelplay.data.recommend.ListenEvent(it.songId, it.timestamp, it.durationMs) }
+        val byId = library.associateBy { it.id }
+        val candidates = library.map { it.toTrackFeatures() }
+        val now = System.currentTimeMillis()
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val picked = ArrayList<Song>()
+            for (k in 0 until count) {
+                // The song right before the slot is the seed, so each suggestion fits where it lands.
+                val seed = queue.getOrNull((current + (k + 1) * com.theveloper.pixelplay.data.recommend.SmartShuffle.EVERY).coerceAtMost(queue.size - 1))
+                    ?: break
+                val pick = com.theveloper.pixelplay.data.recommend.NextSongRecommender.recommend(
+                    seed = seed.toTrackFeatures(),
+                    candidates = candidates,
+                    history = history,
+                    now = now,
+                    count = 1,
+                    exclude = inQueue,
+                ).firstOrNull()?.let { byId[it.id] } ?: continue
+                inQueue += pick.id
+                picked += pick
+            }
+            picked
+        }
+    }
+
+    // ─── Podcasts ─────────────────────────────────────────────────────────────────────────
+    /** Plays an episode from where it was left. */
+    fun playPodcastEpisode(
+        show: com.theveloper.pixelplay.data.podcast.PodcastShow,
+        episode: com.theveloper.pixelplay.data.podcast.PodcastEpisode,
+    ) {
+        val repo = podcastRepository ?: return
+        val song = repo.toSong(show, episode)
+        val resume = repo.resumePosition(song.id)
+        showAndPlaySong(song, listOf(song), show.title)
+        if (resume > 5_000L) viewModelScope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(20_000L) {
+                stablePlayerState.first { it.currentSong?.id == song.id && it.isPlaying }
+            } ?: return@launch
+            // A couple of seconds back, to pick up the thread.
+            mediaController?.seekTo((resume - 2_000L).coerceAtLeast(0L))
+        }
+    }
+
+    /** Remembers where each episode is, every few seconds while it plays and when it stops. */
+    private fun observePodcastProgress() {
+        val repo = podcastRepository ?: return
+        fun save() {
+            val song = stablePlayerState.value.currentSong ?: return
+            if (!com.theveloper.pixelplay.data.podcast.PodcastRepository.isPodcast(song)) return
+            val controller = mediaController ?: return
+            if (controller.currentMediaItem?.mediaId != song.id) return
+            val duration = controller.duration.takeIf { it > 0 } ?: song.duration
+            repo.saveProgress(song.id, controller.currentPosition, duration)
+        }
+        viewModelScope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(10_000L)
+                if (stablePlayerState.value.isPlaying) save()
+            }
+        }
+        stablePlayerState.map { it.currentSong?.id to it.isPlaying }.distinctUntilChanged()
+            .onEach { (_, playing) -> if (!playing) save() }
+            .launchIn(viewModelScope)
+    }
+
+    // ─── Jam ──────────────────────────────────────────────────────────────────────────────
+    /** Who added each song of the queue during a Jam (song id -> name). */
+    private val jamAddedBy = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun Song.toJamTrack(): com.theveloper.pixelplay.data.social.JamTrack {
+        val videoId = contentUriString
+            .removePrefix(com.theveloper.pixelplay.data.youtube.YouTubeStreamProxy.videoUri(""))
+            .takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)
+        return com.theveloper.pixelplay.data.social.JamTrack(
+            title = title,
+            artist = displayArtist,
+            videoId = videoId,
+            // Guests cannot open the host's local files: only web artwork travels.
+            artUrl = albumArtUriString?.takeIf { it.startsWith("https://") },
+            durationMs = duration,
+            addedBy = jamAddedBy[id].orEmpty(),
+        )
+    }
+
+    /** Host side of a Jam: guests see what plays, their songs go in the queue. */
+    private fun observeJam() {
+        val jam = jamManager ?: return
+        combine(
+            jam.state.map { it is com.theveloper.pixelplay.data.social.JamState.Hosting }.distinctUntilChanged(),
+            stablePlayerState.map { Triple(it.currentSong, it.isPlaying, it.currentMediaItemIndex) }.distinctUntilChanged(),
+            queueFlow,
+        ) { hosting, (song, playing, index), queue -> if (hosting) Triple(song, playing, queue.drop(index + 1)) else null }
+            .filterNotNull()
+            .debounce(250L)
+            .onEach { (song, playing, upNext) ->
+                jam.publish(
+                    com.theveloper.pixelplay.data.social.JamMessage.State(
+                        nowPlaying = song?.toJamTrack(),
+                        isPlaying = playing,
+                        positionMs = livePlaybackPositionMs(),
+                        upNext = upNext.take(40).map { it.toJamTrack() },
+                    )
+                )
+            }
+            .launchIn(viewModelScope)
+
+        jam.requests
+            .onEach { request ->
+                when (request) {
+                    is com.theveloper.pixelplay.data.social.JamRequest.Add -> {
+                        val song = runCatching { songForJamTrack(request.track) }.getOrNull() ?: return@onEach
+                        jamAddedBy[song.id] = request.from
+                        if (request.playNext) addSongNextToQueue(song) else addSongToQueue(song)
+                        jam.confirmAdded(request.track)
+                    }
+                    is com.theveloper.pixelplay.data.social.JamRequest.Control -> when (request.action) {
+                        com.theveloper.pixelplay.data.social.JamAction.PLAY -> if (!stablePlayerState.value.isPlaying) playPause()
+                        com.theveloper.pixelplay.data.social.JamAction.PAUSE -> if (stablePlayerState.value.isPlaying) playPause()
+                        com.theveloper.pixelplay.data.social.JamAction.NEXT -> nextSong()
+                        com.theveloper.pixelplay.data.social.JamAction.PREVIOUS -> previousSong()
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+
+        jam.state.map { it is com.theveloper.pixelplay.data.social.JamState.Hosting }.distinctUntilChanged()
+            .onEach { hosting -> if (!hosting) jamAddedBy.clear() }
+            .launchIn(viewModelScope)
+    }
+
+    /**
+     * The song a guest asked for: the online song itself, the same song in this phone's library,
+     * or the first YouTube Music result for title and artist.
+     */
+    private suspend fun songForJamTrack(track: com.theveloper.pixelplay.data.social.JamTrack): Song? {
+        track.videoId?.takeIf(com.theveloper.pixelplay.data.youtube.YouTubeExtractor::isValidVideoId)?.let { id ->
+            return com.theveloper.pixelplay.data.online.OnlineSongItem(
+                videoId = id,
+                title = track.title,
+                artist = track.artist,
+                durationSeconds = track.durationMs / 1000L,
+                thumbnailUrl = track.artUrl,
+            ).toSong()
+        }
+        val key = com.theveloper.pixelplay.data.social.MusicMatch.songKey(track.title, track.artist)
+        allSongsFlow.value.firstOrNull { com.theveloper.pixelplay.data.social.MusicMatch.songKey(it.title, it.displayArtist) == key }
+            ?.let { return it }
+        return youTubeExtractor.searchSongs("${track.artist} ${track.title}", 1).firstOrNull()?.toSong()
+    }
+
+    /** Song for a Blend or Jam row: the phone's copy if there is one, else online. */
+    suspend fun resolveSongByTitle(title: String, artist: String, localSongId: String?): Song? {
+        localSongId?.let { id -> allSongsFlow.value.firstOrNull { it.id == id }?.let { return it } }
+        return runCatching { songForJamTrack(com.theveloper.pixelplay.data.social.JamTrack(title, artist)) }.getOrNull()
+    }
+
+    /** The phone's library as a taste profile, for Blend. */
+    suspend fun buildTasteProfile(name: String): com.theveloper.pixelplay.data.social.TasteProfile {
+        val songs = allSongsFlow.value
+        val history = runCatching { playbackStatsRepository?.exportEventsForBackup() }.getOrNull().orEmpty()
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val plays = history.filter { it.durationMs >= 30_000L }.groupingBy { it.songId }.eachCount()
+            com.theveloper.pixelplay.data.social.Blend.profile(
+                name,
+                songs.filterNot { com.theveloper.pixelplay.data.podcast.PodcastRepository.isPodcast(it) }.map {
+                    com.theveloper.pixelplay.data.social.TasteSource(it.id, it.title, it.displayArtist, it.genre, plays[it.id] ?: 0)
+                }
+            )
+        }
+    }
+
+    /** Index of the library by [com.theveloper.pixelplay.data.social.MusicMatch.songKey], for Blend. */
+    fun librarySongKeyIndex(): Map<String, String> =
+        allSongsFlow.value.associate { com.theveloper.pixelplay.data.social.MusicMatch.songKey(it.title, it.displayArtist) to it.id }
+
+    // ─── Mixes made on the phone ──────────────────────────────────────────────────────────
+    /** "On repeat", artist, genre and decade mixes, "Rediscover" (see MixGenerator). */
+    val generatedMixes: StateFlow<List<com.theveloper.pixelplay.data.recommend.GeneratedMix>> = allSongsFlow
+        .map { songs -> songs.size }
+        .distinctUntilChanged()
+        .mapLatest {
+            val songs = allSongsFlow.value
+            val history = runCatching { playbackStatsRepository?.exportEventsForBackup() }.getOrNull().orEmpty()
+                .map { com.theveloper.pixelplay.data.recommend.ListenEvent(it.songId, it.timestamp, it.durationMs) }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                com.theveloper.pixelplay.data.recommend.MixGenerator.generate(
+                    library = songs.map {
+                        com.theveloper.pixelplay.data.recommend.MixTrack(it.id, it.displayArtist, it.genre, it.year, it.albumArtUriString)
+                    },
+                    history = history,
+                    now = System.currentTimeMillis(),
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun playGeneratedMix(mix: com.theveloper.pixelplay.data.recommend.GeneratedMix, title: String, shuffled: Boolean = false) {
+        val byId = allSongsFlow.value.associateBy { it.id }
+        val songs = mix.songIds.mapNotNull { byId[it] }
+        if (songs.isEmpty()) return
+        if (shuffled) playSongsShuffled(songs, queueName = title, startAtZero = true)
+        else playSongs(songs, songs.first(), title)
     }
 
     /** Karaoke: the lead vocal is taken out of the mix (see KaraokeAudioProcessor). */

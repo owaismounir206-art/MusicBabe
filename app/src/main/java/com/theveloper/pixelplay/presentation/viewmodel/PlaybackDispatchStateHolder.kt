@@ -991,6 +991,27 @@ class PlaybackDispatchStateHolder @Inject constructor(
         }
     }
 
+    /** Inserts [song] at [index] of the queue (clamped to its end). */
+    fun insertSongAt(index: Int, song: Song) {
+        cb.getController()?.let { controller ->
+            controller.addMediaItem(index.coerceIn(0, controller.mediaItemCount), buildPlaybackMediaItem(song))
+        }
+    }
+
+    /** Removes the upcoming queue items whose id is in [ids]; returns how many went. */
+    fun removeUpcoming(ids: Set<String>): Int {
+        val controller = cb.getController() ?: return 0
+        val current = controller.currentMediaItemIndex
+        var removed = 0
+        for (i in controller.mediaItemCount - 1 downTo current + 1) {
+            if (controller.getMediaItemAt(i).mediaId in ids) {
+                controller.removeMediaItem(i)
+                removed++
+            }
+        }
+        return removed
+    }
+
     private fun buildPlaybackMediaItem(song: Song, playlistId: String? = null): MediaItem {
         val baseItem = MediaItemBuilder.build(song)
         if (playlistId == null) {

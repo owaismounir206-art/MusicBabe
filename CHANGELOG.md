@@ -27,6 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ordine; chiede conferma prima di perdere le modifiche. I testi con i tempi delle parole si
     salvano parola per parola (karaoke), gli altri in LRC.
   - Modificare il testo dopo aver dato i tempi conserva i tempi delle righe rimaste uguali.
+- Funzioni in stile Spotify, tutte senza server e senza account:
+  - **Smart Shuffle**: il pulsante casuale del player ora ha tre stati (spento, casuale, Smart
+    Shuffle). Con Smart Shuffle, dopo ogni tre brani della coda arriva un brano consigliato: dalla
+    libreria in base ai tuoi ascolti, oppure da YouTube Music se la coda è online. I suggerimenti
+    stanno solo nella coda e spariscono quando lo spegni.
+  - **I tuoi mix** in Home, creati sul telefono: "In loop" (i più ascoltati del mese), un mix per
+    ognuno dei tuoi artisti preferiti (con artisti simili dello stesso genere), per genere, per
+    decennio e "Da riscoprire" (brani amati e non ascoltati da tempo). L'ordine cambia ogni giorno.
+  - **Podcast**: cerca tra tutti i podcast del catalogo Apple Podcasts, guarda i più ascoltati del
+    tuo paese, iscriviti, ascolta gli episodi dal feed del podcast. Ogni episodio riprende da dove
+    l'avevi lasciato, con avanzamento, "ascoltato" e velocità da 0,8× a 2×.
+  - **Jam**: ascolto di gruppo sulla stessa Wi-Fi. Un telefono avvia la Jam e mostra un PIN; gli
+    altri la trovano da soli (o entrano con un codice), vedono cosa suona e cosa c'è in coda, e
+    aggiungono brani dal proprio telefono o da YouTube Music, con il nome di chi li ha aggiunti.
+    L'host può far controllare la musica agli ospiti e salvare la coda della Jam come playlist.
+  - **Blend**: condividi il tuo codice dei gusti con un amico (va bene qualunque app di messaggi)
+    e incolla il suo: nasce una playlist con i brani che piacciono a entrambi e poi, alternati,
+    quelli di ognuno, con la percentuale di affinità e gli artisti in comune. I brani che hai sul
+    telefono suonano dal telefono, gli altri online. Si può salvare come playlist.
+  - Le playlist collaborative online (codice mbpl: da condividere, a cui ognuno aggiunge brani)
+    restano disponibili dalla pagina della playlist.
+  - Home: nuova sezione "Insieme" con Jam, Blend e Podcast.
 
 ### Changed
 - Nuovo design "Fluido rinnovato" (Material 3 Expressive, chiaro e scuro secondo il sistema):

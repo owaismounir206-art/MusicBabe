@@ -546,6 +546,26 @@ fun HomeScreen(
                     }
                 }
 
+                // Mixes made on the phone, and the "together" features.
+                if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.MIXES)) {
+                    item(key = "generated_mixes", contentType = "generated_mixes") {
+                        val mixes by playerViewModel.generatedMixes.collectAsStateWithLifecycle()
+                        com.theveloper.pixelplay.presentation.components.fluido.FluidoMixesShelf(
+                            mixes = mixes,
+                            onPlay = { mix, title -> playerViewModel.playGeneratedMix(mix, title) },
+                        )
+                    }
+                }
+                if (selectedCategory == YouTubeHomeCategory.ALL) {
+                    item(key = "together", contentType = "together") {
+                        com.theveloper.pixelplay.presentation.components.fluido.FluidoTogetherRow(
+                            onJam = { navController.navigateSafely(Screen.Jam.route) },
+                            onBlend = { navController.navigateSafely(Screen.Blend.route) },
+                            onPodcasts = { navController.navigateSafely(Screen.Podcasts.route) },
+                        )
+                    }
+                }
+
                 // 2) YouTube Music Videos Section (16:9 widescreen cards)
                 if (selectedCategory in setOf(YouTubeHomeCategory.ALL, YouTubeHomeCategory.VIDEOS)) {
                     item(

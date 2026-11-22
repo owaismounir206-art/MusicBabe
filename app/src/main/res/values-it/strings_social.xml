@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Smart Shuffle -->
+    <string name="smart_shuffle_label">Smart Shuffle</string>
+    <string name="smart_shuffle_cd">Casuale: spento, acceso, Smart Shuffle</string>
+    <string name="smart_shuffle_none">Per questa coda ora non ci sono suggerimenti</string>
+    <plurals name="smart_shuffle_added">
+        <item quantity="one">Smart Shuffle: %d suggerimento aggiunto alla coda</item>
+        <item quantity="other">Smart Shuffle: %d suggerimenti aggiunti alla coda</item>
+    </plurals>
+
+    <!-- Mix -->
+    <string name="mixes_title">I tuoi mix</string>
+    <string name="mix_on_repeat">In loop</string>
+    <string name="mix_artist">Mix %1$s</string>
+    <string name="mix_genre">Mix %1$s</string>
+    <string name="mix_decade">Anni %1$s</string>
+    <string name="mix_rediscover">Da riscoprire</string>
+    <plurals name="mix_songs">
+        <item quantity="one">%d brano</item>
+        <item quantity="other">%d brani</item>
+    </plurals>
+
+    <!-- Insieme -->
+    <string name="together_title">Insieme</string>
+    <string name="together_jam_desc">Ascolta con gli amici sulla stessa Wi-Fi</string>
+    <string name="together_blend_desc">I vostri gusti in una playlist</string>
+    <string name="together_podcasts_desc">Programmi ed episodi</string>
+
+    <!-- Jam -->
+    <string name="jam_title">Jam</string>
+    <string name="jam_intro">Tutti nella stanza aggiungono brani a un\'unica coda dal proprio telefono. La musica suona sul telefono che avvia la Jam. Dovete essere sulla stessa Wi-Fi.</string>
+    <string name="jam_start">Avvia una Jam</string>
+    <string name="jam_start_desc">Gli amici aggiungono brani alla tua coda</string>
+    <string name="jam_join">Partecipa a una Jam</string>
+    <string name="jam_searching">Cerco Jam su questa Wi-Fi…</string>
+    <string name="jam_none_found">Nessuna Jam trovata per ora. Il tuo amico deve avviarla sulla stessa Wi-Fi.</string>
+    <string name="jam_code_hint">Codice (mbjam:…)</string>
+    <string name="jam_join_by_code">Entra con un codice</string>
+    <string name="jam_pin">PIN</string>
+    <string name="jam_pin_prompt">Scrivi il PIN che vedi sul telefono di %1$s</string>
+    <string name="jam_your_name">Il tuo nome</string>
+    <string name="jam_join_action">Entra</string>
+    <string name="jam_cancel">Annulla</string>
+    <string name="jam_hosting_title">La tua Jam è attiva</string>
+    <string name="jam_hosting_pin">PIN per entrare</string>
+    <string name="jam_hosting_code">Oppure entra con questo codice</string>
+    <string name="jam_share_code">Condividi</string>
+    <string name="jam_share_text">Entra nella mia Jam su MusicBabe: apri Jam, tocca Entra con un codice e incolla %1$s (PIN %2$s)</string>
+    <string name="jam_no_guests">Non è ancora entrato nessuno</string>
+    <string name="jam_guests_control">Gli ospiti possono controllare la musica</string>
+    <string name="jam_end">Termina la Jam</string>
+    <string name="jam_leave">Esci dalla Jam</string>
+    <string name="jam_now_playing">In riproduzione</string>
+    <string name="jam_up_next">In coda</string>
+    <string name="jam_added_by">Aggiunto da %1$s</string>
+    <string name="jam_add_songs">Aggiungi brani</string>
+    <string name="jam_search_hint">Cerca un brano da aggiungere</string>
+    <string name="jam_add">Aggiungi</string>
+    <string name="jam_play_next">Riproduci dopo</string>
+    <string name="jam_added">Aggiunto alla coda di %1$s</string>
+    <string name="jam_connecting">Mi collego a %1$s…</string>
+    <string name="jam_nothing_playing">Non sta suonando niente</string>
+    <string name="jam_members">Nella Jam</string>
+    <string name="jam_ended_host">La Jam è terminata</string>
+    <string name="jam_ended_pin">PIN sbagliato</string>
+    <string name="jam_ended_full">Questa Jam è piena</string>
+    <string name="jam_ended_lost">Connessione con la Jam persa</string>
+    <string name="jam_ended_connect">Impossibile collegarsi. Siete sulla stessa Wi-Fi?</string>
+    <string name="jam_ended_start">Impossibile avviare una Jam su questa rete</string>
+    <string name="jam_ended_version">Aggiorna MusicBabe per entrare in questa Jam</string>
+    <string name="jam_ok">OK</string>
+    <string name="jam_previous">Precedente</string>
+    <string name="jam_next">Successivo</string>
+    <string name="jam_play_pause">Riproduci o metti in pausa</string>
+    <string name="jam_on_phone">Sul tuo telefono</string>
+    <string name="jam_online">Online</string>
+    <string name="jam_save_queue">Salva la coda come playlist</string>
+    <string name="jam_queue_saved">Playlist «%1$s» salvata</string>
+    <string name="jam_playlist_name">Jam %1$s</string>
+
+    <!-- Blend -->
+    <string name="blend_title">Blend</string>
+    <string name="blend_intro">Unisci i tuoi gusti a quelli di un amico in una playlist. Condividi il tuo codice e incolla il suo: non passa niente da un server.</string>
+    <string name="blend_your_name">Il tuo nome nel Blend</string>
+    <string name="blend_share">Condividi il mio codice</string>
+    <string name="blend_share_text">Facciamo un Blend su MusicBabe! Incolla questo in Blend: %1$s</string>
+    <string name="blend_paste_hint">Incolla il codice dell\'amico (mbblend:…)</string>
+    <string name="blend_paste">Incolla</string>
+    <string name="blend_make">Crea il Blend</string>
+    <string name="blend_invalid">Questo non è un codice Blend</string>
+    <string name="blend_building">Preparo il vostro Blend…</string>
+    <string name="blend_match">Affinità %1$d%%</string>
+    <string name="blend_with">Tu + %1$s</string>
+    <string name="blend_shared_artists">Ascoltate entrambi %1$s</string>
+    <string name="blend_no_shared">Nessun artista in comune: ottimo per scoprire</string>
+    <string name="blend_play">Riproduci</string>
+    <string name="blend_save">Salva come playlist</string>
+    <string name="blend_saved">Playlist salvata con %1$d brani del tuo telefono</string>
+    <string name="blend_from_you">Da te</string>
+    <string name="blend_from_friend">Da %1$s</string>
+    <string name="blend_from_both">Piace a entrambi</string>
+    <string name="blend_new">Nuovo Blend</string>
+
+    <!-- Podcast -->
+    <string name="podcasts_title">Podcast</string>
+    <string name="podcasts_search_hint">Cerca podcast</string>
+    <string name="podcasts_subscriptions">I tuoi podcast</string>
+    <string name="podcasts_top">Popolari ora</string>
+    <string name="podcasts_results">Risultati</string>
+    <string name="podcasts_empty_subs">Cerca un podcast e iscriviti: lo troverai qui con i nuovi episodi.</string>
+    <string name="podcasts_error">I podcast non si caricano. Controlla la connessione.</string>
+    <string name="podcasts_retry">Riprova</string>
+    <string name="podcasts_no_results">Nessun podcast trovato</string>
+    <string name="podcast_subscribe">Iscriviti</string>
+    <string name="podcast_subscribed">Iscritto</string>
+    <plurals name="podcast_episodes">
+        <item quantity="one">%d episodio</item>
+        <item quantity="other">%d episodi</item>
+    </plurals>
+    <string name="podcast_play">Riproduci</string>
+    <string name="podcast_resume">Riprendi</string>
+    <string name="podcast_played">Ascoltato</string>
+    <string name="podcast_mark_played">Segna come ascoltato</string>
+    <string name="podcast_mark_unplayed">Segna come da ascoltare</string>
+    <string name="podcast_left">ne mancano %1$s</string>
+    <string name="podcast_loading">Carico gli episodi…</string>
+    <string name="podcast_speed">Velocità</string>
+    <string name="podcast_back">Indietro</string>
+</resources>

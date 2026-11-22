@@ -212,8 +212,9 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                     val onCollapse = remember(playerViewModel) {
                         { playerViewModel.collapsePlayerSheet() }
                     }
+                    // Off, shuffle, Smart Shuffle (suggestions slipped into the queue), off.
                     val onShuffleToggle = remember(playerViewModel) {
-                        { playerViewModel.toggleShuffle() }
+                        { playerViewModel.cycleShuffleMode() }
                     }
                     val onRepeatToggle = remember(playerViewModel) { playerViewModel::cycleRepeatMode }
                     val onFavoriteToggle: () -> Unit = remember(playerViewModel, haptics) {
@@ -318,7 +319,7 @@ internal fun UnifiedPlayerPrewarmLayer(
                 val onSeek = remember(playerViewModel) { playerViewModel::seekTo }
                 val onNext = remember(playerViewModel) { playerViewModel::nextSong }
                 val onPrevious = remember(playerViewModel) { playerViewModel::previousSong }
-                val onShuffleToggle = remember(playerViewModel) { { playerViewModel.toggleShuffle() } }
+                val onShuffleToggle = remember(playerViewModel) { { playerViewModel.cycleShuffleMode() } }
                 val onRepeatToggle = remember(playerViewModel) { playerViewModel::cycleRepeatMode }
                 val onFavoriteToggle = remember(playerViewModel) { playerViewModel::toggleFavorite }
 

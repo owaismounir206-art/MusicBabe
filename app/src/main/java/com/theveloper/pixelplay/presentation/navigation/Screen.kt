@@ -23,6 +23,9 @@ sealed class Screen(val route: String) {
         }
     }
     object MusicVideos : Screen("music_videos")
+    object Podcasts : Screen("podcasts")
+    object Jam : Screen("jam")
+    object Blend : Screen("blend")
     object YouTubeAccount : Screen("youtube_account")
     object Samples : Screen("samples")
     object YouTubeSignIn : Screen("youtube_sign_in")
