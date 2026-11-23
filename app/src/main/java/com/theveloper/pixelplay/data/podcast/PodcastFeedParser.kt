@@ -60,7 +60,8 @@ object PodcastFeedParser {
                 mimeType = type,
             )
         }
-        return PodcastFeed(show, episodes.sortedByDescending { it.publishedAt })
+        // Some feeds repeat a guid (re-posted episodes): one entry each, the lists key on it.
+        return PodcastFeed(show, episodes.distinctBy { it.guid }.sortedByDescending { it.publishedAt })
     }
 
     /** "3600", "61:05" or "1:01:05" into milliseconds. */

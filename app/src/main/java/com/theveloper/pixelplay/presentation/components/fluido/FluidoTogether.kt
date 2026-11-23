@@ -67,7 +67,7 @@ fun FluidoMixesShelf(mixes: List<GeneratedMix>, onPlay: (GeneratedMix, String) -
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FluidoSectionHeader(stringResource(R.string.mixes_title), modifier = Modifier.padding(horizontal = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            itemsIndexed(mixes, key = { _, mix -> mix.key }) { index, mix ->
+            itemsIndexed(mixes, key = { index, mix -> "$index:${mix.key}" }) { index, mix ->
                 val title = mixTitle(mix)
                 FluidoShelfTile(
                     title = title,

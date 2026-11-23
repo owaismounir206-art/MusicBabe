@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-23
+
+### Fixed
+- L'app si chiudeva subito all'apertura (3.4.0): Smart Shuffle, Jam e Podcast partivano prima
+  che il player fosse pronto. Ora partono per ultimi, e un test lo controlla.
+- Un podcast con due episodi uguali nel feed, o la coda di una Jam con lo stesso brano due volte,
+  potevano far chiudere l'app.
+- La sezione "I tuoi mix" resta vuota invece di chiudere l'app se un mix non si può creare.
+
+### Note
+- La 3.4.0 e la 3.4.1 sono firmate con una chiave nuova: chi ha la 3.3.0 deve fare un backup
+  (Impostazioni › Backup e ripristino), disinstallare e installare la nuova versione, poi
+  ripristinare il backup. Dai prossimi aggiornamenti non servirà più.
+
 ## [3.4.0] - 2026-11-22
 
 ### Added

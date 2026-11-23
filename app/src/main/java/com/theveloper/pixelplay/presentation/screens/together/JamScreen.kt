@@ -281,7 +281,8 @@ fun JamScreen(
                 }
                 if (queue.size > index + 1) {
                     item(key = "next_header") { FluidoSectionHeader(stringResource(R.string.jam_up_next), Modifier.padding(horizontal = 16.dp)) }
-                    items(queue.drop(index + 1).take(40), key = { "q:" + it.id }) { song ->
+                    // By position: the same song can be in the queue twice.
+                    items(queue.drop(index + 1).take(40).withIndex().toList(), key = { "q:" + it.index }) { (_, song) ->
                         TrackRow(JamTrack(song.title, song.displayArtist, artUrl = song.albumArtUriString), highlight = false)
                     }
                 }

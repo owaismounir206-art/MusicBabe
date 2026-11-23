@@ -934,8 +934,12 @@ fun LibraryScreen(
                     val chipScroll = rememberScrollState()
                     LaunchedEffect(currentTabIndex) {
                         // Keep the selected chip in view when the pager is swiped.
-                        val target = (chipScroll.maxValue * currentTabIndex / tabTitles.size.coerceAtLeast(1))
-                        chipScroll.animateScrollTo(target.coerceAtMost(chipScroll.maxValue))
+                        val max = chipScroll.maxValue
+                        // Before the first layout maxValue is Int.MAX_VALUE: nothing to scroll yet.
+                        if (max in 1 until Int.MAX_VALUE) {
+                            val target = (max.toLong() * currentTabIndex / tabTitles.size.coerceAtLeast(1)).toInt()
+                            chipScroll.animateScrollTo(target.coerceIn(0, max))
+                        }
                     }
                     Row(
                         modifier = Modifier

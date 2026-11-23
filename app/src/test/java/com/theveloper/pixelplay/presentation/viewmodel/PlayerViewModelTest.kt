@@ -110,6 +110,9 @@ class PlayerViewModelTest {
 
 
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var sessionToken: SessionToken
+    private lateinit var playbackDispatchStateHolder: PlaybackDispatchStateHolder
+    private lateinit var mediaControllerSyncStateHolder: MediaControllerSyncStateHolder
 
     // Test Flows
     private val _allSongsFlow = MutableStateFlow<ImmutableList<Song>>(persistentListOf())
@@ -233,7 +236,7 @@ class PlayerViewModelTest {
         every { mockLyricsStateHolder.songUpdates } returns MutableSharedFlow()
 
         // Initialize PlayerViewModel
-        val sessionToken = mockk<SessionToken>(relaxed = true)
+        sessionToken = mockk<SessionToken>(relaxed = true)
         mockMediaControllerFactory = mockk(relaxed = true)
         
         // Mock ListenableFuture for MediaController creation
@@ -256,7 +259,7 @@ class PlayerViewModelTest {
         
         // Real dispatch holder wired to the same mocks the ViewModel uses, so the
         // existing end-to-end playback tests keep exercising the moved logic.
-        val playbackDispatchStateHolder = PlaybackDispatchStateHolder(
+        playbackDispatchStateHolder = PlaybackDispatchStateHolder(
             mockMusicRepository,
             mockUserPreferencesRepository,
             mockDualPlayerEngine,
@@ -274,7 +277,7 @@ class PlayerViewModelTest {
         )
         // Real controller-sync holder wired to the same mocks, so existing tests
         // (e.g. the repeat-mode restore test) keep exercising the moved logic.
-        val mediaControllerSyncStateHolder = MediaControllerSyncStateHolder(
+        mediaControllerSyncStateHolder = MediaControllerSyncStateHolder(
             mockMusicRepository,
             mockUserPreferencesRepository,
             mockDualPlayerEngine,
@@ -289,55 +292,85 @@ class PlayerViewModelTest {
             playbackDispatchStateHolder,
             mockContext
         )
-        playerViewModel = PlayerViewModel(
-            mockContext,
-            mockk(relaxed = true),
-            mockk(relaxed = true),
-            mockk(relaxed = true),
-            mockk(relaxed = true),
-            mockMusicRepository,
-            mockUserPreferencesRepository,
-            mockAiPreferencesRepository,
-            mockThemePreferencesRepository,
-            mockSyncManager,
-            mockDualPlayerEngine,
-            mockTelegramCacheManagerProvider,
-            mockListeningStatsTracker,
-            mockDailyMixStateHolder,
-            mockLyricsStateHolder,
-            mockCastStateHolder,
-            mockCastRouteStateHolder,
-            mockQueueStateHolder,
-            mockQueueUndoStateHolder,
-            mockPlaylistDismissUndoStateHolder,
-            mockPlaybackStateHolder,
-            mockConnectivityStateHolder,
-            mockSleepTimerStateHolder,
-            mockSearchStateHolder,
-            mockAiStateHolder,
-            mockLibraryStateHolder,
-            mockFolderNavigationStateHolder,
-            mockLibraryTabsStateHolder,
-            mockCastTransferStateHolder,
-            mockMetadataEditStateHolder,
-            mockSongRemovalStateHolder,
-            mockThemeStateHolder,
-            mockMultiSelectionStateHolder,
-            mockPlaylistSelectionStateHolder,
-            playbackDispatchStateHolder,
-            mediaControllerSyncStateHolder,
-            sessionToken,
-            mockMediaControllerFactory,
-            mockOnlinePreviewPlayer,
-            mockAppUpdateManager,
-            mockSongDownloadManager,
-            mockInAppYtdlnisInstaller,
-            mockDownloadPreferencesRepository,
-            mockNewSongAlertManager
-        )
+        playerViewModel = createViewModel()
     }
 
 
+
+    private fun createViewModel(
+        jamManager: com.theveloper.pixelplay.data.social.JamManager? = null,
+    ): PlayerViewModel = PlayerViewModel(
+        mockContext,
+        mockk(relaxed = true),
+        mockk(relaxed = true),
+        mockk(relaxed = true),
+        mockk(relaxed = true),
+        mockMusicRepository,
+        mockUserPreferencesRepository,
+        mockAiPreferencesRepository,
+        mockThemePreferencesRepository,
+        mockSyncManager,
+        mockDualPlayerEngine,
+        mockTelegramCacheManagerProvider,
+        mockListeningStatsTracker,
+        mockDailyMixStateHolder,
+        mockLyricsStateHolder,
+        mockCastStateHolder,
+        mockCastRouteStateHolder,
+        mockQueueStateHolder,
+        mockQueueUndoStateHolder,
+        mockPlaylistDismissUndoStateHolder,
+        mockPlaybackStateHolder,
+        mockConnectivityStateHolder,
+        mockSleepTimerStateHolder,
+        mockSearchStateHolder,
+        mockAiStateHolder,
+        mockLibraryStateHolder,
+        mockFolderNavigationStateHolder,
+        mockLibraryTabsStateHolder,
+        mockCastTransferStateHolder,
+        mockMetadataEditStateHolder,
+        mockSongRemovalStateHolder,
+        mockThemeStateHolder,
+        mockMultiSelectionStateHolder,
+        mockPlaylistSelectionStateHolder,
+        playbackDispatchStateHolder,
+        mediaControllerSyncStateHolder,
+        sessionToken,
+        mockMediaControllerFactory,
+        mockOnlinePreviewPlayer,
+        mockAppUpdateManager,
+        mockSongDownloadManager,
+        mockInAppYtdlnisInstaller,
+        mockDownloadPreferencesRepository,
+        mockNewSongAlertManager,
+        playbackStatsRepository = null,
+        podcastRepository = null,
+        jamManager = jamManager,
+    )
+
+    /**
+     * On the phone the main dispatcher runs a collector's first step right away, inside init: the
+     * view model must not touch a property that is declared (and so initialised) further down.
+     * 3.4.0 crashed on launch this way (Smart Shuffle and Jam state still null).
+     */
+    @Test
+    fun `the view model starts on an eager main thread`() {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        // A failing collector does not fail a test by itself: on the phone it kills the app.
+        val uncaught = java.util.Collections.synchronizedList(mutableListOf<Throwable>())
+        val thread = Thread.currentThread()
+        val previous = thread.uncaughtExceptionHandler
+        thread.uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, e -> uncaught += e }
+        val viewModel = try {
+            createViewModel(jamManager = com.theveloper.pixelplay.data.social.JamManager(mockk(relaxed = true)))
+        } finally {
+            thread.uncaughtExceptionHandler = previous
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(uncaught.isEmpty()) { "Crashed while starting: " + uncaught.joinToString() }
+        org.junit.jupiter.api.Assertions.assertFalse(viewModel.isSmartShuffle.value)
+        org.junit.jupiter.api.Assertions.assertTrue(viewModel.smartShuffleSongIds.value.isEmpty())
+    }
 
     @AfterEach
     fun tearDown() {

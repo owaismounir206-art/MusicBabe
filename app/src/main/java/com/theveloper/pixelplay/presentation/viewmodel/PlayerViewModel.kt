@@ -1066,9 +1066,6 @@ class PlayerViewModel @Inject constructor(
     init {
         observeOnlineRadio()
         observeLibraryRadio()
-        observeSmartShuffle()
-        observePodcastProgress()
-        observeJam()
         viewModelScope.launch { kotlinx.coroutines.delay(1_500); runCatching { restorePlaybackExtras() }.onFailure { Timber.w(it, "Listening extras not restored") } }
         // Initialize helper classes with our coroutine scope
         listeningStatsTracker.initialize(viewModelScope)
@@ -3708,13 +3705,16 @@ class PlayerViewModel @Inject constructor(
             val history = runCatching { playbackStatsRepository?.exportEventsForBackup() }.getOrNull().orEmpty()
                 .map { com.theveloper.pixelplay.data.recommend.ListenEvent(it.songId, it.timestamp, it.durationMs) }
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                com.theveloper.pixelplay.data.recommend.MixGenerator.generate(
-                    library = songs.map {
-                        com.theveloper.pixelplay.data.recommend.MixTrack(it.id, it.displayArtist, it.genre, it.year, it.albumArtUriString)
-                    },
-                    history = history,
-                    now = System.currentTimeMillis(),
-                )
+                // A mix that cannot be made leaves the shelf empty; it never takes the app down.
+                runCatching {
+                    com.theveloper.pixelplay.data.recommend.MixGenerator.generate(
+                        library = songs.map {
+                            com.theveloper.pixelplay.data.recommend.MixTrack(it.id, it.displayArtist, it.genre, it.year, it.albumArtUriString)
+                        },
+                        history = history,
+                        now = System.currentTimeMillis(),
+                    )
+                }.onFailure { Timber.w(it, "Mixes could not be made") }.getOrDefault(emptyList())
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -4353,6 +4353,16 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.addCustomGenre(genre, iconResId)
         }
+    }
+
+    // Last in the class on purpose: Kotlin runs initializers top to bottom, and on the main thread
+    // these collectors run their first step right away, so every property they touch must already
+    // exist. Started from the init block at the top they found the Smart Shuffle and Jam state
+    // still null and the app crashed on launch.
+    init {
+        observeSmartShuffle()
+        observePodcastProgress()
+        observeJam()
     }
 }
 
