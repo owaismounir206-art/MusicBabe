@@ -29,6 +29,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # Touches the CI release signing key (see publish-release.yml) so GitHub does not drop it
+      # after 7 days without use; restore only, nothing is saved here.
+      - name: Keep the CI release key alive
+        uses: actions/cache/restore@v5
+        with:
+          path: ci-release-key.jks
+          key: musicbabe-ci-release-key-v1
+
       - name: Install CMake and NDK
         run: |
           SDKM="$(ls -d $ANDROID_HOME/cmdline-tools/*/bin | sort -V | tail -n 1)/sdkmanager"

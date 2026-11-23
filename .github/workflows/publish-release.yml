@@ -3,6 +3,9 @@ name: Publish Release
 # Builds the signed release APKs of a commit and publishes them as a GitHub Release (tag + assets).
 # Signing: the KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD secrets when set;
 # otherwise a CI release key kept in the Actions cache (created on the first run).
+# GitHub drops a cache that is not used for 7 days: the phone debug build touches the key so it
+# stays, and a release whose certificate differs from the previous release's is refused (phones
+# reject such an update as "not compatible"), unless allow_new_signing_key is set on purpose.
 
 on:
   workflow_dispatch:
@@ -14,6 +17,10 @@ on:
         description: 'Commit or branch to release'
         required: true
         default: 'main'
+      allow_new_signing_key:
+        description: 'Publish even if the signing certificate differs from the last release (users must reinstall)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -76,6 +83,32 @@ jobs:
             "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$apk"
             cp "$apk" "dist/MusicBabe-${{ inputs.version }}-$abi.apk"
           done
+
+      - name: Same signing certificate as the last release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLOW_NEW_KEY: ${{ inputs.allow_new_signing_key }}
+        run: |
+          BT="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          cert() { "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$1" | grep -m1 'certificate SHA-256 digest' | awk '{print $NF}'; }
+          prev_tag="$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty' || true)"
+          if [ -z "$prev_tag" ]; then echo "First release: nothing to compare."; exit 0; fi
+          mkdir -p prev
+          if ! gh release download "$prev_tag" --pattern '*arm64-v8a.apk' --dir prev; then
+            echo "::warning::Could not download $prev_tag to compare certificates."; exit 0
+          fi
+          old="$(cert "$(ls prev/*.apk | head -n 1)")"
+          new="$(cert dist/*-arm64-v8a.apk)"
+          echo "Previous ($prev_tag): $old"
+          echo "This build:            $new"
+          if [ "$old" != "$new" ]; then
+            if [ "$ALLOW_NEW_KEY" = "true" ]; then
+              echo "::warning::New signing certificate: users must uninstall the old version before installing this one."
+            else
+              echo "::error::The signing certificate differs from $prev_tag (the CI key was lost). Phones would refuse the update. Set the KEYSTORE_* secrets or rerun with allow_new_signing_key."
+              exit 1
+            fi
+          fi
 
       - name: Release notes from CHANGELOG
         run: |
